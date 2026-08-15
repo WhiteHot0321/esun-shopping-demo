@@ -134,19 +134,34 @@ CREATE DATABASE esun_shop;
 
 ### 2. 設定資料庫連線
 
-修改：
+資料庫連線設定（port、帳號、密碼）已改為讀取環境變數，`docker-compose.yml` 與 `application.yml` 共用同一份設定，避免兩邊設定不一致。
 
-backend/src/main/resources/application.yml
+複製環境變數範本並依需要調整：
 
-調整為你的本機 MySQL 設定，例如：
-
-```yaml
-spring:
-  datasource:
-    url: jdbc:mysql://localhost:3306/esun_shop
-    username: root
-    password: your_password
+```bash
+cp .env.example .env
 ```
+
+`.env` 內容：
+
+```
+DB_NAME=esun_shop
+DB_PASSWORD=123456
+DB_PORT=3306
+DB_HOST=localhost
+DB_USERNAME=root
+SERVER_PORT=8080
+```
+
+`.env` 已列入 `.gitignore`，不會被提交，可自行填入本機密碼。
+
+若用 Docker 啟動 MySQL，`docker compose` 會自動讀取根目錄的 `.env`：
+
+```bash
+docker compose up -d
+```
+
+若後端不透過 Docker、直接用 `mvn` 或 IDE 啟動，需自行把 `.env` 內容匯出成環境變數（例如在 IDE 的 Run Configuration 設定環境變數，或執行前 `export $(cat .env | xargs)`），否則會套用 `application.yml` 中的預設值（對應 `.env.example` 的預設值）。
 
 ---
 
