@@ -20,9 +20,9 @@ esun-shopping/
 │  ├─ src/main/java/com/esun/shop/
 │  ├─ src/main/resources/application.yml
 │  ├─ DB/
-│  │  ├─ schema.sql
-│  │  ├─ data.sql
-│  │  ├─ stored_procedures.sql
+│  │  ├─ 01_schema.sql
+│  │  ├─ 02_data.sql
+│  │  ├─ 03_stored_procedures.sql
 │  │  └─ reset.sql
 │  └─ pom.xml
 ├─ frontend/
@@ -126,9 +126,9 @@ CREATE DATABASE esun_shop;
 
 依序執行：
 
-- backend/DB/schema.sql
-- backend/DB/data.sql
-- backend/DB/stored_procedures.sql
+- backend/DB/01_schema.sql
+- backend/DB/02_data.sql
+- backend/DB/03_stored_procedures.sql
 
 ---
 
