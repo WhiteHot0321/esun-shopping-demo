@@ -10,7 +10,7 @@ INSERT INTO shop_order(order_id, member_id, price, pay_status) VALUES
 ('Ms20250805157824', '55688', 9700, 0),
 ('Ms20250805258200', '1713', 2400, 1);
 
-INSERT INTO order_detail(order_id, product_id, quantity, stand_price, item_price) VALUES
+INSERT INTO order_detail(order_id, product_id, quantity, unit_price, item_price) VALUES
 ('Ms20250801186230', 'P001', 1, 98000, 98000),
 ('Ms20250805157824', 'P002', 1, 1200, 1200),
 ('Ms20250805157824', 'P003', 1, 8500, 8500),

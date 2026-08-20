@@ -19,12 +19,12 @@ public class OrderRepository {
     }
 
     public void insertOrderDetail(OrderDetail detail) {
-        String sql = "INSERT INTO order_detail(order_id, product_id, quantity, stand_price, item_price) VALUES (?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO order_detail(order_id, product_id, quantity, unit_price, item_price) VALUES (?, ?, ?, ?, ?)";
         jdbcTemplate.update(sql,
                 detail.getOrderId(),
                 detail.getProductId(),
                 detail.getQuantity(),
-                detail.getStandPrice(),
+                detail.getUnitPrice(),
                 detail.getItemPrice());
     }
 }

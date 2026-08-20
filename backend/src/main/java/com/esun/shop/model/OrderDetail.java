@@ -7,7 +7,7 @@ public class OrderDetail {
     private String orderId;
     private String productId;
     private Integer quantity;
-    private BigDecimal standPrice;
+    private BigDecimal unitPrice;
     private BigDecimal itemPrice;
 
     public Long getOrderItemSn() {
@@ -42,12 +42,12 @@ public class OrderDetail {
         this.quantity = quantity;
     }
 
-    public BigDecimal getStandPrice() {
-        return standPrice;
+    public BigDecimal getUnitPrice() {
+        return unitPrice;
     }
 
-    public void setStandPrice(BigDecimal standPrice) {
-        this.standPrice = standPrice;
+    public void setUnitPrice(BigDecimal unitPrice) {
+        this.unitPrice = unitPrice;
     }
 
     public BigDecimal getItemPrice() {

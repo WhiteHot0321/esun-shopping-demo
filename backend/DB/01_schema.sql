@@ -27,7 +27,7 @@ CREATE TABLE order_detail (
     order_id      VARCHAR(30) NOT NULL,
     product_id    VARCHAR(20) NOT NULL,
     quantity      INT NOT NULL CHECK (quantity > 0),
-    stand_price   DECIMAL(12,2) NOT NULL CHECK (stand_price >= 0),
+    unit_price    DECIMAL(12,2) NOT NULL CHECK (unit_price >= 0),
     item_price    DECIMAL(12,2) NOT NULL CHECK (item_price >= 0),
     CONSTRAINT fk_order_detail_order FOREIGN KEY (order_id) REFERENCES shop_order(order_id),
     CONSTRAINT fk_order_detail_product FOREIGN KEY (product_id) REFERENCES product(product_id)

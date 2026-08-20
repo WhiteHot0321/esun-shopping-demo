@@ -22,8 +22,7 @@ esun-shopping/
 │  ├─ DB/
 │  │  ├─ 01_schema.sql
 │  │  ├─ 02_data.sql
-│  │  ├─ 03_stored_procedures.sql
-│  │  └─ reset.sql
+│  │  └─ 03_stored_procedures.sql
 │  └─ pom.xml
 ├─ frontend/
 │  ├─ src/
@@ -258,11 +257,13 @@ Transaction
 
 ## 重置測試資料
 
-若測試後資料被修改，可執行：
+若測試後資料被修改，可依序重新執行：
 
-backend/DB/reset.sql
+backend/DB/01_schema.sql
+backend/DB/02_data.sql
 
-還原初始測試資料。
+`01_schema.sql` 會先 DROP 既有資料表再重建，`02_data.sql` 會重新寫入初始測試資料，
+兩者依序執行即可還原初始測試資料，無需額外的 reset.sql。
 
 ---
 

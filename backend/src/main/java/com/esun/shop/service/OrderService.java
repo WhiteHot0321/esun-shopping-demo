@@ -55,7 +55,7 @@ public class OrderService {
             detail.setOrderId(orderId);
             detail.setProductId(item.getProductId());
             detail.setQuantity(item.getQuantity());
-            detail.setStandPrice(product.getPrice());
+            detail.setUnitPrice(product.getPrice());
             detail.setItemPrice(product.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
             orderRepository.insertOrderDetail(detail);
 
