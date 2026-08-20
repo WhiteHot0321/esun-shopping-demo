@@ -17,6 +17,9 @@ frontend/.vite/
 .vscode/
 *.iml
 
+# Claude Code local settings (per-machine, not shared)
+.claude/settings.local.json
+
 # OS
 .DS_Store
 Thumbs.db
