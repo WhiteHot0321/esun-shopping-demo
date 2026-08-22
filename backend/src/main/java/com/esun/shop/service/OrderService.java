@@ -8,6 +8,7 @@ import com.esun.shop.model.Product;
 import com.esun.shop.model.ShopOrder;
 import com.esun.shop.repository.OrderRepository;
 import com.esun.shop.repository.ProductRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,10 +34,10 @@ public class OrderService {
         for (OrderItemRequest item : request.getItems()) {
             Product product = productRepository.findById(item.getProductId());
             if (product == null) {
-                throw new BusinessException("商品不存在: " + item.getProductId());
+                throw new BusinessException("商品不存在: " + item.getProductId(), HttpStatus.NOT_FOUND);
             }
             if (item.getQuantity() > product.getQuantity()) {
-                throw new BusinessException("商品庫存不足: " + item.getProductId());
+                throw new BusinessException("商品庫存不足: " + item.getProductId(), HttpStatus.CONFLICT);
             }
             totalPrice = totalPrice.add(product.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
         }
@@ -45,7 +46,7 @@ public class OrderService {
         order.setOrderId(orderId);
         order.setMemberId(request.getMemberId().trim());
         order.setPrice(totalPrice);
-        order.setPayStatus(Integer.valueOf(request.getPayStatus()));
+        order.setPayStatus(request.getPayStatus().ordinal());
         orderRepository.insertOrder(order);
 
         for (OrderItemRequest item : request.getItems()) {

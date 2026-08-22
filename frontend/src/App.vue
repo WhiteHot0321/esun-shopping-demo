@@ -53,8 +53,8 @@
 
         <label>付款狀態</label>
         <select v-model="orderForm.payStatus">
-          <option value="0">未付款</option>
-          <option value="1">已付款</option>
+          <option value="PENDING">未付款</option>
+          <option value="PAID">已付款</option>
         </select>
       </div>
 
@@ -95,7 +95,7 @@ const newProduct = reactive({
 
 const orderForm = reactive({
   memberId: '',
-  payStatus: '0'
+  payStatus: 'PENDING'
 })
 
 const orderQuantities = reactive({})

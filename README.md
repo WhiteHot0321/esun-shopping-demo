@@ -97,7 +97,7 @@ POST /api/orders
 ```json
 {
   "memberId": "1001",
-  "payStatus": "1",
+  "payStatus": "PAID",
   "items": [
     {
       "productId": "P002",

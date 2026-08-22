@@ -3,6 +3,7 @@ package com.esun.shop.dto;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
@@ -16,9 +17,11 @@ public class CreateProductRequest {
     @Size(max = 100)
     private String productName;
 
+    @NotNull
     @DecimalMin("0.0")
     private BigDecimal price;
 
+    @NotNull
     @Min(0)
     private Integer quantity;
 

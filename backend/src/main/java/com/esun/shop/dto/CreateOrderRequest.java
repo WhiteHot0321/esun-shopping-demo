@@ -1,9 +1,10 @@
 package com.esun.shop.dto;
 
+import com.esun.shop.model.PayStatus;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
-import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.NotNull;
 
 import java.util.List;
 
@@ -11,8 +12,8 @@ public class CreateOrderRequest {
     @NotBlank
     private String memberId;
 
-    @Pattern(regexp = "0|1")
-    private String payStatus;
+    @NotNull
+    private PayStatus payStatus;
 
     @Valid
     @NotEmpty
@@ -26,11 +27,11 @@ public class CreateOrderRequest {
         this.memberId = memberId;
     }
 
-    public String getPayStatus() {
+    public PayStatus getPayStatus() {
         return payStatus;
     }
 
-    public void setPayStatus(String payStatus) {
+    public void setPayStatus(PayStatus payStatus) {
         this.payStatus = payStatus;
     }
 
