@@ -4,6 +4,7 @@ import com.esun.shop.dto.CreateProductRequest;
 import com.esun.shop.exception.BusinessException;
 import com.esun.shop.model.Product;
 import com.esun.shop.repository.ProductRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -19,7 +20,7 @@ public class ProductService {
     public void createProduct(CreateProductRequest request) {
         String productId = request.getProductId().trim();
         if (productRepository.findById(productId) != null) {
-            throw new BusinessException("商品編號已存在");
+            throw new BusinessException("商品編號已存在", HttpStatus.CONFLICT);
         }
 
         Product product = new Product();
