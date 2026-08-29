@@ -80,8 +80,7 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
-
-const API_BASE = 'http://localhost:8080/api'
+import api from './api'
 
 const products = ref([])
 const message = ref('')
@@ -100,15 +99,12 @@ const orderForm = reactive({
 
 const orderQuantities = reactive({})
 
+const errorMessage = (error, fallback) =>
+  error.response?.data?.message || fallback
+
 const fetchProducts = async () => {
   try {
-    const response = await fetch(`${API_BASE}/products/available`)
-    const result = await response.json()
-
-    if (!result.success) {
-      message.value = result.message
-      return
-    }
+    const { data: result } = await api.get('/products/available')
 
     products.value = result.data || []
 
@@ -121,24 +117,13 @@ const fetchProducts = async () => {
     message.value = '商品載入成功'
   } catch (error) {
     console.error(error)
-    message.value = '載入商品失敗'
+    message.value = errorMessage(error, '載入商品失敗')
   }
 }
 
 const createProduct = async () => {
   try {
-    const response = await fetch(`${API_BASE}/products`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newProduct)
-    })
-
-    const result = await response.json()
-
-    if (!result.success) {
-      message.value = result.message
-      return
-    }
+    await api.post('/products', newProduct)
 
     message.value = '商品新增成功'
 
@@ -150,7 +135,7 @@ const createProduct = async () => {
     await fetchProducts()
   } catch (error) {
     console.error(error)
-    message.value = '商品新增失敗'
+    message.value = errorMessage(error, '商品新增失敗')
   }
 }
 
@@ -190,18 +175,7 @@ const createOrder = async () => {
       items
     }
 
-    const response = await fetch(`${API_BASE}/orders`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    })
-
-    const result = await response.json()
-
-    if (!result.success) {
-      message.value = result.message
-      return
-    }
+    const { data: result } = await api.post('/orders', payload)
 
     message.value = `訂單建立成功，訂單編號：${result.data.orderId}`
 
@@ -212,7 +186,7 @@ const createOrder = async () => {
     await fetchProducts()
   } catch (error) {
     console.error(error)
-    message.value = '建立訂單失敗'
+    message.value = errorMessage(error, '建立訂單失敗')
   }
 }
 
