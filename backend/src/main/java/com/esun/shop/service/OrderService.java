@@ -13,11 +13,18 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
 @Service
 public class OrderService {
+    private static final DateTimeFormatter ORDER_ID_TIMESTAMP =
+            DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS");
+    private static final char[] SUFFIX_ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ".toCharArray();
+    private static final int SUFFIX_LENGTH = 6;
+    private static final SecureRandom RANDOM = new SecureRandom();
+
     private final ProductRepository productRepository;
     private final OrderRepository orderRepository;
 
@@ -66,7 +73,16 @@ public class OrderService {
         return orderId;
     }
 
+    /**
+     * 訂單編號 = Ms + 毫秒級時間戳 (17) + 6 碼隨機英數，共 25 字元，符合 order_id VARCHAR(30)。
+     * 保留時間前綴讓編號仍可依時間排序 / 人工判讀，隨機尾碼負責同毫秒下單時的唯一性。
+     */
     private String generateOrderId() {
-        return "Ms" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
+        StringBuilder sb = new StringBuilder(25);
+        sb.append("Ms").append(LocalDateTime.now().format(ORDER_ID_TIMESTAMP));
+        for (int i = 0; i < SUFFIX_LENGTH; i++) {
+            sb.append(SUFFIX_ALPHABET[RANDOM.nextInt(SUFFIX_ALPHABET.length)]);
+        }
+        return sb.toString();
     }
 }
