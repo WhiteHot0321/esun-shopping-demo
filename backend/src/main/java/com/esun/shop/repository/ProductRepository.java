@@ -35,14 +35,7 @@ public class ProductRepository {
                 .withProcedureName("sp_add_product");
         this.getAvailableProductsCall = new SimpleJdbcCall(dataSource)
                 .withProcedureName("sp_get_available_products")
-                .returningResultSet("products", (rs, rowNum) -> {
-                    Product p = new Product();
-                    p.setProductId(rs.getString("product_id"));
-                    p.setProductName(rs.getString("product_name"));
-                    p.setPrice(rs.getBigDecimal("price"));
-                    p.setQuantity(rs.getInt("quantity"));
-                    return p;
-                });
+                .returningResultSet("products", PRODUCT_ROW_MAPPER);
         this.decreaseStockCall = new SimpleJdbcCall(dataSource)
                 .withProcedureName("sp_decrease_stock");
     }
@@ -56,15 +49,10 @@ public class ProductRepository {
         addProductCall.execute(params);
     }
 
+    @SuppressWarnings("unchecked")
     public List<Product> getAvailableProducts() {
-        String sql = """
-                SELECT product_id, product_name, price, quantity
-                FROM product
-                WHERE quantity > 0
-                ORDER BY product_id
-                """;
-
-        return jdbcTemplate.query(sql, PRODUCT_ROW_MAPPER);
+        Map<String, Object> result = getAvailableProductsCall.execute(new HashMap<>());
+        return (List<Product>) result.get("products");
     }
 
     public Product findById(String productId) {
