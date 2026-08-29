@@ -2,16 +2,28 @@ package com.esun.shop.repository;
 
 import com.esun.shop.model.Product;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.SimpleJdbcCall;
 import org.springframework.stereotype.Repository;
 
 import javax.sql.DataSource;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 @Repository
 public class ProductRepository {
+    private static final RowMapper<Product> PRODUCT_ROW_MAPPER = (rs, rowNum) -> {
+        Product p = new Product();
+        p.setProductId(rs.getString("product_id"));
+        p.setProductName(rs.getString("product_name"));
+        p.setPrice(rs.getBigDecimal("price"));
+        p.setQuantity(rs.getInt("quantity"));
+        return p;
+    };
+
     private final JdbcTemplate jdbcTemplate;
     private final SimpleJdbcCall addProductCall;
     private final SimpleJdbcCall getAvailableProductsCall;
@@ -44,7 +56,6 @@ public class ProductRepository {
         addProductCall.execute(params);
     }
 
-    @SuppressWarnings("unchecked")
     public List<Product> getAvailableProducts() {
         String sql = """
                 SELECT product_id, product_name, price, quantity
@@ -52,28 +63,26 @@ public class ProductRepository {
                 WHERE quantity > 0
                 ORDER BY product_id
                 """;
-    
-        return jdbcTemplate.query(sql, (rs, rowNum) -> {
-            Product p = new Product();
-            p.setProductId(rs.getString("product_id"));
-            p.setProductName(rs.getString("product_name"));
-            p.setPrice(rs.getBigDecimal("price"));
-            p.setQuantity(rs.getInt("quantity"));
-            return p;
-        });
+
+        return jdbcTemplate.query(sql, PRODUCT_ROW_MAPPER);
     }
 
     public Product findById(String productId) {
         String sql = "SELECT product_id, product_name, price, quantity FROM product WHERE product_id = ?";
-        List<Product> list = jdbcTemplate.query(sql, (rs, rowNum) -> {
-            Product p = new Product();
-            p.setProductId(rs.getString("product_id"));
-            p.setProductName(rs.getString("product_name"));
-            p.setPrice(rs.getBigDecimal("price"));
-            p.setQuantity(rs.getInt("quantity"));
-            return p;
-        }, productId);
+        List<Product> list = jdbcTemplate.query(sql, PRODUCT_ROW_MAPPER, productId);
         return list.isEmpty() ? null : list.get(0);
+    }
+
+    /**
+     * 一次撈回多筆商品，供建立訂單時以 Map 查詢，避免每個品項各打一次 SELECT。
+     */
+    public List<Product> findByIds(Collection<String> productIds) {
+        if (productIds.isEmpty()) {
+            return List.of();
+        }
+        String placeholders = String.join(",", Collections.nCopies(productIds.size(), "?"));
+        String sql = "SELECT product_id, product_name, price, quantity FROM product WHERE product_id IN (" + placeholders + ")";
+        return jdbcTemplate.query(sql, PRODUCT_ROW_MAPPER, productIds.toArray());
     }
 
     public void decreaseStock(String productId, Integer quantity) {

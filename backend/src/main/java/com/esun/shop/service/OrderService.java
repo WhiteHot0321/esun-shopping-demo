@@ -16,6 +16,10 @@ import java.math.BigDecimal;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class OrderService {
@@ -36,10 +40,18 @@ public class OrderService {
     @Transactional
     public String createOrder(CreateOrderRequest request) {
         String orderId = generateOrderId();
-        BigDecimal totalPrice = BigDecimal.ZERO;
 
+        // 一次撈回所有相關商品，避免驗證迴圈 + 明細迴圈各查一次造成的 2n 次 SELECT。
+        List<String> productIds = request.getItems().stream()
+                .map(OrderItemRequest::getProductId)
+                .distinct()
+                .toList();
+        Map<String, Product> productMap = productRepository.findByIds(productIds).stream()
+                .collect(Collectors.toMap(Product::getProductId, product -> product));
+
+        BigDecimal totalPrice = BigDecimal.ZERO;
         for (OrderItemRequest item : request.getItems()) {
-            Product product = productRepository.findById(item.getProductId());
+            Product product = productMap.get(item.getProductId());
             if (product == null) {
                 throw new BusinessException("商品不存在: " + item.getProductId(), HttpStatus.NOT_FOUND);
             }
@@ -56,8 +68,12 @@ public class OrderService {
         order.setPayStatus(request.getPayStatus().ordinal());
         orderRepository.insertOrder(order);
 
-        for (OrderItemRequest item : request.getItems()) {
-            Product product = productRepository.findById(item.getProductId());
+        // 依 productId 升冪處理，讓並發訂單永遠以相同順序鎖定 product 列，避免交錯上鎖造成 deadlock。
+        List<OrderItemRequest> lockOrderedItems = request.getItems().stream()
+                .sorted(Comparator.comparing(OrderItemRequest::getProductId))
+                .toList();
+        for (OrderItemRequest item : lockOrderedItems) {
+            Product product = productMap.get(item.getProductId());
 
             OrderDetail detail = new OrderDetail();
             detail.setOrderId(orderId);
