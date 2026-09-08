@@ -28,19 +28,6 @@ body {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
-.form-grid {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
 input,
 select,
 button {
@@ -69,27 +56,4 @@ td {
 
 .summary {
   margin-top: 20px;
-}
-
-.form-inline {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.total {
-  font-size: 18px;
-  font-weight: 700;
-}
-
-@media (max-width: 900px) {
-  .form-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .form-inline {
-    flex-direction: column;
-    align-items: flex-start;
-  }
 }
