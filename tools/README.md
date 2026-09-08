@@ -113,6 +113,26 @@ pytest tests/integration  # 需要 MySQL + Spring Boot，未啟動則自動 skip
 | 3 | **跳脫後長度可能溢位** | `ProductService.escapeHtml()` | `@Size(max = 100)` 檢查的是跳脫「前」的長度，但單引號會展開成 6 個字元寫入 `VARCHAR(100)`。應先跳脫再驗長度，或把 escape 移到輸出端 |
 | 4 | **下單有 N+1 查詢** | `OrderService.createOrder()` | 每個商品呼叫 `findById` 兩次（檢查一次、建明細一次） |
 | 5 | **DB 初始化順序錯誤** | `docker-compose.yml` | `docker-entrypoint-initdb.d` 依檔名字母序執行，原本會讓 `data.sql` 先於 `schema.sql`。已改為掛載時加上編號前綴修正 |
+| 6 | **併發下單會觸發 MySQL 死鎖，且錯誤被吞成籠統訊息** | `OrderService.createOrder()` | 同一商品被多個併發訂單同時處理時，MySQL 回報 `Deadlock found when trying to get lock; try restarting transaction`。成因：`order_detail` 對 `product` 的外鍵約束，在 INSERT 明細時會對 `product` 該列取共享鎖；`sp_decrease_stock` 的 `UPDATE` 之後才取互斥鎖。兩個交易都先拿到共享鎖、再互相等待對方釋放才能升級成互斥鎖，形成鎖循環，MySQL 偵測到後強制中止其中一個。由於程式碼沒有針對 `TransactionSystemException` / 死鎖做重試，該筆訂單直接失敗，且 `GlobalExceptionHandler` 把它跟其他資料庫錯誤混在一起回「資料庫操作失敗」，前端與監控都無法區分「該重試」與「真的失敗」。實測數據見下方「壓測實測數據」。修法：① 在 `@Transactional` 外包一層針對 `CannotAcquireLockException` 的重試（Spring Retry 或手動迴圈）；② 讓 `decreaseStock` 用 `SELECT ... FOR UPDATE` 提前鎖定該列，統一鎖的取得順序，避免共享鎖／互斥鎖交錯升級 |
+
+## 壓測實測數據
+
+同一商品（P002，初始庫存 50）、每單購買 1 個，改變併發數觀察成功率與延遲的變化：
+
+| 併發數 | 訂單數 | 成功率 | P50 延遲 | P95 延遲 | 失敗原因 |
+| --- | --- | --- | --- | --- | --- |
+| 1（序列執行，基準線） | 30 | **100.0%** | 20 ms | 27 ms | 無 |
+| 5 | 50 | **66.0%** | 31 ms | 146 ms | 17 筆死鎖 |
+| 20 | 50 | **50.0%** | 155 ms | 981 ms | 25 筆死鎖 |
+
+三組測試的資料一致性稽核（庫存扣減量、訂單筆數、訂單編號唯一性、訂單/明細總價）**全數 PASS**——代表原本的訂單編號撞主鍵 bug 確實修好了：失敗的訂單不會留下任何髒資料，`@Transactional` 的 rollback 是乾淨的。但併發數一拉高，吞吐量沒有跟著漲，反而有一半的請求死在死鎖上，這是修完編號 bug 後才浮現的下一層問題。
+
+複現指令：
+
+```bash
+python -m esun_ops reset -y
+python -m esun_ops bench --product P002 --orders 50 --workers 20
+```
 
 ## 專案結構
 
