@@ -1,0 +1,24 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: esun-mysql
+    environment:
+      # 與 backend/src/main/resources/application.yml 的連線設定保持一致
+      MYSQL_ROOT_PASSWORD: pierce
+      MYSQL_DATABASE: esun_shop
+      TZ: Asia/Taipei
+    ports:
+      # host 3307 -> container 3306，避開本機既有的 MySQL，並對齊 application.yml
+      - "3307:3306"
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    volumes:
+      # docker-entrypoint-initdb.d 依檔名字母序執行，因此加上編號確保
+      # schema -> data -> stored procedure 的順序
+      - ./backend/DB/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+      - ./backend/DB/data.sql:/docker-entrypoint-initdb.d/02_data.sql:ro
+      - ./backend/DB/stored_procedures.sql:/docker-entrypoint-initdb.d/03_stored_procedures.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-ppierce"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
