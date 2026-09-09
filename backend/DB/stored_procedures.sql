@@ -14,6 +14,17 @@ BEGIN
 END //
 DELIMITER ;
 
+DROP PROCEDURE IF EXISTS sp_get_available_products;
+DELIMITER //
+CREATE PROCEDURE sp_get_available_products()
+BEGIN
+    SELECT product_id, product_name, price, quantity
+    FROM product
+    WHERE quantity > 0
+    ORDER BY product_id;
+END //
+DELIMITER ;
+
 DROP PROCEDURE IF EXISTS sp_decrease_stock;
 DELIMITER //
 CREATE PROCEDURE sp_decrease_stock(

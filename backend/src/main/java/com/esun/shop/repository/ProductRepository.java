@@ -2,6 +2,7 @@ package com.esun.shop.repository;
 
 import com.esun.shop.model.Product;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.SimpleJdbcCall;
 import org.springframework.stereotype.Repository;
 
@@ -12,14 +13,27 @@ import java.util.Map;
 
 @Repository
 public class ProductRepository {
+    private static final RowMapper<Product> PRODUCT_ROW_MAPPER = (rs, rowNum) -> {
+        Product p = new Product();
+        p.setProductId(rs.getString("product_id"));
+        p.setProductName(rs.getString("product_name"));
+        p.setPrice(rs.getBigDecimal("price"));
+        p.setQuantity(rs.getInt("quantity"));
+        return p;
+    };
+
     private final JdbcTemplate jdbcTemplate;
     private final SimpleJdbcCall addProductCall;
+    private final SimpleJdbcCall getAvailableProductsCall;
     private final SimpleJdbcCall decreaseStockCall;
 
     public ProductRepository(JdbcTemplate jdbcTemplate, DataSource dataSource) {
         this.jdbcTemplate = jdbcTemplate;
         this.addProductCall = new SimpleJdbcCall(dataSource)
                 .withProcedureName("sp_add_product");
+        this.getAvailableProductsCall = new SimpleJdbcCall(dataSource)
+                .withProcedureName("sp_get_available_products")
+                .returningResultSet("products", PRODUCT_ROW_MAPPER);
         this.decreaseStockCall = new SimpleJdbcCall(dataSource)
                 .withProcedureName("sp_decrease_stock");
     }
@@ -35,33 +49,12 @@ public class ProductRepository {
 
     @SuppressWarnings("unchecked")
     public List<Product> getAvailableProducts() {
-        String sql = """
-                SELECT product_id, product_name, price, quantity
-                FROM product
-                WHERE quantity > 0
-                ORDER BY product_id
-                """;
-    
-        return jdbcTemplate.query(sql, (rs, rowNum) -> {
-            Product p = new Product();
-            p.setProductId(rs.getString("product_id"));
-            p.setProductName(rs.getString("product_name"));
-            p.setPrice(rs.getBigDecimal("price"));
-            p.setQuantity(rs.getInt("quantity"));
-            return p;
-        });
+        return (List<Product>) getAvailableProductsCall.execute().get("products");
     }
 
     public Product findById(String productId) {
         String sql = "SELECT product_id, product_name, price, quantity FROM product WHERE product_id = ?";
-        List<Product> list = jdbcTemplate.query(sql, (rs, rowNum) -> {
-            Product p = new Product();
-            p.setProductId(rs.getString("product_id"));
-            p.setProductName(rs.getString("product_name"));
-            p.setPrice(rs.getBigDecimal("price"));
-            p.setQuantity(rs.getInt("quantity"));
-            return p;
-        }, productId);
+        List<Product> list = jdbcTemplate.query(sql, PRODUCT_ROW_MAPPER, productId);
         return list.isEmpty() ? null : list.get(0);
     }
 
