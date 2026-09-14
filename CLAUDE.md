@@ -6,6 +6,10 @@ known defects (Phase 1) → use Phase 1/2 as a training ground for backend/full-
 practices → actually understand each decision → keep token usage efficient. In that order —
 learning and correctness come before token efficiency, not after.
 
+## Current state and Codex coordination
+
+Read docs/project-state.md before selecting work. The historical phase checklist and agent inventory below can lag behind code; test-engineer now exists. Codex pilot task specifications live in docs/tasks/. During the pilot, follow the task's explicit scope and keep one writer per checkout.
+
 ## Git strategy
 
 - `main` — original interview submission, untouched.
