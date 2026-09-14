@@ -10,3 +10,14 @@ services:
       - "${DB_PORT:-3306}:3306"
     volumes:
       - ./backend/DB:/docker-entrypoint-initdb.d
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: esun-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+
+volumes:
+  ollama-data:
