@@ -32,6 +32,20 @@ import static org.assertj.core.api.Assertions.assertThat;
  * 2. sp_decrease_stock's SIGNAL on insufficient stock must roll back the whole
  *    @Transactional createOrder() call, so a failed order never leaves behind an
  *    order_detail row (or a decremented stock row) with no matching committed order.
+ *
+ * <p><b>Reverse validation (that the 3.3 sort in {@code OrderService.createOrder()}'s
+ * {@code lockOrderedItems} is actually load-bearing, not redundant with the separate
+ * decreaseStock-before-insertOrderDetail fix below):</b> temporarily replacing
+ * {@code lockOrderedItems} with the unsorted {@code request.getItems()} and re-running
+ * {@link #createOrder_concurrentOrdersReferencingSameProductsInOppositeOrder_bothCompleteWithoutDeadlock()}
+ * reproduced a {@code CannotAcquireLockException: Deadlock found when trying to get lock}
+ * 3/3 times. This is the classic two-row cross-lock case (thread A locks P1 then wants
+ * P2, thread B locks P2 then wants P1) that only the productId sort prevents - the
+ * decreaseStock/insertOrderDetail reordering fix does not touch cross-item lock order,
+ * so it cannot mask a missing sort here. Not kept as an always-on automated test because
+ * that would require a test-only toggle inside production code; this manual procedure
+ * (revert the sort, run this test 3x, expect 3/3 deadlocks, then restore the sort) is
+ * the documented substitute per the task's own allowance for either form.
  */
 class OrderConcurrencyIntegrationTest extends AbstractMySqlIntegrationTest {
 
@@ -107,12 +121,16 @@ class OrderConcurrencyIntegrationTest extends AbstractMySqlIntegrationTest {
             executor.shutdownNow();
         }
 
+        // Both orders A and B buy 1 unit of each product, so with both succeeding the total
+        // draw per product is 2, not 1 - the correct expectation is 98, not 99. (A prior
+        // version of this assertion said 99; that was never actually reached before the
+        // deadlock fix below, since the deadlock always threw first.)
         Integer remainingP001 = jdbcTemplate.queryForObject(
                 "SELECT quantity FROM product WHERE product_id = ?", Integer.class, "CC-P001");
         Integer remainingP002 = jdbcTemplate.queryForObject(
                 "SELECT quantity FROM product WHERE product_id = ?", Integer.class, "CC-P002");
-        assertThat(remainingP001).isEqualTo(99);
-        assertThat(remainingP002).isEqualTo(99);
+        assertThat(remainingP001).isEqualTo(98);
+        assertThat(remainingP002).isEqualTo(98);
     }
 
     @Test

@@ -75,6 +75,14 @@ public class OrderService {
         for (OrderItemRequest item : lockOrderedItems) {
             Product product = productMap.get(item.getProductId());
 
+            // 先 decreaseStock（UPDATE 直接取 X-lock）、後 insertOrderDetail。
+            // 若順序相反，INSERT 會先因 order_detail 的外鍵檢查對 product 該列取隱式
+            // S-lock，之後 UPDATE 才要求升級為 X-lock；多筆並發交易同時卡在「已持有
+            // S-lock、都在等對方釋放以便升級」會形成與品項順序無關的死鎖，不受本迴圈
+            // 的 productId 排序保護。先取 X-lock 可讓同一列的並發競爭退化成單純鎖等待
+            // （後到者等前者 commit/rollback），而不是鎖升級死鎖。
+            productRepository.decreaseStock(item.getProductId(), item.getQuantity());
+
             OrderDetail detail = new OrderDetail();
             detail.setOrderId(orderId);
             detail.setProductId(item.getProductId());
@@ -82,8 +90,6 @@ public class OrderService {
             detail.setUnitPrice(product.getPrice());
             detail.setItemPrice(product.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
             orderRepository.insertOrderDetail(detail);
-
-            productRepository.decreaseStock(item.getProductId(), item.getQuantity());
         }
 
         return orderId;

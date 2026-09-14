@@ -58,6 +58,16 @@
             <artifactId>mysql</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- Test-only: proxies the JDBC DataSource so integration tests can assert exactly how
+             many SQL statements a service call issues (used to lock in the 3.2 fix - one
+             `SELECT ... IN (...)` per createOrder(), not one per item). Never touches production
+             code; wired in via a test-scope BeanPostProcessor. -->
+        <dependency>
+            <groupId>net.ttddyy</groupId>
+            <artifactId>datasource-proxy</artifactId>
+            <version>1.10</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
