@@ -1,0 +1,186 @@
+
+         /\      Grafana   /‾‾/  
+    /\  /  \     |\  __   /  /   
+   /  \/    \    | |/ /  /   ‾‾\ 
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/ 
+
+
+     execution: local
+        script: bench/order-load-test-multiitem.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 40 max VUs, 1m15s max duration (incl. graceful stop):
+              * order_load: 40 looping VUs for 45s (gracefulStop: 30s)
+
+
+running (0m01.0s), 40/40 VUs, 0 complete and 0 interrupted iterations
+order_load   [   2% ] 40 VUs  01.0s/45s
+
+running (0m02.0s), 40/40 VUs, 265 complete and 0 interrupted iterations
+order_load   [   4% ] 40 VUs  02.0s/45s
+
+running (0m03.0s), 40/40 VUs, 572 complete and 0 interrupted iterations
+order_load   [   7% ] 40 VUs  03.0s/45s
+
+running (0m04.0s), 40/40 VUs, 887 complete and 0 interrupted iterations
+order_load   [   9% ] 40 VUs  04.0s/45s
+
+running (0m05.0s), 40/40 VUs, 1192 complete and 0 interrupted iterations
+order_load   [  11% ] 40 VUs  05.0s/45s
+
+running (0m06.0s), 40/40 VUs, 1506 complete and 0 interrupted iterations
+order_load   [  13% ] 40 VUs  06.0s/45s
+
+running (0m07.0s), 40/40 VUs, 1896 complete and 0 interrupted iterations
+order_load   [  16% ] 40 VUs  07.0s/45s
+
+running (0m08.0s), 40/40 VUs, 2275 complete and 0 interrupted iterations
+order_load   [  18% ] 40 VUs  08.0s/45s
+
+running (0m09.0s), 40/40 VUs, 2657 complete and 0 interrupted iterations
+order_load   [  20% ] 40 VUs  09.0s/45s
+
+running (0m10.0s), 40/40 VUs, 3056 complete and 0 interrupted iterations
+order_load   [  22% ] 40 VUs  10.0s/45s
+
+running (0m11.0s), 40/40 VUs, 3417 complete and 0 interrupted iterations
+order_load   [  24% ] 40 VUs  11.0s/45s
+
+running (0m12.0s), 40/40 VUs, 3817 complete and 0 interrupted iterations
+order_load   [  27% ] 40 VUs  12.0s/45s
+
+running (0m13.0s), 40/40 VUs, 4186 complete and 0 interrupted iterations
+order_load   [  29% ] 40 VUs  13.0s/45s
+
+running (0m14.0s), 40/40 VUs, 4577 complete and 0 interrupted iterations
+order_load   [  31% ] 40 VUs  14.0s/45s
+
+running (0m15.0s), 40/40 VUs, 4977 complete and 0 interrupted iterations
+order_load   [  33% ] 40 VUs  15.0s/45s
+
+running (0m16.0s), 40/40 VUs, 5337 complete and 0 interrupted iterations
+order_load   [  36% ] 40 VUs  16.0s/45s
+
+running (0m17.0s), 40/40 VUs, 5737 complete and 0 interrupted iterations
+order_load   [  38% ] 40 VUs  17.0s/45s
+
+running (0m18.0s), 40/40 VUs, 6106 complete and 0 interrupted iterations
+order_load   [  40% ] 40 VUs  18.0s/45s
+
+running (0m19.0s), 40/40 VUs, 6497 complete and 0 interrupted iterations
+order_load   [  42% ] 40 VUs  19.0s/45s
+
+running (0m20.0s), 40/40 VUs, 6897 complete and 0 interrupted iterations
+order_load   [  44% ] 40 VUs  20.0s/45s
+
+running (0m21.0s), 40/40 VUs, 7257 complete and 0 interrupted iterations
+order_load   [  47% ] 40 VUs  21.0s/45s
+
+running (0m22.0s), 40/40 VUs, 7657 complete and 0 interrupted iterations
+order_load   [  49% ] 40 VUs  22.0s/45s
+
+running (0m23.0s), 40/40 VUs, 8057 complete and 0 interrupted iterations
+order_load   [  51% ] 40 VUs  23.0s/45s
+
+running (0m24.0s), 40/40 VUs, 8417 complete and 0 interrupted iterations
+order_load   [  53% ] 40 VUs  24.0s/45s
+
+running (0m25.0s), 40/40 VUs, 8817 complete and 0 interrupted iterations
+order_load   [  56% ] 40 VUs  25.0s/45s
+
+running (0m26.0s), 40/40 VUs, 9177 complete and 0 interrupted iterations
+order_load   [  58% ] 40 VUs  26.0s/45s
+
+running (0m27.0s), 40/40 VUs, 9577 complete and 0 interrupted iterations
+order_load   [  60% ] 40 VUs  27.0s/45s
+
+running (0m28.0s), 40/40 VUs, 9977 complete and 0 interrupted iterations
+order_load   [  62% ] 40 VUs  28.0s/45s
+
+running (0m29.0s), 40/40 VUs, 10337 complete and 0 interrupted iterations
+order_load   [  64% ] 40 VUs  29.0s/45s
+
+running (0m30.0s), 40/40 VUs, 10737 complete and 0 interrupted iterations
+order_load   [  67% ] 40 VUs  30.0s/45s
+
+running (0m31.0s), 40/40 VUs, 11107 complete and 0 interrupted iterations
+order_load   [  69% ] 40 VUs  31.0s/45s
+
+running (0m32.0s), 40/40 VUs, 11497 complete and 0 interrupted iterations
+order_load   [  71% ] 40 VUs  32.0s/45s
+
+running (0m33.0s), 40/40 VUs, 11897 complete and 0 interrupted iterations
+order_load   [  73% ] 40 VUs  33.0s/45s
+
+running (0m34.0s), 40/40 VUs, 12257 complete and 0 interrupted iterations
+order_load   [  76% ] 40 VUs  34.0s/45s
+
+running (0m35.0s), 40/40 VUs, 12657 complete and 0 interrupted iterations
+order_load   [  78% ] 40 VUs  35.0s/45s
+
+running (0m36.0s), 40/40 VUs, 13027 complete and 0 interrupted iterations
+order_load   [  80% ] 40 VUs  36.0s/45s
+
+running (0m37.0s), 40/40 VUs, 13417 complete and 0 interrupted iterations
+order_load   [  82% ] 40 VUs  37.0s/45s
+
+running (0m38.0s), 40/40 VUs, 13817 complete and 0 interrupted iterations
+order_load   [  84% ] 40 VUs  38.0s/45s
+
+running (0m39.0s), 40/40 VUs, 14177 complete and 0 interrupted iterations
+order_load   [  87% ] 40 VUs  39.0s/45s
+
+running (0m40.0s), 40/40 VUs, 14577 complete and 0 interrupted iterations
+order_load   [  89% ] 40 VUs  40.0s/45s
+
+running (0m41.0s), 40/40 VUs, 14937 complete and 0 interrupted iterations
+order_load   [  91% ] 40 VUs  41.0s/45s
+
+running (0m42.0s), 40/40 VUs, 15337 complete and 0 interrupted iterations
+order_load   [  93% ] 40 VUs  42.0s/45s
+
+running (0m43.0s), 40/40 VUs, 15737 complete and 0 interrupted iterations
+order_load   [  96% ] 40 VUs  43.0s/45s
+
+running (0m44.0s), 40/40 VUs, 16097 complete and 0 interrupted iterations
+order_load   [  98% ] 40 VUs  44.0s/45s
+
+running (0m45.0s), 40/40 VUs, 16497 complete and 0 interrupted iterations
+order_load   [ 100% ] 40 VUs  45.0s/45s
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 16537   366.932243/s
+    checks_succeeded...: 100.00% 16537 out of 16537
+    checks_failed......: 0.00%   0 out of 16537
+
+    ✓ got a response (status != 0)
+
+    CUSTOM
+    orders_conflict_409............: 15124  335.579805/s
+    orders_servererror_500.........: 1213   26.914725/s
+    orders_success_200.............: 200    4.437712/s
+
+    HTTP
+    http_req_duration..............: avg=8.57ms min=1.34ms   med=3.71ms   max=1.11s p(90)=6.4ms    p(95)=27.38ms  p(99)=47.83ms 
+      { expected_response:true }...: avg=72ms   min=21.4ms   med=40.03ms  max=1.03s p(90)=56.94ms  p(95)=122.24ms p(99)=953.86ms
+    http_req_failed................: 98.79% 16337 out of 16537
+    http_reqs......................: 16537  366.932243/s
+
+    EXECUTION
+    iteration_duration.............: avg=109ms  min=101.58ms med=104.15ms max=1.22s p(90)=106.92ms p(95)=128.01ms p(99)=148.42ms
+    iterations.....................: 16537  366.932243/s
+    vus............................: 40     min=40             max=40
+    vus_max........................: 40     min=40             max=40
+
+    NETWORK
+    data_received..................: 4.7 MB 103 kB/s
+    data_sent......................: 4.8 MB 107 kB/s
+
+
+
+
+running (0m45.1s), 00/40 VUs, 16537 complete and 0 interrupted iterations
+order_load ✓ [ 100% ] 40 VUs  45s
