@@ -75,12 +75,15 @@
       <h2>訊息</h2>
       <p>{{ message }}</p>
     </section>
+
+    <SupportChat />
   </div>
 </template>
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 import api from './api'
+import SupportChat from './components/SupportChat.vue'
 
 const products = ref([])
 const message = ref('')
