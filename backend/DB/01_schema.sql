@@ -2,6 +2,7 @@ CREATE DATABASE IF NOT EXISTS esun_shop CHARACTER SET utf8mb4 COLLATE utf8mb4_un
 USE esun_shop;
 
 DROP TABLE IF EXISTS order_detail;
+DROP TABLE IF EXISTS order_request;
 DROP TABLE IF EXISTS shop_order;
 DROP TABLE IF EXISTS product;
 
@@ -20,6 +21,13 @@ CREATE TABLE shop_order (
     price        DECIMAL(12,2) NOT NULL CHECK (price >= 0),
     pay_status   TINYINT NOT NULL DEFAULT 0,
     created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE order_request (
+    request_id VARCHAR(64) PRIMARY KEY,
+    order_id   VARCHAR(32) NOT NULL,
+    member_id  VARCHAR(20) NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE order_detail (

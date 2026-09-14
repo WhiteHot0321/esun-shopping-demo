@@ -4,11 +4,13 @@ import com.esun.shop.dto.CreateOrderRequest;
 import com.esun.shop.dto.OrderItemRequest;
 import com.esun.shop.exception.BusinessException;
 import com.esun.shop.model.OrderDetail;
+import com.esun.shop.model.OrderRequest;
 import com.esun.shop.model.Product;
 import com.esun.shop.model.ShopOrder;
 import com.esun.shop.repository.OrderRepository;
 import com.esun.shop.repository.ProductRepository;
 import org.springframework.http.HttpStatus;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,6 +42,21 @@ public class OrderService {
     @Transactional
     public String createOrder(CreateOrderRequest request) {
         String orderId = generateOrderId();
+        String memberId = request.getMemberId().trim();
+
+        try {
+            // This must be the first database statement in the transaction. When a concurrent
+            // request with the same key wins, MySQL waits for its commit before reporting the
+            // duplicate; the first subsequent consistent read therefore sees the committed claim.
+            orderRepository.claimRequest(request.getRequestId(), orderId, memberId);
+        } catch (DuplicateKeyException ex) {
+            OrderRequest original = orderRepository.findRequestById(request.getRequestId())
+                    .orElseThrow(() -> ex);
+            if (!memberId.equals(original.getMemberId())) {
+                throw new BusinessException("requestId 已被其他會員使用", HttpStatus.CONFLICT);
+            }
+            return original.getOrderId();
+        }
 
         // 一次撈回所有相關商品，避免驗證迴圈 + 明細迴圈各查一次造成的 2n 次 SELECT。
         List<String> productIds = request.getItems().stream()
@@ -63,7 +80,7 @@ public class OrderService {
 
         ShopOrder order = new ShopOrder();
         order.setOrderId(orderId);
-        order.setMemberId(request.getMemberId().trim());
+        order.setMemberId(memberId);
         order.setPrice(totalPrice);
         order.setPayStatus(request.getPayStatus().ordinal());
         orderRepository.insertOrder(order);

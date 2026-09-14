@@ -15,6 +15,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -54,6 +55,7 @@ class OrderServiceIntegrationTest extends AbstractMySqlIntegrationTest {
 
     private CreateOrderRequest orderRequest(List<OrderItemRequest> items) {
         CreateOrderRequest request = new CreateOrderRequest();
+        request.setRequestId(UUID.randomUUID().toString());
         request.setMemberId("IT-MEMBER");
         request.setPayStatus(PayStatus.PENDING);
         request.setItems(items);

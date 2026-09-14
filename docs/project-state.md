@@ -20,3 +20,10 @@ Read-only pilot completed; the next proposed task is docs/tasks/002-deterministi
 
 ## Collaboration documentation
 - Notion: [AI 開發協作｜Codex × Claude](https://app.notion.com/p/3db708da9f92819dbd00e7dfee4f5ab6). Contains the proposed model/effort/mode policy; implementation dispatch remains pending.
+
+## Collaboration policy update — 2026-09-14 20:51 Asia/Taipei
+- Executor: Codex. Policy/docs updated on advanced-v2 at HEAD ac9a19f; this update is uncommitted.
+- Small reversible changes: one agent with proportional checks. Critical changes: independent cross-agent review. Codex and Claude may exchange implementation/review roles.
+- AGENTS.md defines routing; CLAUDE.md points to it. Task 002 now records risk, roles, independent review and trial metrics.
+- Documentation-only update; application tests not run. No new implementation trial completed; the read-only launcher remains unchanged.
+- Next: execute Task 002 through a scoped implementation workflow, then compare reliability, user interventions, repair rounds and available cost across three completed comparable trials.

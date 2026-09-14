@@ -8,7 +8,7 @@ learning and correctness come before token efficiency, not after.
 
 ## Current state and Codex coordination
 
-Read docs/project-state.md before selecting work. The historical phase checklist and agent inventory below can lag behind code; test-engineer now exists. Codex pilot task specifications live in docs/tasks/. During the pilot, follow the task's explicit scope and keep one writer per checkout.
+Read docs/project-state.md before selecting work. The historical phase checklist and agent inventory below can lag behind code; test-engineer now exists. Read AGENTS.md for risk-based collaboration: small reversible changes use one agent; critical changes require independent Codex/Claude review, and implementation roles may be exchanged. The subagent defaults below apply after this routing decision, not to every small task. Pilot task specifications live in docs/tasks/. Follow the task's explicit scope and keep one writer per checkout.
 
 ## Git strategy
 

@@ -6,6 +6,7 @@ import com.esun.shop.exception.BusinessException;
 import com.esun.shop.model.OrderDetail;
 import com.esun.shop.model.PayStatus;
 import com.esun.shop.model.Product;
+import com.esun.shop.model.OrderRequest;
 import com.esun.shop.model.ShopOrder;
 import com.esun.shop.repository.OrderRepository;
 import com.esun.shop.repository.ProductRepository;
@@ -20,6 +21,8 @@ import org.springframework.http.HttpStatus;
 import java.math.BigDecimal;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -72,6 +75,7 @@ class OrderServiceTest {
 
     private CreateOrderRequest request(List<OrderItemRequest> items) {
         CreateOrderRequest request = new CreateOrderRequest();
+        request.setRequestId(UUID.randomUUID().toString());
         request.setMemberId("M001");
         request.setPayStatus(PayStatus.PENDING);
         request.setItems(items);
@@ -229,5 +233,38 @@ class OrderServiceTest {
         assertThat(orderId1).isNotEqualTo(orderId2);
         assertThat(orderId1).startsWith("Ms").hasSize(25);
         assertThat(orderId2).startsWith("Ms").hasSize(25);
+    }
+
+    @Test
+    void createOrder_duplicateRequestForSameMember_returnsOriginalOrderWithoutStockWrite() {
+        CreateOrderRequest request = request(List.of(item("P001", 1)));
+        OrderRequest original = new OrderRequest();
+        original.setMemberId("M001");
+        original.setOrderId("MsORIGINAL");
+        org.mockito.Mockito.doThrow(new org.springframework.dao.DuplicateKeyException("duplicate"))
+                .when(orderRepository).claimRequest(anyString(), anyString(), anyString());
+        when(orderRepository.findRequestById(request.getRequestId())).thenReturn(Optional.of(original));
+
+        assertThat(orderService.createOrder(request)).isEqualTo("MsORIGINAL");
+
+        verify(productRepository, never()).findByIds(any());
+        verify(productRepository, never()).decreaseStock(anyString(), anyInt());
+        verify(orderRepository, never()).insertOrder(any());
+    }
+
+    @Test
+    void createOrder_duplicateRequestForDifferentMember_returns409WithoutDisclosingOrder() {
+        CreateOrderRequest request = request(List.of(item("P001", 1)));
+        OrderRequest original = new OrderRequest();
+        original.setMemberId("OTHER");
+        original.setOrderId("MsSECRET");
+        org.mockito.Mockito.doThrow(new org.springframework.dao.DuplicateKeyException("duplicate"))
+                .when(orderRepository).claimRequest(anyString(), anyString(), anyString());
+        when(orderRepository.findRequestById(request.getRequestId())).thenReturn(Optional.of(original));
+
+        assertThatThrownBy(() -> orderService.createOrder(request))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> assertThat(((BusinessException) ex).getStatus()).isEqualTo(HttpStatus.CONFLICT));
+        verify(productRepository, never()).findByIds(any());
     }
 }

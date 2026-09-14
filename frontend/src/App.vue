@@ -67,7 +67,8 @@
         </ul>
         <p v-else>尚未選擇商品</p>
         <p><strong>總金額：{{ totalPrice }}</strong></p>
-        <button @click="createOrder">建立訂單</button>
+        <button :disabled="isSubmittingOrder" @click="createOrder">建立訂單</button>
+        <button v-if="checkoutAttempt" :disabled="isSubmittingOrder" @click="retryUnresolvedOrder">重試未確認訂單</button>
       </div>
     </section>
 
@@ -81,6 +82,7 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 import api from './api'
+import { createCheckoutLifecycle } from './checkout'
 
 const products = ref([])
 const message = ref('')
@@ -98,11 +100,14 @@ const orderForm = reactive({
 })
 
 const orderQuantities = reactive({})
+const checkoutLifecycle = createCheckoutLifecycle()
+const checkoutAttempt = ref(null)
+const isSubmittingOrder = ref(false)
 
 const errorMessage = (error, fallback) =>
   error.response?.data?.message || fallback
 
-const fetchProducts = async () => {
+const fetchProducts = async (showSuccessMessage = true) => {
   try {
     const { data: result } = await api.get('/products/available')
 
@@ -114,10 +119,14 @@ const fetchProducts = async () => {
       }
     })
 
-    message.value = '商品載入成功'
+    if (showSuccessMessage) {
+      message.value = '商品載入成功'
+    }
   } catch (error) {
     console.error(error)
-    message.value = errorMessage(error, '載入商品失敗')
+    if (showSuccessMessage) {
+      message.value = errorMessage(error, '載入商品失敗')
+    }
   }
 }
 
@@ -157,37 +166,57 @@ const totalPrice = computed(() => {
   return selectedItems.value.reduce((sum, item) => sum + item.itemPrice, 0)
 })
 
-const createOrder = async () => {
-  try {
-    const items = selectedItems.value.map((item) => ({
-      productId: item.productId,
-      quantity: item.quantity
-    }))
+const syncCheckoutState = () => {
+  checkoutAttempt.value = checkoutLifecycle.attempt
+  isSubmittingOrder.value = checkoutLifecycle.isSubmitting
+}
 
-    if (items.length === 0) {
-      message.value = '請至少選擇一項商品'
-      return
-    }
+const postOrder = (request) => api.post('/orders', request)
 
-    const payload = {
-      memberId: orderForm.memberId,
-      payStatus: orderForm.payStatus,
-      items
-    }
+const handleOrderResult = async (pendingResult) => {
+  syncCheckoutState()
+  const outcome = await pendingResult
+  syncCheckoutState()
 
-    const { data: result } = await api.post('/orders', payload)
-
-    message.value = `訂單建立成功，訂單編號：${result.data.orderId}`
-
+  if (outcome.status === 'success') {
+    message.value = `訂單建立成功，訂單編號：${outcome.result.data.data.orderId}`
     Object.keys(orderQuantities).forEach((key) => {
       orderQuantities[key] = 0
     })
-
-    await fetchProducts()
-  } catch (error) {
-    console.error(error)
-    message.value = errorMessage(error, '建立訂單失敗')
+    await fetchProducts(false)
+  } else if (outcome.status === 'retry-required') {
+    message.value = '上一筆訂單結果尚未確認，請使用重試未確認訂單'
+  } else if (outcome.status === 'failure') {
+    message.value = errorMessage(outcome.error, '建立訂單失敗')
   }
+}
+
+const createOrder = async () => {
+  if (checkoutLifecycle.isSubmitting) {
+    return
+  }
+
+  const items = selectedItems.value.map((item) => ({
+    productId: item.productId,
+    quantity: item.quantity
+  }))
+
+  if (items.length === 0 && !checkoutLifecycle.attempt) {
+    message.value = '請至少選擇一項商品'
+    return
+  }
+
+  const payload = {
+    memberId: orderForm.memberId,
+    payStatus: orderForm.payStatus,
+    items
+  }
+
+  await handleOrderResult(checkoutLifecycle.submit(payload, postOrder))
+}
+
+const retryUnresolvedOrder = async () => {
+  await handleOrderResult(checkoutLifecycle.retry(postOrder))
 }
 
 onMounted(() => {

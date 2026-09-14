@@ -41,6 +41,7 @@
 
 import http from 'k6/http';
 import { check, sleep } from 'k6';
+import crypto from 'k6/crypto';
 import { Counter } from 'k6/metrics';
 
 const BASE_URL = __ENV.BASE_URL || 'http://localhost:8080';
@@ -74,11 +75,20 @@ const ordersServerError500 = new Counter('orders_servererror_500'); // ambiguous
 const ordersOtherStatus = new Counter('orders_other_status');
 const ordersNoResponse = new Counter('orders_no_response'); // status 0: timeout / connection error
 
+const newRequestId = () => {
+  const bytes = new Uint8Array(crypto.randomBytes(16));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+};
+
 export default function () {
   const items = PERMUTATIONS[__VU % 6];
   // shop_order.member_id is VARCHAR(20) — keep this well under that limit.
   const memberId = `k6${__VU}_${__ITER % 100000}`;
   const payload = JSON.stringify({
+    requestId: newRequestId(),
     memberId: memberId,
     payStatus: 'PENDING',
     items: items,

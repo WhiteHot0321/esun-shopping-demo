@@ -321,3 +321,144 @@ original run).
   pre-fix checkout (a different directory name from the original run's
   `../esun-prefix`, per the task's instruction, to avoid clashing with any
   leftover state — none was found; `../esun-prefix` was not present).
+
+## Follow-up: after closing the FK shared-lock-upgrade deadlock (commit `9cd487c`)
+
+The "Known residual limitation" section above (and the multi-item follow-up's
+finding) identified a specific, undocumented-at-the-time deadlock mechanism
+that the `productId`-sort fix (`a197192`) does not touch: `order_detail`'s FK
+to `product` takes an implicit **shared lock** on the parent row during
+`INSERT`, which can conflict with `sp_decrease_stock`'s later **exclusive**
+lock request on that same row — a shared-lock-upgrade deadlock, independent
+of item ordering. Commit `9cd487c` reorders `OrderService.createOrder()` to
+call `decreaseStock()` (which takes the exclusive lock first) *before*
+`insertOrderDetail()` (which takes the shared FK lock), for each item, with
+the claim that this closes that specific mechanism. This section re-runs both
+of this file's existing benchmarks against `9cd487c` to check that claim.
+
+**Baseline used** (already in this file, not re-collected): the "Post-fix"
+columns from the two sections above, both commit `a197192`/`11521c8` — 148
+deadlocks (2-item test) and 1,212 deadlocks (3-item test). Those are the
+"before this new fix" numbers here; "after" is the new `9cd487c` run.
+
+Same machine/toolchain/methodology as both runs above: Windows 11, Docker
+Desktop (started normally, no repeat of the "Docker AI" issue), MySQL 8.0 on
+host port 3308, Java 21 / Spring Boot 3.3.5, k6 native binary, VUS=40,
+DURATION=45s, fresh `docker compose down -v && up -d` reset before each test,
+`allowPublicKeyRetrieval=true` env override, same deadlock/lock-timeout log-grep
+disambiguation method. The 3-item test used the same runtime-only
+`UPDATE product SET quantity=200 ...` stock bump (not committed to seed data)
+as its original run. No worktree was needed this time — `9cd487c` is already
+`advanced-v2` HEAD, so the backend was built and run directly from the repo
+working tree. Raw k6 output: `bench/k6-postfix2.txt` /
+`bench/k6-postfix2-multiitem.txt`. Raw backend stdout: `bench/backend-postfix2.log`
+/ `bench/backend-postfix2-multiitem.log`.
+
+### Headline numbers
+
+| Metric | 2-item test | 3-item test |
+|---|---:|---:|
+| Total requests | 16,779 | 15,376 |
+| Throughput | 372.39 req/s | 340.94 req/s |
+| HTTP 200 (order created) | 20 | 200 |
+| HTTP 409 (business "insufficient stock") | 16,750 | 15,167 |
+| HTTP 500 (DB-layer error, ambiguous bucket) | 9 | 9 |
+| `http_req_duration` p95 (all requests) | 5.73ms | 5.77ms |
+| `http_req_duration` p99 (all requests) | 7.37ms | 653.03ms |
+| `http_req_duration` p95 (2xx only) | 1.19s | 1.84s |
+| `http_req_duration` p99 (2xx only) | 1.2s | 2.1s |
+
+### Disambiguated 500s
+
+```powershell
+Select-String -Path bench\backend-postfix2.log            -Pattern "Deadlock found" | Measure-Object | % Count            # 0
+Select-String -Path bench\backend-postfix2-multiitem.log  -Pattern "Deadlock found" | Measure-Object | % Count            # 0
+Select-String -Path bench\backend-postfix2.log            -Pattern "Lock wait timeout exceeded" | Measure-Object | % Count  # 0
+Select-String -Path bench\backend-postfix2-multiitem.log  -Pattern "Lock wait timeout exceeded" | Measure-Object | % Count  # 0
+Select-String -Path bench\backend-postfix2.log            -Pattern "UncategorizedSQLException" | Measure-Object | % Count   # 9
+Select-String -Path bench\backend-postfix2-multiitem.log  -Pattern "UncategorizedSQLException" | Measure-Object | % Count   # 9
+```
+
+Each `UncategorizedSQLException` match was confirmed by inspecting the log
+text: SQL state `45000`, error code `1644`, from `{call sp_decrease_stock(?, ?)}`
+— the pre-existing stock-race `SIGNAL` (`庫存不足或商品不存在`, TOCTOU),
+not a deadlock or lock-timeout.
+
+| Cause (from backend log) | 2-item test | 3-item test |
+|---|---:|---:|
+| InnoDB deadlock ("Deadlock found when trying to get lock") | **0** | **0** |
+| Lock wait timeout ("Lock wait timeout exceeded") | 0 | 0 |
+| Stock-race SIGNAL from `sp_decrease_stock` ("庫存不足或商品不存在", TOCTOU) | 9 | 9 |
+| **Total (matches k6's 500 count)** | **9** | **9** |
+
+### Before / after comparison (same workload, same machine)
+
+| Test | Deadlocks before (`a197192`/`11521c8`) | Deadlocks after (`9cd487c`) | Change |
+|---|---:|---:|---:|
+| 2-item (`order-load-test.js`) | 148 | **0** | -148 (-100%) |
+| 3-item (`order-load-test-multiitem.js`) | 1,212 | **0** | -1,212 (-100%) |
+
+### Finding: the FK-lock-order fix worked, cleanly and completely, on both workloads
+
+Unlike the `a197192` productId-sort fix — which showed a flat/noise result on
+the 2-item test (144 -> 148) and only a modest ~10% reduction on the 3-item
+test (1,345 -> 1,212), because neither workload's deadlocks were dominated by
+the crossed-multi-row-lock class that fix targeted — `9cd487c` drives the
+measured deadlock count to **zero** on both benchmarks. This matches the
+commit's claim well, and for a mechanism that was previously documented (in
+`bench/README.md`'s "Known residual limitation" section and in the multi-item
+"Finding" above) as the *dominant* cause of deadlocks in both workloads:
+
+- The 2-item test's deadlocks were already established (in the original
+  section of this file) to be almost entirely the single-row FK-insert-vs-UPDATE
+  shared-lock-then-exclusive-lock-upgrade conflict, since the two-row
+  crossed-order class had nothing left to trigger on after `a197192`. Closing
+  that FK conflict by taking the exclusive lock first removes essentially the
+  entire remaining deadlock population for this workload — consistent with
+  148 -> 0.
+- The 3-item test's deadlocks were a mix: the crossed-multi-row-lock class
+  `a197192` targets (partially reduced, ~10%) plus the FK-upgrade class on
+  *each* of the 3 rows per transaction (identified as likely still dominant
+  and growing roughly in proportion to item count, diluting `a197192`'s
+  visible effect). `9cd487c` removes the FK-upgrade class outright, and since
+  that was hypothesized to be the larger share of the 1,212 remaining
+  deadlocks, its removal accounts for the full drop to 0 — `9cd487c` and
+  `a197192` are not redundant, they target genuinely different deadlock
+  mechanisms, and only after both fixes are combined does either benchmark
+  reach zero deadlocks.
+- The 9 residual 500s in both runs are the pre-existing `sp_decrease_stock`
+  stock-race `SIGNAL` (TOCTOU on the `UPDATE ... WHERE quantity >= ?` check),
+  which is a separate, already-known, *correct* business-rule rejection path
+  (concurrent orders racing for the last unit of stock), not a locking bug —
+  it is expected to be non-zero under concurrent load and is out of scope for
+  either deadlock fix.
+
+**One honest caveat, stated plainly rather than overclaimed:** a single run
+per configuration (same limitation the original two sections in this file
+already carry) cannot rule out that 0 was reached partly because 9cd487c
+also changes operation timing/ordering enough to shift contention patterns
+in ways beyond just removing the targeted FK conflict — e.g., the exclusive
+lock now being acquired earlier in each transaction could change queueing
+behavior independent of the FK-shared-lock mechanism specifically. The result
+is unambiguous in direction and effectively complete in magnitude (100%
+reduction, not a partial one, on both workloads independently), which is
+strong evidence for the fix working as designed; a few repeated runs would be
+needed to fully rule out run-to-run variance producing a lucky zero, but a
+result this large and consistent across two differently-shaped workloads
+(2-item and 3-item, previously showing *different* deadlock behavior from
+each other) is not plausibly explained by noise alone.
+
+### Environment notes for this follow-up
+
+- Same machine/toolchain as both runs above (Windows 11, Docker Desktop,
+  MySQL 8.0 on host port 3308, k6 native binary, Java 21 / Spring Boot
+  3.3.5). Docker Desktop started normally (no repeat of the "Docker AI"
+  stale-socket issue from the original run).
+- No git worktree was created for this follow-up — `9cd487c` is
+  `advanced-v2` HEAD, so both tests ran directly against the checked-out
+  working tree; no "pre-fix" leg was re-run here since the pre-fix baseline
+  already exists in this file (the `a197192`/`11521c8` "Post-fix" columns
+  above, re-used as this section's "before" numbers per the task brief).
+- Ports 8080 and 3308 were confirmed free and no stray `java.exe` process
+  was running before each backend start (no repeat of the stray-jar issue
+  noted in the multi-item follow-up's environment notes).

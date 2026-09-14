@@ -19,6 +19,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -76,6 +77,7 @@ class OrderConcurrencyIntegrationTest extends AbstractMySqlIntegrationTest {
 
     private CreateOrderRequest orderRequest(String memberId, List<OrderItemRequest> items) {
         CreateOrderRequest request = new CreateOrderRequest();
+        request.setRequestId(UUID.randomUUID().toString());
         request.setMemberId(memberId);
         request.setPayStatus(PayStatus.PENDING);
         request.setItems(items);

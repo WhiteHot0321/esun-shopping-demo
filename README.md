@@ -96,6 +96,7 @@ POST /api/orders
 
 ```json
 {
+  "requestId": "550e8400-e29b-41d4-a716-446655440000",
   "memberId": "1001",
   "payStatus": "PAID",
   "items": [
@@ -110,6 +111,8 @@ POST /api/orders
   ]
 }
 ```
+
+`requestId` 必須是小寫 canonical UUID。前端同一次結帳的網路或 HTTP 失敗重試時，請保留完全相同的 request payload 與 `requestId`；若訂單已建立，重試會以 HTTP 200 回傳原本的 `orderId`，不會再次扣庫存。若結帳結果未確認，修改購物車內容前應先使用原本的 payload 與 `requestId` 重試並確認結果；系統目前沒有登入驗證，僅會阻擋同一 requestId 被其他 memberId 使用。
 
 ---
 
@@ -128,6 +131,18 @@ CREATE DATABASE esun_shop;
 - backend/DB/01_schema.sql
 - backend/DB/02_data.sql
 - backend/DB/03_stored_procedures.sql
+
+既有資料庫請另外執行一次可追加的 migration `backend/DB/04_add_order_request.sql`，不要重新執行會刪除資料表的 `01_schema.sql`。以下命令適用於 Bash／Git Bash（PowerShell 不支援此處的 `<` shell 輸入重導向）。使用目前 Docker Compose 的 `mysql` service 時，可在專案根目錄執行：
+
+```bash
+docker compose exec -T mysql mysql -uroot -p"${DB_PASSWORD:-123456}" esun_shop < backend/DB/04_add_order_request.sql
+```
+
+也可直接連線到 MySQL 執行：
+
+```bash
+mysql -h localhost -P "${DB_PORT:-3306}" -uroot -p"${DB_PASSWORD:-123456}" esun_shop < backend/DB/04_add_order_request.sql
+```
 
 ---
 

@@ -219,6 +219,12 @@ crossed-lock-order pattern the fix targets. Read `RESULTS.md`'s "Finding"
 section before assuming a bigger before/after gap than what was actually
 measured.
 
+**Update:** commit `9cd487c` directly addresses this exact FK
+shared-lock-upgrade mechanism (by calling `decreaseStock()`, which takes the
+exclusive lock, before `insertOrderDetail()`, which takes the FK shared
+lock). See `RESULTS.md`'s "Follow-up: after closing the FK shared-lock-upgrade
+deadlock (commit `9cd487c`)" section for the re-run numbers.
+
 ## Follow-up script: 3-item overlapping basket
 
 `order-load-test-multiitem.js` is a separate script (does not replace the

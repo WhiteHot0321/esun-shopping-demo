@@ -22,6 +22,7 @@ import javax.sql.DataSource;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -134,6 +135,7 @@ class OrderServiceQueryCountIntegrationTest extends AbstractMySqlIntegrationTest
         seedProduct("QC-P003", "30.00", 50);
 
         CreateOrderRequest request = new CreateOrderRequest();
+        request.setRequestId(UUID.randomUUID().toString());
         request.setMemberId("QC-MEMBER-1");
         request.setPayStatus(PayStatus.PENDING);
         request.setItems(List.of(item("QC-P001", 1), item("QC-P002", 2), item("QC-P003", 3)));
@@ -151,6 +153,7 @@ class OrderServiceQueryCountIntegrationTest extends AbstractMySqlIntegrationTest
         seedProduct("QC-P010", "15.00", 50);
 
         CreateOrderRequest request = new CreateOrderRequest();
+        request.setRequestId(UUID.randomUUID().toString());
         request.setMemberId("QC-MEMBER-2");
         request.setPayStatus(PayStatus.PENDING);
         // OrderService.createOrder() de-duplicates productIds (.distinct()) before building the
@@ -168,6 +171,7 @@ class OrderServiceQueryCountIntegrationTest extends AbstractMySqlIntegrationTest
         seedProduct("QC-P020", "5.00", 50);
 
         CreateOrderRequest request = new CreateOrderRequest();
+        request.setRequestId(UUID.randomUUID().toString());
         request.setMemberId("QC-MEMBER-3");
         request.setPayStatus(PayStatus.PENDING);
         request.setItems(List.of(item("QC-P020", 1)));

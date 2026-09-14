@@ -1,7 +1,12 @@
 # Task 002: Deterministic partial-write rollback regression
 
 Status: proposed; not dispatched or implemented.
-Baseline: advanced-v2 / 9cd487c (recheck before implementation).
+Baseline for this policy update: advanced-v2 / ac9a19f (recheck before implementation).
+Risk: critical transaction/rollback behavior; independent cross-agent review required.
+Planned implementer: Claude Code. Planned reviewer: Codex; roles may be exchanged before dispatch with the reason recorded.
+Review: derive expected rollback behavior and inspect code/tests before reading the implementer's explanation.
+Result record: elapsed time, actual model/effort, test counts/skips, user interventions, repair rounds, valid review defects, available tokens/cost (unknown when unavailable), and why the test proves rollback.
+This is the first planned full implementation trial, not a completed trial. Reassess routing after three completed comparable tasks.
 Scope: backend/src/test/java/com/esun/shop/integration/OrderServiceIntegrationTest.java only; no production changes.
 
 Problem: existing concurrent rollback coverage may reject before any write, and broad failure assertions can hide unrelated errors.
