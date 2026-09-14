@@ -1,9 +1,11 @@
 package com.esun.shop.controller;
 
+import com.esun.shop.security.JwtService;
 import com.esun.shop.service.OrderService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -23,8 +25,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * {@link OrderService} itself is never reached for these cases. These tests exercise that
  * boundary directly via MockMvc instead of unit-testing the service with inputs it can
  * never receive in practice.
+ *
+ * {@code addFilters = false}: {@code @WebMvcTest} auto-includes any {@code Filter} bean
+ * (JwtAuthFilter included) in its slice and applies it to every request by default, which
+ * would turn every case here into a 401 before validation ever runs. {@code @MockBean
+ * JwtService} additionally satisfies JwtAuthFilter's constructor dependency so the slice's
+ * context loads at all. Auth itself is exercised separately in {@code JwtAuthFilterTest};
+ * this class stays focused on Bean Validation only.
  */
 @WebMvcTest(OrderController.class)
+@AutoConfigureMockMvc(addFilters = false)
 class OrderControllerValidationTest {
 
     @Autowired
@@ -35,6 +45,9 @@ class OrderControllerValidationTest {
 
     @MockBean
     private OrderService orderService;
+
+    @MockBean
+    private JwtService jwtService;
 
     @Test
     void createOrder_negativeQuantity_returns400AndNeverCallsService() throws Exception {
