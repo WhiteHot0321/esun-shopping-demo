@@ -9,3 +9,10 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
   jackson:
     time-zone: Asia/Taipei
+
+jwt:
+  # Dev-only fallback secret (must be >= 32 bytes for HS256) - override with the JWT_SECRET
+  # env var in any real deployment, the same pattern already used for DB_* below it in
+  # docker-compose.yml.
+  secret: ${JWT_SECRET:dev-only-insecure-secret-change-me-please-32bytes}
+  expiration-ms: ${JWT_EXPIRATION_MS:3600000}
