@@ -20,6 +20,9 @@ frontend/.vite/
 # Claude Code local settings (per-machine, not shared)
 .claude/settings.local.json
 
+# Claude Code agent worktrees (local scratch checkouts for background subagents)
+.claude/worktrees/
+
 # OS
 .DS_Store
 Thumbs.db
