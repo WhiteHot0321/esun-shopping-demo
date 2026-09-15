@@ -24,3 +24,5 @@ Read CLAUDE.md for project conventions and docs/project-state.md for the latest 
 - Record elapsed time, user interventions, repair rounds, valid review defects and available token/cost evidence in existing task results (unavailable means unknown, never zero). Reassess roles after three completed comparable trials using reliability, user effort and cost.
 - Use scripts/invoke-claude.ps1 for read-only audits. It deliberately exposes only Read, Glob and Grep; implementation requires a separately scoped workflow.
 - No automatic commit, push or merge during this pilot.
+- Progress-sync rule: whenever the project progress is updated in Notion, also update the `提示詞整理` page with the corresponding prompt/collaboration status and read back both pages to verify.
+- Notion project-wide sync rule: whenever any project progress is updated, also inspect and update the `階段工作` overview and every directly related Phase/task page that contains the same status; do not leave stale checklist/database text in the project overview.

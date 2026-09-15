@@ -2,9 +2,11 @@ package com.esun.shop.controller;
 
 import com.esun.shop.exception.BusinessException;
 import com.esun.shop.service.OrderService;
+import com.esun.shop.security.JwtService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
@@ -21,6 +23,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(OrderController.class)
+@AutoConfigureMockMvc(addFilters = false)
 class OrderControllerTest {
     private static final String REQUEST_ID = "b35e0f4a-9465-43ea-9c7f-91cb9f8d79d8";
 
@@ -29,6 +32,9 @@ class OrderControllerTest {
 
     @MockBean
     private OrderService orderService;
+
+    @MockBean
+    private JwtService jwtService;
 
     @Test
     void createOrder_missingBlankOrMalformedRequestId_returns400() throws Exception {

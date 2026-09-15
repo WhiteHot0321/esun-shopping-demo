@@ -32,6 +32,9 @@ public class JwtService {
     }
 
     public String generateToken(String email) {
+        if (email == null || email.isBlank()) {
+            throw new IllegalArgumentException("JWT subject must not be blank");
+        }
         Date now = new Date();
         Date expiry = new Date(now.getTime() + expirationMs);
         return Jwts.builder()
@@ -52,6 +55,10 @@ public class JwtService {
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
-        return claims.getSubject();
+        String email = claims.getSubject();
+        if (email == null || email.isBlank()) {
+            throw new JwtException("JWT subject is missing") { };
+        }
+        return email;
     }
 }
