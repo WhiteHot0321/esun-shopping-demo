@@ -17,10 +17,22 @@ viable approaches:
   routing/state management.
 - API versioning / backward-compatibility strategy for breaking changes.
 - New table/DTO schema design, or extending the Order–Product model
-  (e.g. multi-item orders, stock-deduction timing).
+  (e.g. multi-item orders, schema evolution).
+- **Concurrency and race conditions**: stock-decrement under concurrent
+  load (pessimistic lock vs optimistic lock vs queue), transaction
+  isolation levels, distributed lock tradeoffs — known problem type but
+  requires choosing an approach.
+- **Security design decisions**: login token strategy (JWT vs session vs
+  OAuth), password/API key storage, authorization model, CSRF protection
+  — multiple viable approaches with security implications.
 - Fuzzy bugs with no known root cause (e.g. intermittent stored-procedure
-  transaction failures, concurrent stock-decrement races).
+  transaction failures).
 - Performance/caching strategy, pagination design tradeoffs.
+
+> **Note:** This checklist reflects the current scope and decision types
+> in this project. If new modules are added or you discover decision
+> categories this list is missing, come back and expand it — don't
+> assume it's exhaustive.
 
 **Skip ADHD, answer directly** — closed or routine work:
 - Fixing a bug with a known cause (typo, null pointer, missing
