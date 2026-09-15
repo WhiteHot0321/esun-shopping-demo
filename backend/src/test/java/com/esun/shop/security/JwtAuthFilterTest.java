@@ -71,6 +71,7 @@ class JwtAuthFilterTest {
     void createOrder_withoutToken_returns401AndNeverCallsService() throws Exception {
         String body = objectMapper.writeValueAsString(Map.of(
                 "memberId", "M001",
+                "requestId", "00000000-0000-4000-8000-000000000001",
                 "payStatus", "PENDING",
                 "items", List.of(Map.of("productId", "P001", "quantity", 1))));
 
@@ -85,6 +86,7 @@ class JwtAuthFilterTest {
     void createOrder_withInvalidToken_returns401() throws Exception {
         String body = objectMapper.writeValueAsString(Map.of(
                 "memberId", "M001",
+                "requestId", "00000000-0000-4000-8000-000000000002",
                 "payStatus", "PENDING",
                 "items", List.of(Map.of("productId", "P001", "quantity", 1))));
 
@@ -100,6 +102,7 @@ class JwtAuthFilterTest {
     void createOrder_withValidToken_succeedsWithSameResponseShapeAsBefore() throws Exception {
         String body = objectMapper.writeValueAsString(Map.of(
                 "memberId", "M001",
+                "requestId", "00000000-0000-4000-8000-000000000003",
                 "payStatus", "PENDING",
                 "items", List.of(Map.of("productId", "P001", "quantity", 1))));
 

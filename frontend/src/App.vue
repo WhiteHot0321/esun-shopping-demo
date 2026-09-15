@@ -2,7 +2,27 @@
   <div class="container">
     <h1>電商購物中心系統</h1>
 
-    <section class="card">
+    <section class="card auth-card">
+      <div v-if="!isAuthenticated">
+        <h2>{{ authMode === 'login' ? '會員登入' : '會員註冊' }}</h2>
+        <div class="form-row">
+          <input v-model.trim="authForm.email" type="email" placeholder="Email" autocomplete="email" />
+          <input v-model="authForm.password" type="password" placeholder="密碼" autocomplete="current-password" />
+          <button :disabled="isAuthenticating" @click="submitAuth">
+            {{ authMode === 'login' ? '登入' : '註冊' }}
+          </button>
+          <button class="secondary" @click="toggleAuthMode">
+            切換至{{ authMode === 'login' ? '註冊' : '登入' }}
+          </button>
+        </div>
+      </div>
+      <div v-else class="header-row">
+        <p>目前登入：{{ authenticatedEmail }}</p>
+        <button class="secondary" @click="logout">登出</button>
+      </div>
+    </section>
+
+    <section class="card" v-if="isAuthenticated">
       <h2>新增商品</h2>
       <div class="form-row">
         <input v-model="newProduct.productId" placeholder="商品編號" />
@@ -80,12 +100,18 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import api from './api'
 import { createCheckoutLifecycle } from './checkout'
 
 const products = ref([])
 const message = ref('')
+const accessToken = ref(localStorage.getItem('accessToken') || '')
+const authenticatedEmail = ref(localStorage.getItem('authenticatedEmail') || '')
+const isAuthenticated = computed(() => Boolean(accessToken.value))
+const authMode = ref('login')
+const isAuthenticating = ref(false)
+const authForm = reactive({ email: '', password: '' })
 
 const newProduct = reactive({
   productId: '',
@@ -106,6 +132,47 @@ const isSubmittingOrder = ref(false)
 
 const errorMessage = (error, fallback) =>
   error.response?.data?.message || fallback
+
+const submitAuth = async () => {
+  if (!authForm.email || !authForm.password) {
+    message.value = '請輸入 Email 與密碼'
+    return
+  }
+  isAuthenticating.value = true
+  try {
+    const endpoint = authMode.value === 'login' ? '/auth/login' : '/auth/register'
+    const { data: result } = await api.post(endpoint, authForm)
+    localStorage.setItem('accessToken', result.data.token)
+    accessToken.value = result.data.token
+    localStorage.setItem('authenticatedEmail', result.data.email)
+    authenticatedEmail.value = result.data.email
+    authForm.password = ''
+    message.value = authMode.value === 'login' ? '登入成功' : '註冊成功，已自動登入'
+  } catch (error) {
+    message.value = errorMessage(error, authMode.value === 'login' ? '登入失敗' : '註冊失敗')
+  } finally {
+    isAuthenticating.value = false
+  }
+}
+
+const toggleAuthMode = () => {
+  authMode.value = authMode.value === 'login' ? 'register' : 'login'
+  message.value = ''
+}
+
+const logout = () => {
+  localStorage.removeItem('accessToken')
+  localStorage.removeItem('authenticatedEmail')
+  accessToken.value = ''
+  authenticatedEmail.value = ''
+  message.value = '已登出'
+}
+
+const handleAuthExpired = () => {
+  accessToken.value = ''
+  authenticatedEmail.value = ''
+  message.value = '登入已失效，請重新登入'
+}
 
 const fetchProducts = async (showSuccessMessage = true) => {
   try {
@@ -220,8 +287,11 @@ const retryUnresolvedOrder = async () => {
 }
 
 onMounted(() => {
+  window.addEventListener('auth-expired', handleAuthExpired)
   fetchProducts()
 })
+
+onUnmounted(() => window.removeEventListener('auth-expired', handleAuthExpired))
 </script>
 
 <style scoped>
@@ -270,6 +340,14 @@ input, select, button {
 
 button {
   cursor: pointer;
+}
+
+.secondary {
+  background: #f5f5f5;
+}
+
+.auth-card p {
+  margin: 0;
 }
 
 table {
