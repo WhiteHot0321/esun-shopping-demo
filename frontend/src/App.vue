@@ -2,75 +2,10 @@
   <div class="container">
     <h1>電商購物中心系統</h1>
 
-    <section class="card">
-      <h2>新增商品</h2>
-      <div class="form-row">
-        <input v-model="newProduct.productId" placeholder="商品編號" />
-        <input v-model="newProduct.productName" placeholder="商品名稱" />
-        <input v-model.number="newProduct.price" type="number" placeholder="價格" />
-        <input v-model.number="newProduct.quantity" type="number" placeholder="庫存" />
-        <button @click="createProduct">新增商品</button>
-      </div>
-    </section>
+    <AuthPanel :authenticated="auth.isAuthenticated" :email="auth.email" :mode="authMode"
+      :form="authForm" :busy="isAuthenticating" @submit="submitAuth" @toggle="toggleAuthMode" @logout="logout" />
 
-    <section class="card">
-      <div class="header-row">
-        <h2>建立訂單</h2>
-        <button @click="fetchProducts">重新載入商品</button>
-      </div>
-
-      <table>
-        <thead>
-          <tr>
-            <th>商品編號</th>
-            <th>商品名稱</th>
-            <th>售價</th>
-            <th>庫存</th>
-            <th>購買數量</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="item in products" :key="item.productId">
-            <td>{{ item.productId }}</td>
-            <td>{{ item.productName }}</td>
-            <td>{{ item.price }}</td>
-            <td>{{ item.quantity }}</td>
-            <td>
-              <input
-                type="number"
-                min="0"
-                :max="item.quantity"
-                v-model.number="orderQuantities[item.productId]"
-              />
-            </td>
-          </tr>
-        </tbody>
-      </table>
-
-      <div class="order-form">
-        <label>會員編號</label>
-        <input v-model="orderForm.memberId" placeholder="請輸入會員編號" />
-
-        <label>付款狀態</label>
-        <select v-model="orderForm.payStatus">
-          <option value="PENDING">未付款</option>
-          <option value="PAID">已付款</option>
-        </select>
-      </div>
-
-      <div class="summary">
-        <h3>訂單預覽</h3>
-        <ul v-if="selectedItems.length > 0">
-          <li v-for="item in selectedItems" :key="item.productId">
-            {{ item.productName }} × {{ item.quantity }} = {{ item.itemPrice }}
-          </li>
-        </ul>
-        <p v-else>尚未選擇商品</p>
-        <p><strong>總金額：{{ totalPrice }}</strong></p>
-        <button :disabled="isSubmittingOrder" @click="createOrder">建立訂單</button>
-        <button v-if="checkoutAttempt" :disabled="isSubmittingOrder" @click="retryUnresolvedOrder">重試未確認訂單</button>
-      </div>
-    </section>
+    <ShopWorkspace :authenticated="auth.isAuthenticated" @message="message = $event" />
 
     <section class="card" v-if="message">
       <h2>訊息</h2>
@@ -80,148 +15,59 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { onMounted, onUnmounted, reactive, ref } from 'vue'
 import api from './api'
-import { createCheckoutLifecycle } from './checkout'
+import AuthPanel from './components/AuthPanel.vue'
+import ShopWorkspace from './components/ShopWorkspace.vue'
+import { useAuthStore } from './stores/auth'
 
-const products = ref([])
+const auth = useAuthStore()
+const authMode = ref('login')
+const isAuthenticating = ref(false)
+const authForm = reactive({ email: '', password: '' })
 const message = ref('')
 
-const newProduct = reactive({
-  productId: '',
-  productName: '',
-  price: null,
-  quantity: null
-})
-
-const orderForm = reactive({
-  memberId: '',
-  payStatus: 'PENDING'
-})
-
-const orderQuantities = reactive({})
-const checkoutLifecycle = createCheckoutLifecycle()
-const checkoutAttempt = ref(null)
-const isSubmittingOrder = ref(false)
-
-const errorMessage = (error, fallback) =>
-  error.response?.data?.message || fallback
-
-const fetchProducts = async (showSuccessMessage = true) => {
-  try {
-    const { data: result } = await api.get('/products/available')
-
-    products.value = result.data || []
-
-    products.value.forEach((item) => {
-      if (orderQuantities[item.productId] == null) {
-        orderQuantities[item.productId] = 0
-      }
-    })
-
-    if (showSuccessMessage) {
-      message.value = '商品載入成功'
-    }
-  } catch (error) {
-    console.error(error)
-    if (showSuccessMessage) {
-      message.value = errorMessage(error, '載入商品失敗')
-    }
-  }
-}
-
-const createProduct = async () => {
-  try {
-    await api.post('/products', newProduct)
-
-    message.value = '商品新增成功'
-
-    newProduct.productId = ''
-    newProduct.productName = ''
-    newProduct.price = null
-    newProduct.quantity = null
-
-    await fetchProducts()
-  } catch (error) {
-    console.error(error)
-    message.value = errorMessage(error, '商品新增失敗')
-  }
-}
-
-const selectedItems = computed(() => {
-  return products.value
-    .filter((item) => Number(orderQuantities[item.productId] || 0) > 0)
-    .map((item) => {
-      const quantity = Number(orderQuantities[item.productId])
-      return {
-        productId: item.productId,
-        productName: item.productName,
-        quantity,
-        itemPrice: Number(item.price) * quantity
-      }
-    })
-})
-
-const totalPrice = computed(() => {
-  return selectedItems.value.reduce((sum, item) => sum + item.itemPrice, 0)
-})
-
-const syncCheckoutState = () => {
-  checkoutAttempt.value = checkoutLifecycle.attempt
-  isSubmittingOrder.value = checkoutLifecycle.isSubmitting
-}
-
-const postOrder = (request) => api.post('/orders', request)
-
-const handleOrderResult = async (pendingResult) => {
-  syncCheckoutState()
-  const outcome = await pendingResult
-  syncCheckoutState()
-
-  if (outcome.status === 'success') {
-    message.value = `訂單建立成功，訂單編號：${outcome.result.data.data.orderId}`
-    Object.keys(orderQuantities).forEach((key) => {
-      orderQuantities[key] = 0
-    })
-    await fetchProducts(false)
-  } else if (outcome.status === 'retry-required') {
-    message.value = '上一筆訂單結果尚未確認，請使用重試未確認訂單'
-  } else if (outcome.status === 'failure') {
-    message.value = errorMessage(outcome.error, '建立訂單失敗')
-  }
-}
-
-const createOrder = async () => {
-  if (checkoutLifecycle.isSubmitting) {
+const submitAuth = async () => {
+  if (isAuthenticating.value) return
+  if (!authForm.email || !authForm.password) {
+    message.value = '請輸入 Email 與密碼'
     return
   }
-
-  const items = selectedItems.value.map((item) => ({
-    productId: item.productId,
-    quantity: item.quantity
-  }))
-
-  if (items.length === 0 && !checkoutLifecycle.attempt) {
-    message.value = '請至少選擇一項商品'
-    return
+  isAuthenticating.value = true
+  try {
+    const endpoint = authMode.value === 'login' ? '/auth/login' : '/auth/register'
+    const { data: result } = await api.post(endpoint, authForm)
+    auth.setSession(result.data.token, result.data.email)
+    authForm.password = ''
+    message.value = authMode.value === 'login' ? '登入成功' : '註冊成功，已自動登入'
+  } catch (error) {
+    message.value = error.response?.data?.message || (authMode.value === 'login' ? '登入失敗' : '註冊失敗')
+  } finally {
+    isAuthenticating.value = false
   }
-
-  const payload = {
-    memberId: orderForm.memberId,
-    payStatus: orderForm.payStatus,
-    items
-  }
-
-  await handleOrderResult(checkoutLifecycle.submit(payload, postOrder))
 }
 
-const retryUnresolvedOrder = async () => {
-  await handleOrderResult(checkoutLifecycle.retry(postOrder))
+const toggleAuthMode = () => {
+  if (isAuthenticating.value) return
+  authMode.value = authMode.value === 'login' ? 'register' : 'login'
+  message.value = ''
+}
+
+const logout = () => {
+  auth.logout()
+  message.value = '已登出'
+}
+
+const handleAuthExpired = () => {
+  auth.logout()
+  message.value = '登入已失效，請重新登入'
 }
 
 onMounted(() => {
-  fetchProducts()
+  window.addEventListener('auth-expired', handleAuthExpired)
 })
+
+onUnmounted(() => window.removeEventListener('auth-expired', handleAuthExpired))
 </script>
 
 <style scoped>
@@ -244,47 +90,4 @@ h1, h2, h3 {
   background: #fff;
 }
 
-.form-row {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.header-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.order-form {
-  margin-top: 20px;
-  display: grid;
-  gap: 10px;
-  max-width: 300px;
-}
-
-input, select, button {
-  padding: 8px 12px;
-  font-size: 14px;
-}
-
-button {
-  cursor: pointer;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 10px;
-}
-
-th, td {
-  border: 1px solid #ddd;
-  padding: 10px;
-  text-align: left;
-}
-
-.summary {
-  margin-top: 20px;
-}
 </style>

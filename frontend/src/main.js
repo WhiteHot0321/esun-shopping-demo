@@ -1,5 +1,9 @@
-import { createApp } from 'vue'
-import App from './App.vue'
+import { createApp, h } from 'vue'
+import { createPinia } from 'pinia'
+import router, { RouterView } from './router'
 import './style.css'
 
-createApp(App).mount('#app')
+createApp({ render: () => h(RouterView) })
+  .use(createPinia())
+  .use(router)
+  .mount('#app')
