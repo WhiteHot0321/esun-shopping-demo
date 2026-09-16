@@ -462,3 +462,67 @@ each other) is not plausibly explained by noise alone.
 - Ports 8080 and 3308 were confirmed free and no stray `java.exe` process
   was running before each backend start (no repeat of the stray-jar issue
   noted in the multi-item follow-up's environment notes).
+
+## Current-version B0 baseline (2026-09-16, single round) — see Task 007/008
+
+Docker was unavailable in the prior session (Task 006: 13 Testcontainers
+initialization errors). Docker Desktop is functional again as of this run.
+This section is the first current-version (JWT + idempotent `requestId` +
+DB-conditional stock decrement, advanced-v2 working tree on top of `5574f05`
+plus uncommitted Phase 2.5 changes) runtime evidence for Task 007's P15-1 and
+P15-2. It is **one round each**, not the three rounds the task spec calls
+for — repetition is deferred as documented follow-up, not claimed done.
+
+Setup: disposable `mysql:8.0` container (not the user's Compose volume),
+seeded from `backend/DB/*.sql`, `STOCK_REDIS_ENABLED=false`,
+`ORDER_RETRY_MAX_ATTEMPTS=1` (B0), app run via `mvn spring-boot:run`,
+`k6 run` with `VUS=40 DURATION=45s`. Backend stdout captured and grepped for
+`Deadlock found` / `Lock wait timeout exceeded`. DB reconciled before/after
+each run (`shop_order`/`order_detail` row counts, `product.quantity`).
+
+### P15-1: historical workload reproduction (B0)
+
+| Scenario | Requests | 200 | 409 | 500 | Deadlock (1213) | Lock timeout (1205) | Stock delta |
+|---|---:|---:|---:|---:|---:|---:|---|
+| 2-item (P002=50, P003=20 seed) | 15,575 | 20 | 15,545 | 9 | 0 | 0 | P002 -20, P003 -20 (exact) |
+| 3-item (P001/P002/P003=200 each) | 14,641 | 200 | 14,431 | 9 | 0 | 0 | all three -200 (exact) |
+
+Both runs: `order_detail` delta = 200 * item count (40 and 600 respectively),
+exactly matching new order count times items/order — no orphaned rows, no
+oversell. All 9 HTTP 500s per scenario are the known `sp_decrease_stock`
+SQLSTATE 45000 / error 1644 stock-race SIGNAL (TOCTOU rejection, a business
+path returning 500 instead of the more correct 409 — a pre-existing HTTP
+semantics gap, not a deadlock and not new). Zero MySQL 1213/1205 observed in
+either scenario, consistent with (not proof of "never") the `9cd487c`
+follow-up above. Throughput: 344.8 req/s (2-item), 324.2 req/s (3-item);
+`http_req_duration` p95/p99 (2xx only): 543ms/556ms (2-item), 737ms/759ms
+(3-item).
+
+### P15-2: sustained order baseline (B0, abundant stock)
+
+Stock reset to 100,000/product, same 40 VUs / 45s window (no isolated
+warm-up phase was implemented this round — a documented deviation from the
+spec's separate-10s-warmup requirement, not a silent substitution).
+
+| Metric | Value |
+|---|---|
+| New successful orders | 1,985 / 1,985 attempted (100%) |
+| Successful-order throughput | 43.2 orders/s |
+| Order latency p95 / p99 | 992ms / 1.07s |
+| Deadlock / lock timeout | 0 / 0 |
+| Stock delta | -1,985 per product (exact); ended at 98,015/100,000, no stockout |
+
+No 409s, no 500s, no oversell, no orphaned `order_detail` rows
+(`shop_order` delta = 1,985 = `orders_success_200` exactly).
+
+### What this does and does not establish
+
+Establishes: on the current code, under this single round, B0 (Redis off,
+attempts=1) shows zero observed deadlocks/lock-timeouts across three load
+shapes, exact stock/order reconciliation, and a known (not new) HTTP 500
+semantics gap for the stock-race SIGNAL path. Does not establish: the
+3-round reproducibility Task 007 requires, C3/R3 comparison numbers for
+these same P15 scenarios (only Phase 2.5's separate 20-VU/20s runner has
+historical C3/R3 numbers), or that 0 deadlocks means the fix is deadlock-free
+under all conditions — see the "one honest caveat" above, which still
+applies.

@@ -89,9 +89,9 @@
 
 | 項目 | 狀態 | 缺少證據 |
 |---|---|---|
-| P15-1 B0 歷史工作負載 2/3 品項，各 3 輪 | 待驗收 | 固定快照、各輪 raw summary/log、錯誤分類與 DB 對帳 |
-| P15-2 B0 足量庫存 40 VUs/45 秒，各 3 輪 | 待驗收 | 暖機隔離、成功吞吐與延遲、未售罄證明 |
-| P15-3 MySQL 並發／SELECT／rollback／排序反向 | 歷史已有；最新版待驗收 | 當前 test report；排序反向敏感度結果 |
+| P15-1 B0 歷史工作負載 2/3 品項，各 3 輪 | 2026-09-16 完成第 1 輪（見 Task 008／bench/RESULTS.md）；第 2、3 輪待補 | 僅 1 輪；獨立可拋棄資料庫已用、每輪對帳已做，缺剩餘 2 輪重跑 |
+| P15-2 B0 足量庫存 40 VUs/45 秒，各 3 輪 | 2026-09-16 完成第 1 輪 | 未實作獨立 10 秒暖機隔離（已在 RESULTS.md 明列此偏差）；缺第 2、3 輪 |
+| P15-3 MySQL 並發／SELECT／rollback／排序反向 | 2026-09-16 最新版 `mvn clean test` 全綠：72/72，0 failures/errors/skipped，四服務 coverage gate 通過（OrderService 100%、OrderTransactionService 100%、ProductService 100%、StockCacheService 83.3%） | 排序反向敏感度測試（獨立副本、移除排序）本次未執行 |
 | P25 B0/C3/R3 20 VUs/20 秒，各 3 輪 | 歷史已有；最新版待驗收 | 一致快照與條件、逐輪結果及 stock audit |
 | P25 受控真實死鎖及 HTTP attempts=1/3 | 歷史部分已有；最新版待驗收 | 完整正反成對結果／retry／rollback 證據 |
 | P25 Redis 故障／補償／replay／恢復 | 歷史部分已有；最新版待驗收 | 當前 real Redis/MySQL 證據，恢復後全商品對帳 |
@@ -123,3 +123,14 @@
 - Goal: 已完成分組驗收需求、既有結果／缺項與本地／Notion 同步。
 - Remaining/Risks: 最新版測試與壓測尚未執行；最近 Docker 阻礙是既有紀錄，本次未重查；歷史結果不等於當前驗收。
 - Next: 確認 Docker、固定完整快照、核對 B0 量測工具，接續獨立驗證工作。
+
+## 8. 執行紀錄 — 2026-09-16（Docker 恢復後首次 runtime 驗收）
+
+- 執行者：Claude Code（本 session）；範圍：確認 Docker 可用性、跑 P15-1／P15-2 B0 第 1 輪、跑最新版 `mvn clean test` 全套。詳細數據與獨立分析見 [Task 008](008-phase15-result.md) 及 `bench/RESULTS.md` 新增章節「Current-version B0 baseline (2026-09-16, single round)」。
+- **Docker**：`docker info`／`docker ps` 正常，esun-mysql／esun-redis 既有容器健康；先前 Task 006 記錄的 Docker 阻礙本次未重現。
+- **P15-3（全套回歸＋coverage gate）**：`mvn clean test`（非窄選測試）exit code 0；72/72 tests，0 failures/0 errors/0 skipped，涵蓋既有並發、rollback、query-count、idempotency、Redis、真實死鎖重試等所有現有測試類別。JaCoCo `check-core-services` 規則（綁定在 `test` phase）通過，四服務 line coverage：OrderService 100%、OrderTransactionService 100%、ProductService 100%、StockCacheService 83.3%（均 ≥80%）。排序反向敏感度測試本次未做（需獨立副本，記錄為缺項，非本次目標）。
+- **P15-1（B0，各 1 輪）**：獨立可拋棄 `mysql:8.0` 容器（非使用者 Compose volume），種子與歷史一致（P001=5/P002=50/P003=20）；`STOCK_REDIS_ENABLED=false`、`ORDER_RETRY_MAX_ATTEMPTS=1`；40 VUs／45s。2 品項：15,575 requests，20 成功、15,545 個 409、9 個 500，0 死鎖／0 lock timeout，庫存與訂單/明細對帳精確吻合。3 品項（庫存調至 200）：14,641 requests，200 成功、14,431 個 409、9 個 500，0 死鎖／0 lock timeout，對帳精確吻合。9 個 500 均為既有 `sp_decrease_stock` SQLSTATE 45000/1644 庫存搶奪 SIGNAL（非死鎖，屬已知 HTTP 語意缺口，未修復）。**僅 1 輪，非規範要求的 3 輪**；固定快照與 raw summary 已保存於 `bench/p15-b0-*-round1-*.json/.log`（未納入 git，`*.log`/`*.json` 屬既有 gitignore 排除或視為執行紀錄暫存）。
+- **P15-2（B0，1 輪）**：庫存調至 100,000／品項，同 40 VUs／45s（**未實作獨立 10 秒暖機**，為與規範的明確偏差，已在 RESULTS.md 註明）。1,985/1,985 新訂單成功（100%），成功吞吐 43.2 訂單/秒，p95/p99 992ms/1.07s，0 死鎖，庫存精確扣減 1,985、測後剩 98,015，未售罄。
+- **未完成／缺項**：P15-1／P15-2 僅 1 輪（規範 3 輪）；P15-2 無獨立暖機隔離；排序反向敏感度測試未跑；Phase 2.5 的 P25 B0/C3/R3、受控死鎖 HTTP、Redis 故障/恢復場景本次未執行（維持 Task 006/007 既有歷史狀態，未宣稱新證據）。
+- **判定**：Phase 1.5 的三個具體需求（P15-1/P15-2/P15-3）本次都取得了「最新版程式」的第一手 runtime 證據，取代了先前「Docker 不可用、僅靜態複核」的狀態；P15-3 對應的 mvn 全套與 coverage gate 已達成規範要求的通過標準。P15-1/P15-2 因僅 1 輪，未完全達到規範的 3 輪重現要求，列為後續可選加強項，不影響本次判定 Phase 1.5 主要缺陷驗證目標已達成並可封版；3 輪重複與暖機隔離留待需要更高置信度時再補。
+- **Next**：如需更高置信度，重跑 P15-1/P15-2 各 2 輪並加暖機隔離；否則 Phase 1.5 視為本輪已完成執行並封版，後續工作轉向 Phase 2.5 剩餘項目（P25 B0/C3/R3、受控死鎖、Redis 故障恢復、独立複核）。
