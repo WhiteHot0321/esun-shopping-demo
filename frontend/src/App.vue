@@ -11,6 +11,8 @@
       <h2>訊息</h2>
       <p>{{ message }}</p>
     </section>
+
+    <SupportChat />
   </div>
 </template>
 
@@ -20,6 +22,7 @@ import api from './api'
 import AuthPanel from './components/AuthPanel.vue'
 import ShopWorkspace from './components/ShopWorkspace.vue'
 import { useAuthStore } from './stores/auth'
+import SupportChat from './components/SupportChat.vue'
 
 const auth = useAuthStore()
 const authMode = ref('login')

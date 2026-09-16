@@ -282,6 +282,62 @@ backend/DB/02_data.sql
 
 ---
 
+## 商品 AI 客服（RAG）
+
+新增一個唯讀的「商品 AI 客服」功能：使用者以自然語言提問 → 系統用 RAG 從商品與常見問答中檢索相關資料 → LLM 根據檢索到的資料回答，並附上引用來源。預設使用本機 Ollama（免費、離線可用），介面設計成之後可平滑切換為 Claude API。
+
+### 啟動 Ollama 並下載模型
+
+```bash
+docker-compose up ollama   # 或本機安裝：ollama serve
+
+docker exec esun-ollama ollama pull llama3.1
+docker exec esun-ollama ollama pull nomic-embed-text
+
+# 確認模型已就緒
+curl -s http://localhost:11434/api/tags
+```
+
+後端啟動時（`EmbeddingIndexRunner`）會自動掃描 `product` 與 `faq` 資料表，為尚未建立、或來源資料已更新的項目呼叫 embedding API 並寫入 `doc_embedding` 表；若 Ollama 尚未啟動，索引會略過並記錄警告，不影響其餘功能正常啟動。
+
+### API 範例
+
+```
+POST /api/support/ask
+{
+  "question": "有沒有防水的商品？"
+}
+```
+
+```json
+{
+  "success": true,
+  "data": {
+    "answer": "根據目前商品資料……",
+    "sources": [
+      { "sourceType": "product", "sourceId": "P003", "title": "真愛密碼項鍊", "similarity": 0.87 }
+    ]
+  }
+}
+```
+
+錯誤情境：問題為空或超過 500 字 → 400；Ollama 無法連線或逾時 → 503；切換為 Claude 但尚未實作 → 501。
+
+### 切換為 Claude API
+
+修改 `backend/src/main/resources/application.yml`（或設定環境變數）：
+
+```yaml
+llm:
+  provider: claude   # 或設定環境變數 LLM_PROVIDER=claude
+```
+
+並設定環境變數 `ANTHROPIC_API_KEY`。目前 `ClaudeLlmClient` 僅為框架 stub（尚未實作實際呼叫），呼叫客服 API 會回傳 501，待後續階段補上實作。
+
+**尚未涵蓋（留待後續階段）**：`ClaudeLlmClient` 的實際呼叫實作、多輪對話記憶、串流回應（SSE）、速率限制、token 用量監控。
+
+---
+
 ## 題目需求對應
 
 - 使用 Vue.js：已完成

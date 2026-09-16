@@ -2,9 +2,12 @@ package com.esun.shop.security;
 
 import com.esun.shop.controller.OrderController;
 import com.esun.shop.controller.ProductController;
+import com.esun.shop.controller.SupportController;
+import com.esun.shop.dto.SupportAnswer;
 import com.esun.shop.model.Product;
 import com.esun.shop.service.OrderService;
 import com.esun.shop.service.ProductService;
+import com.esun.shop.service.SupportService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,7 +43,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * require a valid Bearer token (401 without one, 200 with one, same response shape as
  * before), while GET /api/products/available stays public for browsing.
  */
-@WebMvcTest(controllers = {OrderController.class, ProductController.class})
+@WebMvcTest(controllers = {OrderController.class, ProductController.class, SupportController.class})
 @Import({JwtAuthFilter.class, JwtService.class})
 @TestPropertySource(properties = {
         "jwt.secret=integration-test-secret-key-at-least-32-bytes-long",
@@ -62,6 +65,9 @@ class JwtAuthFilterTest {
 
     @MockBean
     private ProductService productService;
+
+    @MockBean
+    private SupportService supportService;
 
     private String validAuthHeader() {
         return "Bearer " + jwtService.generateToken("user@example.com");
@@ -160,5 +166,29 @@ class JwtAuthFilterTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data[0].productId").value("P001"));
+    }
+
+    @Test
+    void askSupport_withoutToken_staysPublicAndReturns200() throws Exception {
+        when(supportService.answer("waterproof products"))
+                .thenReturn(new SupportAnswer("A waterproof product is available.", List.of()));
+
+        mockMvc.perform(post("/api/support/ask")
+                        .contentType("application/json")
+                        .content("{\"question\":\"waterproof products\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.answer").value("A waterproof product is available."));
+    }
+
+    @Test
+    void askSupport_withBlankQuestion_returns400WithoutCallingService() throws Exception {
+        mockMvc.perform(post("/api/support/ask")
+                        .contentType("application/json")
+                        .content("{\"question\":\"   \"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+
+        verify(supportService, never()).answer(any());
     }
 }

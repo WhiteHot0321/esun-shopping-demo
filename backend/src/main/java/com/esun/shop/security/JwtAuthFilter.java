@@ -26,8 +26,9 @@ import java.io.IOException;
  * machinery is already wired up but still inside MVC's dispatch, filters run in front of it).
  *
  * Endpoint protection decision (see PR description for the full writeup):
- *  - Public: POST /api/auth/register, POST /api/auth/login, GET /api/products/available
- *    (a shopper must be able to browse and to log in before they have a token).
+ *  - Public: POST /api/auth/register, POST /api/auth/login, GET /api/products/available,
+ *    POST /api/support/ask (a shopper must be able to browse, ask product questions,
+ *    and log in before they have a token).
  *  - Protected: POST /api/products, POST /api/orders (state-changing actions).
  */
 @Component
@@ -76,7 +77,9 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         }
         String path = request.getRequestURI();
         if (HttpMethod.POST.matches(request.getMethod())
-                && (path.equals("/api/auth/register") || path.equals("/api/auth/login"))) {
+                && (path.equals("/api/auth/register")
+                || path.equals("/api/auth/login")
+                || path.equals("/api/support/ask"))) {
             return true;
         }
         return HttpMethod.GET.matches(request.getMethod()) && path.equals("/api/products/available");

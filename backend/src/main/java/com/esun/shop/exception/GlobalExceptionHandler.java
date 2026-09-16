@@ -47,6 +47,11 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.fail("CONCURRENT_CONFLICT", ex.getMessage()));
     }
 
+    @ExceptionHandler(UnsupportedOperationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleUnsupported(UnsupportedOperationException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).body(ApiResponse.fail(ex.getMessage()));
+    }
+
     @ExceptionHandler(DataAccessException.class)
     public ResponseEntity<ApiResponse<Void>> handleDb(DataAccessException ex) {
         log.error("資料庫操作失敗", ex);
