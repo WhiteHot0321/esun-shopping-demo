@@ -92,11 +92,11 @@
 | P15-1 B0 歷史工作負載 2/3 品項，各 3 輪 | 2026-09-16 完成第 1 輪（見 Task 008／bench/RESULTS.md）；第 2、3 輪待補 | 僅 1 輪；獨立可拋棄資料庫已用、每輪對帳已做，缺剩餘 2 輪重跑 |
 | P15-2 B0 足量庫存 40 VUs/45 秒，各 3 輪 | 2026-09-16 完成第 1 輪 | 未實作獨立 10 秒暖機隔離（已在 RESULTS.md 明列此偏差）；缺第 2、3 輪 |
 | P15-3 MySQL 並發／SELECT／rollback／排序反向 | 2026-09-16 最新版 `mvn clean test` 全綠：72/72，0 failures/errors/skipped，四服務 coverage gate 通過（OrderService 100%、OrderTransactionService 100%、ProductService 100%、StockCacheService 83.3%） | 排序反向敏感度測試（獨立副本、移除排序）本次未執行 |
-| P25 B0/C3/R3 20 VUs/20 秒，各 3 輪 | 歷史已有；最新版待驗收 | 一致快照與條件、逐輪結果及 stock audit |
-| P25 受控真實死鎖及 HTTP attempts=1/3 | 歷史部分已有；最新版待驗收 | 完整正反成對結果／retry／rollback 證據 |
-| P25 Redis 故障／補償／replay／恢復 | 歷史部分已有；最新版待驗收 | 當前 real Redis/MySQL 證據，恢復後全商品對帳 |
-| P25 獨立複核 | 靜態 PASS（Task 006） | 不代替 runtime；有 code 變更才定向複核 |
-| P25 clean suite／四 service ≥80% gate | 待驗收 | 當前成功退出與覆蓋率報告 |
+| P25 B0/C3/R3 20 VUs/20 秒，各 3 輪 | 2026-09-16 Task 013：隔離固定 ae7363f，九輪 7,511/7,511，庫存精確、R3 零 drift | 原始 JSON/XML/log 已保存；未宣稱歷史約50%改善重現 |
+| P25 受控真實死鎖及 HTTP attempts=1/3 | Task 013：20人 0/20、0 retries vs 20/20、20 retries；HTTP 10 conflicts vs 0（兩邊均真實1213=10） | 已取得成對實測、retry與rollback證據 |
+| P25 Redis 故障／補償／replay／恢復 | Task 013：真實Redis暫停時20/20 HTTP成功、真MySQL對帳、恢復audit空；既有補償/replay測試全綠 | 新service instance模擬process-local reset；不宣稱OS/JVM或跨實例重啟演練 |
+| P25 獨立複核 | Task 006 production修正靜態PASS；Task 013新增真實故障測試獨立PASS | 未重做無變更的production全審 |
+| P25 clean suite／四 service ≥80% gate | Task 013：76/76，0 failures/errors/skips，Maven exit0；94.44%/100%/95.24%/100% | clean後全新JaCoCo資料；無降低門檻 |
 
 每輪結果固定填：配置 ID、run ID、快照 ID、條件、成功／總數、新訂單數、成功 TPS、成功及全體 p95/p99、各類錯誤、1213/1205、retry、期初／期末／應有庫存、Redis drift、exit code、原始檔案位置、判定與缺項。未量測填「未執行／未知」，不得填 0。
 

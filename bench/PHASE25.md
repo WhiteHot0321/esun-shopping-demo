@@ -10,11 +10,29 @@ from this runner's 20-VU/20-second comparison. Do not substitute one for another
 Record each configuration for three identical fresh-data runs; retain every run,
 including null results. A successful HTTP replay is not a newly created order.
 
-Latest runtime result is Task 006 (2026-09-16): independent repair review static
-PASS, focused invocation exit 1 with 2 passed and 13 Docker initialization errors.
-Current complete fault/load/coverage acceptance is still pending. This document
-update does not probe Docker or run tests. Runtime logs and outputs under target/
-must be preserved outside the clean-build output before running mvn clean test.
+Latest runtime authority is [Task 013](../docs/tasks/013-phase25-final-acceptance.md)
+(2026-09-16 13:44): fixed ae7363f plus RedisLiveOutageIntegrationTest, isolated
+sequential validation. B0/C3/R3 each passed three rounds (7,511/7,511 total orders),
+all Redis audits empty. Controlled HTTP attempts=1: 10 real 1213 / 10 conflicts;
+attempts=3: 10 real 1213 / 10 retries / zero conflicts. Live Redis pause: 20/20
+authenticated HTTP orders succeeded, exact DB reconciliation and recovery audit.
+Final `mvn clean test`: 76/76, exit 0, four service line gates >=80% passed.
+Independent new-test review PASS; production repair review remains PASS.
+Raw logs, JSON, XML and source manifest are retained outside target in
+`.git/phase25-final-ae7363f/`. Earlier Docker-blocked records below are historical.
+
+Additional explicit commands:
+
+```powershell
+mvn "-Dtest=Phase25K6DeadlockAcceptance" "-Dorder.retry.max-attempts=1" test
+mvn "-Dtest=Phase25K6DeadlockAcceptance" "-Dorder.retry.max-attempts=3" test
+mvn "-Dtest=RedisLiveOutageIntegrationTest" test
+```
+
+The live outage test pauses only its own disposable Redis. It checks recovery
+against real MySQL and proves latch persistence on the same restored instance;
+a fresh service instance models reset of process-local state. It does not claim
+to exercise a literal JVM restart. Preserve raw outputs before `mvn clean test`.
 
 Run from `backend/` with Docker and k6 available. These runners use disposable
 Testcontainers databases/cache, not the user's Compose volumes.

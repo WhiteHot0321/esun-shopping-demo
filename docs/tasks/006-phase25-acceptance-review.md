@@ -1,5 +1,7 @@
 # Phase 2.5 C/B independent acceptance review
 
+> Runtime closure: [Task 013](013-phase25-final-acceptance.md), 2026-09-16 13:44, supersedes the Docker-blocked and pending-runtime status in this historical record. Final 76/76 and four-service gate pass, paired HTTP deadlocks, nine normal k6 runs and live Redis pause verified. Original static review remains valid; a narrow independent review covers the new test.
+
 ## Resumed acceptance gate — 2026-09-16 Asia/Taipei
 
 - Goal: resolve Phase 2.5 coverage and remaining failure/load/review acceptance.

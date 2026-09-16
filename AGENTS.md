@@ -25,6 +25,34 @@ Read CLAUDE.md for project conventions and docs/project-state.md for the latest 
 - Use scripts/invoke-claude.ps1 for read-only audits. It deliberately exposes only Read, Glob and Grep; implementation requires a separately scoped workflow.
 - No automatic commit, push or merge during this pilot.
 
+## Codex review-only execution gate
+
+This section overrides the general implementation, verification and automatic-repair rules below whenever `MODE: REVIEW_ONLY` is active.
+
+- Codex must state the active mode before repository inspection. `MODE: REVIEW_ONLY` activates automatically when the user requests a review, when Codex receives a `CLAUDE → CODEX HANDOFF` with `STATUS: READY_FOR_REVIEW`, or when the current phase is independent validation. Only an explicit user instruction containing `MODE: IMPLEMENT` may authorize Codex implementation; phrases such as "finish", "make it pass", "fix everything" or "continue" do not change the mode.
+- At the start of a review, record the task ID, baseline commit, allowed files, read limit, one optional target verification command and explicit exclusions. Default review budget: at most 5 core files read, 0 files changed, 0 repair rounds, 1 targeted verification command and 0 coverage commands unless the ticket explicitly requires independent coverage-gate verification.
+- Codex may read the task specification and handoff, inspect Git status and the relevant diff, read directly affected production and test code, and run the single targeted verification command only when the supplied evidence is insufficient. Derive expected behavior from requirements and code before relying on the author's explanation.
+- Codex must not modify production code, tests, fixtures, executable configuration or acceptance evidence; use `apply_patch` or filesystem-writing shell commands; add tests; fix a discovered defect; investigate or repair coverage; run a second test command after a failure; broaden verification into a module or repository-wide suite; or enter an edit → test → repair → retest loop.
+- A failed verification command, missing acceptance evidence, discovered defect or insufficient coverage changes the outcome to `FAIL`, `BLOCKED` or `NEEDS_ARCH_DECISION`; it does not authorize repair. Codex must stop the review and emit one bounded `CODEX → CLAUDE CORRECTION TASK` containing the observed defect, expected behavior, evidence or reproduction, allowed files, acceptance condition, one required test and explicit exclusions.
+- A review may end only with `PASS`, `FAIL`, `BLOCKED` or `NEEDS_ARCH_DECISION`. On exit, compare Git status with the recorded baseline. Any new reviewer-created repository change invalidates the review and must be reported as a role violation; preserve all pre-existing user changes.
+
+Use this correction contract when a review does not pass:
+
+```text
+# CODEX → CLAUDE CORRECTION TASK
+
+TASK_ID:
+PARENT_TASK_ID:
+
+## OBSERVED_DEFECT
+## EXPECTED_BEHAVIOR
+## EVIDENCE
+## ALLOWED_SCOPE
+## ACCEPTANCE
+## REQUIRED_TEST
+## OUT_OF_SCOPE
+```
+
 ## Scope and context control
 - At the start of every task, state one outcome, the affected module, the files that must be read and changed, and the minimum verification. Use progressive discovery: expand reads only when the next step cannot be completed with current evidence. Do not scan the repository to build a complete mental model first.
 - Search in this order: known files, exact symbol/class/method, related package, affected module, and repository-wide search only when necessary. Read only the relevant method/class or file sections; do not repeatedly reload unchanged long files.
