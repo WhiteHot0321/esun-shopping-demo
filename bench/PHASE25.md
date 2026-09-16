@@ -124,3 +124,26 @@ MySQL 1213/1205 bucketed counts under ordinary (non-controlled) load, a
 stress/sold-out scenario, and the Redis outage/recovery/reconciliation
 procedure in "Cache operations" above. Current paired controlled HTTP
 attempts=1/3 (`Phase25K6DeadlockAcceptance`) was not run this session.
+
+### Three-round repeat — 2026-09-16 10:31-10:40 Asia/Taipei (Task 010A)
+
+Closes the "three-round repetition" gap noted above. **Two independent Claude Code sessions
+ran Task 010A concurrently on the same checkout without coordinating** (an instance of
+AGENTS.md's "one writer per checkout" being violated) and each produced its own full batch of
+9 rounds; both are real, neither replaces the other. Full per-round tables for both batches and
+the reconciliation note are in
+[docs/tasks/011-phase25-3round-result.md](../docs/tasks/011-phase25-3round-result.md); summary:
+
+| Config | Batch 1 success (median/range) | Batch 1 total reqs (median/range) | Batch 2 success (median/range) | Batch 2 total reqs (median/range) |
+|---|---|---|---|---|
+| B0 (Redis off, attempts=1) | 100% / 100%-100% | 705 / 702-734 | 100% / 100%-100% | 783 / 687-785 |
+| C3 (Redis off, attempts=3) | 100% / 100%-100% | 729 / 728-756 | 100% / 100%-100% | 732 / 687-798 |
+| R3 (Redis on, attempts=3) | 100% / 100%-100% | 737 / 704-874 | 100% / 100%-100% | 714 / 678-748 |
+
+All 18 rounds across both batches: Maven exit 0, ending stock reconciled exactly to
+`10000 - success`, R3's `cache.audit()` empty in every R3 round. Zero retries in every C3/R3
+round in both batches confirms this load shape (20 VUs/20s, 10,000 initial units) never
+approaches enough contention to exercise the retry path; still not a substitute for the
+stock-depleting stress scenario or the controlled deadlock runners. Still not covered: the
+Redis outage/recovery drill (Task 010 sub-task B, separate session) and
+`Phase25K6DeadlockAcceptance`'s paired HTTP attempts=1/3 comparison.
