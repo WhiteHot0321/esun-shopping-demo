@@ -2,6 +2,12 @@ server:
   port: ${SERVER_PORT:8080}
 
 spring:
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      connect-timeout: 500ms
+      timeout: 500ms
   datasource:
     url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:esun_shop}?useSSL=false&serverTimezone=Asia/Taipei&characterEncoding=utf8
     username: ${DB_USERNAME:root}
@@ -16,3 +22,7 @@ jwt:
   # docker-compose.yml.
   secret: ${JWT_SECRET:dev-only-insecure-secret-change-me-please-32bytes}
   expiration-ms: ${JWT_EXPIRATION_MS:3600000}
+
+stock:
+  redis:
+    enabled: ${STOCK_REDIS_ENABLED:false}

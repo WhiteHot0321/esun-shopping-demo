@@ -34,6 +34,18 @@
             <artifactId>spring-boot-starter-jdbc</artifactId>
         </dependency>
         <dependency>
+            <groupId>org.springframework.retry</groupId>
+            <artifactId>spring-retry</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-aop</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+        <dependency>
             <groupId>com.mysql</groupId>
             <artifactId>mysql-connector-j</artifactId>
             <scope>runtime</scope>
@@ -135,6 +147,8 @@
                                     <element>CLASS</element>
                                     <includes>
                                         <include>com.esun.shop.service.OrderService</include>
+                                        <include>com.esun.shop.service.OrderTransactionService</include>
+                                        <include>com.esun.shop.service.StockCacheService</include>
                                         <include>com.esun.shop.service.ProductService</include>
                                     </includes>
                                     <limits>

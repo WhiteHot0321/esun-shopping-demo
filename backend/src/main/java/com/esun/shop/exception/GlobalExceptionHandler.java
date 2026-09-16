@@ -1,6 +1,7 @@
 package com.esun.shop.exception;
 
 import com.esun.shop.dto.ApiResponse;
+import com.esun.shop.service.ConcurrentOrderException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
@@ -39,10 +40,18 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.fail("資料已存在"));
     }
 
+    @ExceptionHandler(ConcurrentOrderException.class)
+    public ResponseEntity<ApiResponse<Void>> handleConcurrentOrder(ConcurrentOrderException ex) {
+        log.warn("訂單因鎖競爭重試後仍失敗，requestId={}", ex.getRequestId());
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiResponse.fail("CONCURRENT_CONFLICT", ex.getMessage()));
+    }
+
     @ExceptionHandler(DataAccessException.class)
     public ResponseEntity<ApiResponse<Void>> handleDb(DataAccessException ex) {
         log.error("資料庫操作失敗", ex);
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.fail("資料庫操作失敗"));
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ApiResponse.fail("DB_ERROR", "資料庫操作失敗"));
     }
 
     @ExceptionHandler(Exception.class)

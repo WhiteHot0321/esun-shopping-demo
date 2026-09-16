@@ -74,6 +74,12 @@ const ordersBadRequest400 = new Counter('orders_badrequest_400');
 const ordersServerError500 = new Counter('orders_servererror_500'); // ambiguous bucket, see caveat above
 const ordersOtherStatus = new Counter('orders_other_status');
 const ordersNoResponse = new Counter('orders_no_response'); // status 0: timeout / connection error
+const concurrentConflicts = new Counter('orders_concurrent_conflict');
+export function setup() {
+  const auth = http.post(`${BASE_URL}/api/auth/register`, JSON.stringify({ email: `k6-multi-${Date.now()}@example.com`, password: 'k6-password-123' }), { headers: { 'Content-Type': 'application/json' } });
+  check(auth, { 'registered benchmark account': (r) => r.status === 200 });
+  return { token: auth.json('data.token') };
+}
 
 const newRequestId = () => {
   const bytes = new Uint8Array(crypto.randomBytes(16));
@@ -83,7 +89,7 @@ const newRequestId = () => {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 };
 
-export default function () {
+export default function (data) {
   const items = PERMUTATIONS[__VU % 6];
   // shop_order.member_id is VARCHAR(20) — keep this well under that limit.
   const memberId = `k6${__VU}_${__ITER % 100000}`;
@@ -94,7 +100,7 @@ export default function () {
     items: items,
   });
   const params = {
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data.token}` },
     timeout: '30s',
   };
 
@@ -112,6 +118,7 @@ export default function () {
       break;
     case 409:
       ordersConflict409.add(1);
+      if (res.json('code') === 'CONCURRENT_CONFLICT') concurrentConflicts.add(1);
       break;
     case 500:
       ordersServerError500.add(1);

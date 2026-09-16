@@ -61,6 +61,10 @@ public class ProductRepository {
         return list.isEmpty() ? null : list.get(0);
     }
 
+    public List<Product> findAllStock() {
+        return jdbcTemplate.query("SELECT product_id, product_name, price, quantity FROM product", PRODUCT_ROW_MAPPER);
+    }
+
     /**
      * 一次撈回多筆商品，供建立訂單時以 Map 查詢，避免每個品項各打一次 SELECT。
      */

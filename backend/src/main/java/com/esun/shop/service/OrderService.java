@@ -1,127 +1,102 @@
 package com.esun.shop.service;
 
 import com.esun.shop.dto.CreateOrderRequest;
-import com.esun.shop.dto.OrderItemRequest;
-import com.esun.shop.exception.BusinessException;
-import com.esun.shop.model.OrderDetail;
-import com.esun.shop.model.OrderRequest;
-import com.esun.shop.model.Product;
-import com.esun.shop.model.ShopOrder;
 import com.esun.shop.repository.OrderRepository;
 import com.esun.shop.repository.ProductRepository;
-import org.springframework.http.HttpStatus;
-import org.springframework.dao.DuplicateKeyException;
+import org.springframework.dao.CannotAcquireLockException;
+import org.springframework.dao.DeadlockLoserDataAccessException;
+import org.springframework.dao.DataAccessException;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Recover;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import com.esun.shop.exception.BusinessException;
 
-import java.math.BigDecimal;
-import java.security.SecureRandom;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.Comparator;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.retry.support.RetrySynchronizationManager;
 
 @Service
 public class OrderService {
-    private static final DateTimeFormatter ORDER_ID_TIMESTAMP =
-            DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS");
-    private static final char[] SUFFIX_ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ".toCharArray();
-    private static final int SUFFIX_LENGTH = 6;
-    private static final SecureRandom RANDOM = new SecureRandom();
+    private static final Logger log = LoggerFactory.getLogger(OrderService.class);
+    private final OrderTransactionService transactionService;
+    private final AtomicLong retryCount = new AtomicLong();
+    private final StockCacheService stockCacheService;
 
-    private final ProductRepository productRepository;
-    private final OrderRepository orderRepository;
+    @Autowired
+    public OrderService(OrderTransactionService transactionService, StockCacheService stockCacheService) {
+        this.transactionService = transactionService;
+        this.stockCacheService = stockCacheService;
+    }
 
+    public OrderService(OrderTransactionService transactionService) {
+        this.transactionService = transactionService;
+        this.stockCacheService = null;
+    }
+
+    /** Compatibility constructor used by isolated service unit tests. */
     public OrderService(ProductRepository productRepository, OrderRepository orderRepository) {
-        this.productRepository = productRepository;
-        this.orderRepository = orderRepository;
+        this(new OrderTransactionService(productRepository, orderRepository));
     }
 
-    @Transactional
+    @Retryable(retryFor = {CannotAcquireLockException.class, DeadlockLoserDataAccessException.class},
+            maxAttemptsExpression = "#{T(java.lang.Math).max(1, T(java.lang.Math).min(3, ${order.retry.max-attempts:3}))}",
+            backoff = @Backoff(delay = 50, multiplier = 2, maxDelay = 200, random = true))
     public String createOrder(CreateOrderRequest request) {
-        String orderId = generateOrderId();
-        String memberId = request.getMemberId().trim();
-
+        var retryContext = RetrySynchronizationManager.getContext();
+        if (retryContext != null && retryContext.getRetryCount() > 0) {
+            retryCount.incrementAndGet();
+            log.info("Order retry requestId={} attempt={}", request.getRequestId(), retryContext.getRetryCount() + 1);
+        }
+        if (stockCacheService == null || !stockCacheService.isEnabled()) {
+            return transactionService.createOrder(request);
+        }
+        List<com.esun.shop.dto.OrderItemRequest> items = request.getItems();
+        var reservation = new java.util.concurrent.atomic.AtomicReference<>(StockCacheService.Reservation.BYPASSED);
         try {
-            // This must be the first database statement in the transaction. When a concurrent
-            // request with the same key wins, MySQL waits for its commit before reporting the
-            // duplicate; the first subsequent consistent read therefore sees the committed claim.
-            orderRepository.claimRequest(request.getRequestId(), orderId, memberId);
-        } catch (DuplicateKeyException ex) {
-            OrderRequest original = orderRepository.findRequestById(request.getRequestId())
-                    .orElseThrow(() -> ex);
-            if (!memberId.equals(original.getMemberId())) {
-                throw new BusinessException("requestId 已被其他會員使用", HttpStatus.CONFLICT);
-            }
-            return original.getOrderId();
+            OrderCreationResult result = transactionService.createOrderWithStock(request, () -> {
+                reservation.set(stockCacheService.tryDecrease(items));
+                if (reservation.get() == StockCacheService.Reservation.INSUFFICIENT) {
+                    throw new BusinessException("商品庫存不足", org.springframework.http.HttpStatus.CONFLICT);
+                }
+            });
+            return result.orderId();
+        } catch (RuntimeException ex) {
+            // The transactional proxy has finished rolling back before compensation.
+            if (reservation.get() == StockCacheService.Reservation.RESERVED) stockCacheService.compensate(items);
+            throw ex;
         }
-
-        // 一次撈回所有相關商品，避免驗證迴圈 + 明細迴圈各查一次造成的 2n 次 SELECT。
-        List<String> productIds = request.getItems().stream()
-                .map(OrderItemRequest::getProductId)
-                .distinct()
-                .toList();
-        Map<String, Product> productMap = productRepository.findByIds(productIds).stream()
-                .collect(Collectors.toMap(Product::getProductId, product -> product));
-
-        BigDecimal totalPrice = BigDecimal.ZERO;
-        for (OrderItemRequest item : request.getItems()) {
-            Product product = productMap.get(item.getProductId());
-            if (product == null) {
-                throw new BusinessException("商品不存在: " + item.getProductId(), HttpStatus.NOT_FOUND);
-            }
-            if (item.getQuantity() > product.getQuantity()) {
-                throw new BusinessException("商品庫存不足: " + item.getProductId(), HttpStatus.CONFLICT);
-            }
-            totalPrice = totalPrice.add(product.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
-        }
-
-        ShopOrder order = new ShopOrder();
-        order.setOrderId(orderId);
-        order.setMemberId(memberId);
-        order.setPrice(totalPrice);
-        order.setPayStatus(request.getPayStatus().ordinal());
-        orderRepository.insertOrder(order);
-
-        // 依 productId 升冪處理，讓並發訂單永遠以相同順序鎖定 product 列，避免交錯上鎖造成 deadlock。
-        List<OrderItemRequest> lockOrderedItems = request.getItems().stream()
-                .sorted(Comparator.comparing(OrderItemRequest::getProductId))
-                .toList();
-        for (OrderItemRequest item : lockOrderedItems) {
-            Product product = productMap.get(item.getProductId());
-
-            // 先 decreaseStock（UPDATE 直接取 X-lock）、後 insertOrderDetail。
-            // 若順序相反，INSERT 會先因 order_detail 的外鍵檢查對 product 該列取隱式
-            // S-lock，之後 UPDATE 才要求升級為 X-lock；多筆並發交易同時卡在「已持有
-            // S-lock、都在等對方釋放以便升級」會形成與品項順序無關的死鎖，不受本迴圈
-            // 的 productId 排序保護。先取 X-lock 可讓同一列的並發競爭退化成單純鎖等待
-            // （後到者等前者 commit/rollback），而不是鎖升級死鎖。
-            productRepository.decreaseStock(item.getProductId(), item.getQuantity());
-
-            OrderDetail detail = new OrderDetail();
-            detail.setOrderId(orderId);
-            detail.setProductId(item.getProductId());
-            detail.setQuantity(item.getQuantity());
-            detail.setUnitPrice(product.getPrice());
-            detail.setItemPrice(product.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
-            orderRepository.insertOrderDetail(detail);
-        }
-
-        return orderId;
     }
 
-    /**
-     * 訂單編號 = Ms + 毫秒級時間戳 (17) + 6 碼隨機英數，共 25 字元，符合 order_id VARCHAR(30)。
-     * 保留時間前綴讓編號仍可依時間排序 / 人工判讀，隨機尾碼負責同毫秒下單時的唯一性。
-     */
-    private String generateOrderId() {
-        StringBuilder sb = new StringBuilder(25);
-        sb.append("Ms").append(LocalDateTime.now().format(ORDER_ID_TIMESTAMP));
-        for (int i = 0; i < SUFFIX_LENGTH; i++) {
-            sb.append(SUFFIX_ALPHABET[RANDOM.nextInt(SUFFIX_ALPHABET.length)]);
-        }
-        return sb.toString();
+    @Recover
+    public String recover(CannotAcquireLockException cause, CreateOrderRequest request) {
+        return recoverLockContention(cause, request);
+    }
+
+    @Recover
+    public String recover(DeadlockLoserDataAccessException cause, CreateOrderRequest request) {
+        return recoverLockContention(cause, request);
+    }
+
+    @Recover
+    public String recover(DataAccessException cause, CreateOrderRequest request) {
+        throw cause;
+    }
+
+    @Recover
+    public String recover(BusinessException cause, CreateOrderRequest request) {
+        throw cause;
+    }
+
+    private String recoverLockContention(Throwable cause, CreateOrderRequest request) {
+        log.warn("Order retries exhausted requestId={}", request.getRequestId());
+        throw new ConcurrentOrderException(request.getRequestId(), cause);
+    }
+
+    public long getRetryCount() {
+        return retryCount.get();
     }
 }
