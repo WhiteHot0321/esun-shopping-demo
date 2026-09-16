@@ -72,7 +72,6 @@ class JwtAuthFilterTest {
         String body = objectMapper.writeValueAsString(Map.of(
                 "requestId", "00000000-0000-4000-8000-000000000001",
                 "memberId", "M001",
-                "requestId", "00000000-0000-4000-8000-000000000001",
                 "payStatus", "PENDING",
                 "items", List.of(Map.of("productId", "P001", "quantity", 1))));
 
@@ -88,7 +87,6 @@ class JwtAuthFilterTest {
         String body = objectMapper.writeValueAsString(Map.of(
                 "requestId", "00000000-0000-4000-8000-000000000002",
                 "memberId", "M001",
-                "requestId", "00000000-0000-4000-8000-000000000002",
                 "payStatus", "PENDING",
                 "items", List.of(Map.of("productId", "P001", "quantity", 1))));
 
@@ -105,7 +103,6 @@ class JwtAuthFilterTest {
         String body = objectMapper.writeValueAsString(Map.of(
                 "requestId", "00000000-0000-4000-8000-000000000003",
                 "memberId", "M001",
-                "requestId", "00000000-0000-4000-8000-000000000003",
                 "payStatus", "PENDING",
                 "items", List.of(Map.of("productId", "P001", "quantity", 1))));
 

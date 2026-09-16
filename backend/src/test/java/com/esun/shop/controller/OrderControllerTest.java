@@ -3,7 +3,6 @@ package com.esun.shop.controller;
 import com.esun.shop.exception.BusinessException;
 import com.esun.shop.security.JwtService;
 import com.esun.shop.service.OrderService;
-import com.esun.shop.security.JwtService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
