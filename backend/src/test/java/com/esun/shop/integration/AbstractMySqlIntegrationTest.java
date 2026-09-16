@@ -10,8 +10,9 @@ import org.testcontainers.utility.MountableFile;
 /**
  * Shared real-MySQL fixture for the Testcontainers integration tests.
  *
- * Loads the actual backend/DB/01_schema.sql -> 02_data.sql -> 03_stored_procedures.sql
- * -> 04_member.sql scripts (the same files docker-compose.yml mounts into /docker-entrypoint-initdb.d)
+ * Loads the actual backend/DB/01_schema.sql -> 02_data.sql -> 03_stored_procedures.sql ->
+ * 04_faq.sql -> 04_member.sql scripts (the same files docker-compose.yml mounts into
+ * /docker-entrypoint-initdb.d)
  * via withCopyFileToContainer, relying on the official mysql image running everything
  * under /docker-entrypoint-initdb.d in alphabetical (01/02/03) order - no hand-rolled
  * reduced schema, so this is exercising the real DDL/stored procedures.
@@ -30,12 +31,20 @@ abstract class AbstractMySqlIntegrationTest {
 
     static final MySQLContainer<?> MYSQL = new MySQLContainer<>(DockerImageName.parse("mysql:8.0"))
             .withDatabaseName("esun_shop")
+            // Without this, the mysql image's default character_set_client (latin1) mangles the
+            // UTF-8 Chinese text in 02_data.sql/04_faq.sql while the *.sql files run during
+            // container init, double-encoding every product/FAQ string - same fix as
+            // docker-compose.yml's mysql service.
+            .withCommand("--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci",
+                    "--character-set-client-handshake=FALSE")
             .withCopyFileToContainer(
                     MountableFile.forHostPath("DB/01_schema.sql"), "/docker-entrypoint-initdb.d/01_schema.sql")
             .withCopyFileToContainer(
                     MountableFile.forHostPath("DB/02_data.sql"), "/docker-entrypoint-initdb.d/02_data.sql")
             .withCopyFileToContainer(
                     MountableFile.forHostPath("DB/03_stored_procedures.sql"), "/docker-entrypoint-initdb.d/03_stored_procedures.sql")
+            .withCopyFileToContainer(
+                    MountableFile.forHostPath("DB/04_faq.sql"), "/docker-entrypoint-initdb.d/04_faq.sql")
             .withCopyFileToContainer(
                     MountableFile.forHostPath("DB/04_member.sql"), "/docker-entrypoint-initdb.d/04_member.sql");
 

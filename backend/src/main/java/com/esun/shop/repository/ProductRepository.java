@@ -1,5 +1,6 @@
 package com.esun.shop.repository;
 
+import com.esun.shop.llm.IndexableDoc;
 import com.esun.shop.model.Product;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
@@ -75,6 +76,15 @@ public class ProductRepository {
         String placeholders = String.join(",", Collections.nCopies(productIds.size(), "?"));
         String sql = "SELECT product_id, product_name, price, quantity FROM product WHERE product_id IN (" + placeholders + ")";
         return jdbcTemplate.query(sql, PRODUCT_ROW_MAPPER, productIds.toArray());
+    }
+
+    public List<IndexableDoc> findAllForIndexing() {
+        String sql = "SELECT product_id, product_name, updated_at FROM product";
+        return jdbcTemplate.query(sql, (rs, rowNum) -> new IndexableDoc(
+                "product",
+                rs.getString("product_id"),
+                rs.getString("product_name"),
+                rs.getTimestamp("updated_at").toLocalDateTime()));
     }
 
     public void decreaseStock(String productId, Integer quantity) {
