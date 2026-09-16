@@ -16,6 +16,19 @@ class JwtServiceTest {
     private static final String SECRET = "unit-test-secret-key-must-be-at-least-32-bytes-long";
 
     @Test
+    void blankSubjectsCannotBeIssuedOrAccepted() {
+        JwtService service = new JwtService(SECRET, 3_600_000L);
+        for (String subject : new String[] { null, "", "   " }) {
+            assertThatThrownBy(() -> service.generateToken(subject))
+                    .isInstanceOf(IllegalArgumentException.class);
+            String token = io.jsonwebtoken.Jwts.builder().subject(subject)
+                    .signWith(io.jsonwebtoken.security.Keys.hmacShaKeyFor(
+                            SECRET.getBytes(java.nio.charset.StandardCharsets.UTF_8))).compact();
+            assertThatThrownBy(() -> service.extractEmail(token)).isInstanceOf(JwtException.class);
+        }
+    }
+
+    @Test
     void generateToken_thenExtractEmail_roundTrips() {
         JwtService jwtService = new JwtService(SECRET, 3_600_000L);
 

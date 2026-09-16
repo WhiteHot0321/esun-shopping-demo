@@ -30,9 +30,10 @@ jobs:
       - name: Install dependencies
         working-directory: frontend
         run: npm ci
+      - name: Test frontend
+        working-directory: frontend
+        run: npm test
       - name: Build frontend
-        # No frontend test script exists yet; a successful production build is
-        # today's substitute check until one is added.
         working-directory: frontend
         run: npm run build
 

@@ -6,7 +6,7 @@
         <input v-model.trim="form.email" type="email" placeholder="Email" autocomplete="email" />
         <input v-model="form.password" type="password" placeholder="密碼" autocomplete="current-password" />
         <button :disabled="busy" @click="$emit('submit')">{{ mode === 'login' ? '登入' : '註冊' }}</button>
-        <button class="secondary" @click="$emit('toggle')">切換至{{ mode === 'login' ? '註冊' : '登入' }}</button>
+        <button class="secondary" :disabled="busy" @click="$emit('toggle')">切換至{{ mode === 'login' ? '註冊' : '登入' }}</button>
       </div>
     </div>
     <div v-else class="header-row">

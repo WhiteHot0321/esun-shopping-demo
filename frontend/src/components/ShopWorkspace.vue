@@ -36,3 +36,12 @@ const submitOrder = () => { const items = selected.value.map(i => ({ productId: 
 const retry = () => finish(lifecycle.retry(request => api.post('/orders', request)))
 onMounted(loadProducts)
 </script>
+
+<style scoped>
+h2, h3 { margin-bottom: 12px; }
+.form-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.header-row { display: flex; justify-content: space-between; align-items: center; }
+.order-form { margin-top: 20px; display: grid; gap: 10px; max-width: 300px; }
+input, select, button { padding: 8px 12px; font-size: 14px; }
+table { margin-top: 10px; }
+</style>

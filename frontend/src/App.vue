@@ -28,6 +28,7 @@ const authForm = reactive({ email: '', password: '' })
 const message = ref('')
 
 const submitAuth = async () => {
+  if (isAuthenticating.value) return
   if (!authForm.email || !authForm.password) {
     message.value = '請輸入 Email 與密碼'
     return
@@ -40,13 +41,14 @@ const submitAuth = async () => {
     authForm.password = ''
     message.value = authMode.value === 'login' ? '登入成功' : '註冊成功，已自動登入'
   } catch (error) {
-    message.value = errorMessage(error, authMode.value === 'login' ? '登入失敗' : '註冊失敗')
+    message.value = error.response?.data?.message || (authMode.value === 'login' ? '登入失敗' : '註冊失敗')
   } finally {
     isAuthenticating.value = false
   }
 }
 
 const toggleAuthMode = () => {
+  if (isAuthenticating.value) return
   authMode.value = authMode.value === 'login' ? 'register' : 'login'
   message.value = ''
 }

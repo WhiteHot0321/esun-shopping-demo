@@ -67,6 +67,7 @@ class OrderRollbackIntegrationTest extends AbstractMySqlIntegrationTest {
         seedProduct("RB-P001", "10.00", 5);
 
         CreateOrderRequest request = new CreateOrderRequest();
+        request.setRequestId(java.util.UUID.randomUUID().toString());
         request.setMemberId("MEMBER-ROLLBACK");
         request.setPayStatus(PayStatus.PENDING);
         // Two lines for the same product: both pass the pre-check against the initial
@@ -75,7 +76,19 @@ class OrderRollbackIntegrationTest extends AbstractMySqlIntegrationTest {
         request.setItems(List.of(item("RB-P001", 3), item("RB-P001", 3)));
 
         assertThatThrownBy(() -> orderService.createOrder(request))
-                .isInstanceOf(DataAccessException.class);
+                .isInstanceOf(DataAccessException.class)
+                .satisfies(error -> {
+                    Throwable cause = error;
+                    while (cause.getCause() != null) cause = cause.getCause();
+                    assertThat(cause).isInstanceOf(java.sql.SQLException.class);
+                    java.sql.SQLException sql = (java.sql.SQLException) cause;
+                    assertThat(sql.getSQLState()).isEqualTo("45000");
+                    assertThat(sql.getErrorCode()).isEqualTo(1644);
+                });
+
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM order_request WHERE request_id = ?", Integer.class,
+                request.getRequestId())).isZero();
 
         Integer remainingStock = jdbcTemplate.queryForObject(
                 "SELECT quantity FROM product WHERE product_id = ?", Integer.class, "RB-P001");
