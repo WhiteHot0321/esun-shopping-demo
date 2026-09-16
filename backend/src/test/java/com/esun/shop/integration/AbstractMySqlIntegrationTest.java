@@ -31,6 +31,12 @@ abstract class AbstractMySqlIntegrationTest {
 
     static final MySQLContainer<?> MYSQL = new MySQLContainer<>(DockerImageName.parse("mysql:8.0"))
             .withDatabaseName("esun_shop")
+            // Without this, the mysql image's default character_set_client (latin1) mangles the
+            // UTF-8 Chinese text in 02_data.sql/04_faq.sql while the *.sql files run during
+            // container init, double-encoding every product/FAQ string - same fix as
+            // docker-compose.yml's mysql service.
+            .withCommand("--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci",
+                    "--character-set-client-handshake=FALSE")
             .withCopyFileToContainer(
                     MountableFile.forHostPath("DB/01_schema.sql"), "/docker-entrypoint-initdb.d/01_schema.sql")
             .withCopyFileToContainer(
