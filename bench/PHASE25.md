@@ -144,6 +144,25 @@ All 18 rounds across both batches: Maven exit 0, ending stock reconciled exactly
 `10000 - success`, R3's `cache.audit()` empty in every R3 round. Zero retries in every C3/R3
 round in both batches confirms this load shape (20 VUs/20s, 10,000 initial units) never
 approaches enough contention to exercise the retry path; still not a substitute for the
-stock-depleting stress scenario or the controlled deadlock runners. Still not covered: the
-Redis outage/recovery drill (Task 010 sub-task B, separate session) and
-`Phase25K6DeadlockAcceptance`'s paired HTTP attempts=1/3 comparison.
+stock-depleting stress scenario or the controlled deadlock runners. Still not covered at this
+point: the Redis outage/recovery drill (closed below) and `Phase25K6DeadlockAcceptance`'s
+paired HTTP attempts=1/3 comparison (still open).
+
+### Redis outage/recovery drill — 2026-09-16 (Task 010B)
+
+Closes the "Redis outage/recovery drill" gap noted above. Full design, the collision with a
+concurrent session, and the correctness fix are in
+[docs/tasks/012-phase25-redis-outage-result.md](../docs/tasks/012-phase25-redis-outage-result.md).
+Summary: `backend/src/test/java/com/esun/shop/service/RedisOutageRecoveryDrillTest.java`
+confirms an unreachable Redis latches `StockCacheService.degraded=true` (returning `BYPASSED`
+with no throw/hang), that the latch survives both a subsequent working reconnection attempt and
+a manual Redis-key fix (only an actual process restart resumes real reservations), and that the
+documented recovery procedure (DB-authoritative snapshot rewritten into every `stock:{productId}`
+key) converges `cache.audit()` back to empty. `mvn -Dtest=RedisOutageRecoveryDrillTest test`:
+1/1 passed; full `mvn clean test`: 75 tests, 0 failures/errors/skipped, coverage gate passed.
+Not covered: the cross-instance reconciliation scenario (explicitly out of scope per this file's
+own "Automatic cross-instance reconciliation is not provided" note above) and a real
+Testcontainers-container-level outage (two earlier attempts at this hit environment-specific
+tooling problems - see the result doc's "Collision" section - before the final design sidestepped
+container manipulation entirely). `Phase25K6DeadlockAcceptance`'s paired HTTP attempts=1/3
+comparison remains open, unscoped by Task 010.
