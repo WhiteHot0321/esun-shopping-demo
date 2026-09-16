@@ -17,6 +17,7 @@ Baseline: advanced-v2, 5574f05 plus uncommitted Phase 2.5 changes
 - Phase 3.1/3.2: partial shared foundations (member table, checkout lifecycle, Dockerfile) exist; remaining feature acceptance is not complete.
 - Notion stage table, progress, execution strategy and related Phase pages synchronized directly; original requirements preserved. This documentation task did not rerun tests or change application code.
 - Metrics: elapsed/token/cost unknown; one user request to reconcile statuses; application repair rounds 0; one static App.vue defect found (not an independent review).
+- **2026-09-16 (session continuation): Phase 2 login failure fixed.** Root cause: `backend/src/main/resources/application.yml`'s JDBC URL was missing `allowPublicKeyRetrieval=true`; under MySQL 8's default `caching_sha2_password` plugin with `useSSL=false`, Connector/J refused the very first HikariCP connection with `Public Key Retrieval is not allowed`, which failed every JdbcTemplate-backed endpoint (reproduced on `/api/products/available` too, not just `/api/auth/*`) — not a bug in `AuthService`/`AuthController` login logic itself. Fixed by adding `allowPublicKeyRetrieval=true` to the datasource URL. Verified end-to-end: register/login/wrong-password all return correct status codes and a valid JWT; `mvn clean test` (full suite, not narrow) still exits 0, matching the existing 72/72 + four-service coverage-gate baseline. See docs/tasks/009-login-db-connection-fix.md.
 
 ## Historical records below
 
