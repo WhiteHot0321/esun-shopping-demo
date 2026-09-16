@@ -1,10 +1,33 @@
 # Verified project state
 
-Updated: 2026-09-16 13:44 Asia/Taipei (Phase 2.5 final acceptance; other Phase results preserved below)
-Baseline: advanced-v2, ae7363f plus uncommitted RedisLiveOutageIntegrationTest and acceptance documentation; no commit/push/merge by this Codex session.
+Updated: 2026-09-16 17:12 Asia/Taipei (Phase 2.1 acceptance closed; other Phase results preserved below)
+Baseline: advanced-v2, merge commit 6bd4c13 (merges codex/phase21-acceptance), committed and pushed by this Claude Code session.
 
 ## Current acceptance status (supersedes historical entries below)
 
+- **Phase 2.1 closed — 2026-09-16 17:12 Asia/Taipei, Claude Code (MODE: IMPLEMENT).** Finished the
+  already-in-progress merge of the LLM product/FAQ support chat (origin/claude/phase-2-1-ilfbgw,
+  PR #3) in worktree `codex/phase21-acceptance`, fixed a double-HTML-escaping bug in
+  `SupportService` (Vue's `{{ }}` already escapes, so the backend escaping double-encoded `&`/`"`
+  in answers), added `SupportServiceTest`, and merged into `advanced-v2` (6bd4c13). Also fixed a
+  project-wide MySQL charset bug found while acceptance-testing: `character_set_client` defaults
+  to latin1 in the `mysql:8.0` image, double-encoding every Chinese seed string in
+  `02_data.sql`/`04_faq.sql` on init (confirmed on both a fresh container and the long-running
+  `esun-mysql` container that's been used since Phase 1.5 — no prior test ever caught it, since
+  none assert Chinese string content). Fixed via
+  `--character-set-client-handshake=FALSE` on `docker-compose.yml`'s mysql service and the
+  Testcontainers fixture. Full backend (`mvn clean test`, merged tree): **81/81, 0
+  failures/errors/skipped**; frontend `npm test`/`npm run build` clean. Real-Ollama acceptance
+  (not just static review) against the actual `esun-ollama` Docker container with
+  `llama3.1`+`nomic-embed-text` pulled: startup embedding-indexed 13/13 docs, `POST
+  /api/support/ask` returned correctly-grounded answers with accurate sources, 400/503 validated
+  (blank/over-length question, Ollama stopped mid-session), and — importantly — a question with
+  no matching product/FAQ correctly returned "不知道" instead of a hallucinated answer, verified
+  both via curl and in the browser UI against the Vite dev server. Existing
+  register/login/products endpoints smoke-tested on the same instance, unaffected. Full
+  detail/evidence: `docs/tasks/014-phase21-acceptance.md`. Not done in this session: recreating
+  the shared `esun-mysql` container's existing (already-corrupted) data — the charset fix only
+  takes effect on the next fresh container init.
 - **Phase 2 documentation closure — 2026-09-16 14:42 Asia/Taipei, Codex (MODE: IMPLEMENT, documentation only).** Verified 87014ae and merge/fixup 26d9e2f/4eac5e8 are included in remote advanced-v2 at ae7363f. Merged-tree evidence remains 74/74 backend, 12/12 frontend and production build passing; this documentation round did not rerun tests. Remote [CI 35050689173](https://github.com/WhiteHot0321/esun-shopping-demo/actions/runs/35050689173) confirms backend tests, frontend tests/build and Docker build all succeeded at ae7363f; workflow makes Docker depend on both preceding jobs. Phase 2 is implemented, independently reviewed, verified, committed, merged and pushed. This synchronization entry is included in the Phase 2 documentation commit; the verified commit/push reference is recorded on the linked Notion pages.
 - Phase 2 Notion status/acceptance cells and checklists were directly updated in [progress](https://app.notion.com/p/3c4708da9f9280d89606c93c3a6d3e53), [stage table/prompts](https://app.notion.com/p/3c2708da9f9280b083d3f000ff381579), [Phase 2](https://app.notion.com/p/3d7708da9f9281579bd9eadda365b4b9), [execution strategy](https://app.notion.com/p/3d7708da9f928173be92dfc94182db9f) and [execution plan](https://app.notion.com/p/3d4708da9f9281dc8b3ddb0423cbc0ad). Original requirements retained, including the documented user substitution of AuthPanel + ShopWorkspace for four components; historical evidence remains identified as historical. All five pages read back; a stale historical pending paragraph was corrected during that check and read back again. Phase 2.1/2.5/3 are outside this update.
 - Documentation-session metrics: small task; one existing local Markdown changed, five related Notion pages updated; application/test changes 0; executable tests 0; application repair rounds 0; one documentation consistency correction pass; explicit user mode authorization 1 after review-only gate. Elapsed time/context/model cost and five-hour usage delta unknown. Engineering note: a clean branch build does not prove a merge is safe; use the merged commit's CI and keep the status ledger tied to that evidence.
@@ -29,7 +52,9 @@ Baseline: advanced-v2, ae7363f plus uncommitted RedisLiveOutageIntegrationTest a
   The merge itself (auto-resolved by git as non-conflicting) silently duplicated a `requestId` Map entry in `JwtAuthFilterTest` and a `JwtService` import in `OrderControllerTest`, because both branches had independently touched the same spot; this is exactly why "no conflict markers" was not treated as "safe to skip re-running the suite" — the merged-tree `mvn clean test` run caught it (3 errors), and it was fixed in 4eac5e8. Full regression on the final merged tree: backend `mvn clean test` 74 tests, 0 failures/errors/skipped; frontend `npm test` (checkout.test.js 3/3 + App.spec.js 9/9) and `npm run build` both clean.
   Phase 2.1/2.5/3 remain separate and are not implied complete by this closure.
 - Current POM gates OrderService, OrderTransactionService, StockCacheService and ProductService at >=80% lines. **Resolved 2026-09-16**: Docker recovered; two independent full `mvn clean test` runs this session (Phase 1.5 session and Phase 2.5 session) both passed clean, 72/72, 0 failures/errors/skipped, with the coverage gate passing both times (see the two bullets above for the per-class numbers). This supersedes the 07:16 focused-invocation entry below (2 passed, 13 Docker initialization errors) and the "Docker Desktop failed starting its dockerInference socket" blocker, which no longer applies as of this session.
-- Phase 2.1: source page reports PR #3 implementation, pending full Docker suite and real Ollama acceptance; current remote merge status unconfirmed.
+- Phase 2.1: **closed 2026-09-16, see the "Current acceptance status" entry above and
+  docs/tasks/014-phase21-acceptance.md** — merged into advanced-v2 at 6bd4c13 with full Docker
+  suite (81/81) and real Ollama acceptance both done.
 - Phase 3.1/3.2: partial shared foundations (member table, checkout lifecycle, Dockerfile) exist; remaining feature acceptance is not complete.
 - Notion: Phase 1.5 page, 進度追蹤 page and the 9/13 schedule page were synced for the Phase 1.5 results (commit 8bb95be) as of 09:20. **Resolved 09:35**: the Phase 2.5 acceptance run (6b1e690) and the login/JDBC fix (c9601bf) are now synced too — 進度追蹤 (new dated section) and the dedicated Phase 2.5 page (checklist items updated, gaps annotated: 3-round repetition, `Phase25K6DeadlockAcceptance` HTTP pairing, and the Redis outage/recovery drill remain unchecked and are recorded as optional follow-ups, not silently dropped). The 9/13 schedule page already carried a one-line summary of both from an earlier sync. All writes were read back and confirmed.
 - Metrics: elapsed/token/cost unknown; one user request to reconcile the two concurrent sessions' statuses into one canonical block (this update); application repair rounds 0 this round (the JDBC fix was a genuine bug fix, tracked separately in docs/tasks/009); one static App.vue defect found (not an independent review).
