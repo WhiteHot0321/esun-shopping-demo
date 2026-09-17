@@ -24,8 +24,9 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Void>> handleValidation(MethodArgumentNotValidException ex) {
-        String msg = ex.getBindingResult().getFieldError() != null
-                ? ex.getBindingResult().getFieldError().getField() + " 格式錯誤"
+        var fieldError = ex.getBindingResult().getFieldError();
+        String msg = fieldError != null
+                ? fieldError.getField() + "：" + fieldError.getDefaultMessage()
                 : "參數驗證失敗";
         return ResponseEntity.badRequest().body(ApiResponse.fail(msg));
     }
