@@ -59,6 +59,15 @@ Baseline: advanced-v2, merge commit 6bd4c13 (merges codex/phase21-acceptance), c
 - Notion: Phase 1.5 page, 進度追蹤 page and the 9/13 schedule page were synced for the Phase 1.5 results (commit 8bb95be) as of 09:20. **Resolved 09:35**: the Phase 2.5 acceptance run (6b1e690) and the login/JDBC fix (c9601bf) are now synced too — 進度追蹤 (new dated section) and the dedicated Phase 2.5 page (checklist items updated, gaps annotated: 3-round repetition, `Phase25K6DeadlockAcceptance` HTTP pairing, and the Redis outage/recovery drill remain unchecked and are recorded as optional follow-ups, not silently dropped). The 9/13 schedule page already carried a one-line summary of both from an earlier sync. All writes were read back and confirmed.
 - Metrics: elapsed/token/cost unknown; one user request to reconcile the two concurrent sessions' statuses into one canonical block (this update); application repair rounds 0 this round (the JDBC fix was a genuine bug fix, tracked separately in docs/tasks/009); one static App.vue defect found (not an independent review).
 
+## Phase 2 backlog (candidates, not yet scheduled)
+
+- **Order history view — recorded 2026-09-17.** No way for a user to look up a past
+  order today: `OrderController` only exposes `POST /api/orders`, and `OrderRepository`
+  has no read/list methods despite `shop_order` storing `member_id`. Frontend shows the
+  new order id in a one-shot toast only. Full gap description and proposed scope:
+  `docs/tasks/015-order-history-candidate.md`. Not implemented; not scheduled ahead of
+  other Phase 2 work.
+
 ## Historical records below
 
 - Spring Boot 3.3.5 / Java target 17; Vue 3 / Vite.
