@@ -2,15 +2,15 @@
   <div class="container">
     <h1>電商購物中心系統</h1>
 
+    <section class="card message-banner" v-if="message">
+      <h2>訊息</h2>
+      <p>{{ message }}</p>
+    </section>
+
     <AuthPanel :authenticated="auth.isAuthenticated" :email="auth.email" :mode="authMode"
       :form="authForm" :busy="isAuthenticating" @submit="submitAuth" @toggle="toggleAuthMode" @logout="logout" />
 
     <ShopWorkspace :authenticated="auth.isAuthenticated" @message="message = $event" />
-
-    <section class="card" v-if="message">
-      <h2>訊息</h2>
-      <p>{{ message }}</p>
-    </section>
 
     <SupportChat />
   </div>
@@ -91,6 +91,14 @@ h1, h2, h3 {
   padding: 20px;
   margin-bottom: 20px;
   background: #fff;
+}
+
+.message-banner {
+  position: sticky;
+  top: 10px;
+  z-index: 10;
+  border-color: #4a90d9;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 </style>
