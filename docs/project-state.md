@@ -5,9 +5,30 @@ Baseline: advanced-v2, merge commit 6bd4c13 (merges codex/phase21-acceptance), c
 
 ## Current acceptance status (supersedes historical entries below)
 
+- **Product embedding re-index + member_id widening, committed — 2026-09-18, Claude Code
+  (MODE: IMPLEMENT), commits `224c348` and `3f2ab48` on `advanced-v2` (rebased from
+  `feature/frontend-ux-revamp` after PR #6 merged).** Two independent fixes picked up from
+  pre-existing uncommitted work: (1) `EmbeddingIndexService` extracts the per-doc embed+upsert
+  logic out of `EmbeddingIndexRunner` and adds `indexProduct(productId)`, which
+  `ProductService.createProduct` now calls right after the write so a newly created product is
+  immediately searchable by the AI customer service instead of only after the next app restart;
+  indexed content now also includes price/quantity, not just the name. (2) `shop_order.member_id`
+  and `order_request.member_id` widened from `VARCHAR(20)` to `VARCHAR(100)` in `01_schema.sql`/
+  `04_add_order_request.sql`, plus a matching `@Size(max = 100)` on `CreateOrderRequest`, because
+  member ids are email addresses (JWT auth uses email as the identifier) and were being silently
+  truncated past 20 characters. Full backend `mvn clean test`: **81/81, 0 failures/errors/skipped**,
+  JaCoCo gate passing, both changes present together. **Schema drift discovered while verifying
+  whether the live `esun-mysql` container needed a matching `ALTER TABLE`**: it did not — both
+  columns on the running container are already `VARCHAR(255)` (confirmed via `SHOW CREATE TABLE`),
+  wider than both the old committed `VARCHAR(20)` and the new `VARCHAR(100)`. The tracked
+  `01_schema.sql` has therefore not matched what the long-running dev container actually executes
+  for some time; nothing was altered on the container since it already satisfies the new, stricter
+  application-level `@Size(max = 100)` bound. `payStatus` analysis docs (`docs/analysis/`) and the
+  Phase 3 RBAC/role-based planning docs (`docs/tasks/016`–`020`) from the same uncommitted batch are
+  deliberately left uncommitted for a later session, per the user's stated priority order.
 - **Phase 3.0 #4 — 備份與恢復演練 (Medium), executed and closed — 2026-09-18, Claude Code
-  (MODE: IMPLEMENT), branch `feature/frontend-ux-revamp`, uncommitted pending user decision on
-  commit/push.** `scripts/mysql-backup-restore.ps1` (authored by Codex) had never actually been run
+  (MODE: IMPLEMENT), branch `feature/frontend-ux-revamp`, merged into `advanced-v2` via PR #6
+  (commit `8a97dfd`).** `scripts/mysql-backup-restore.ps1` (authored by Codex) had never actually been run
   end-to-end before this session — its own result doc's acceptance checkboxes were pre-checked from
   static review only. Running it for real against the live `esun-mysql` container surfaced and fixed
   four real defects: (1) MySQL SQL-identifier backticks misapplied to `mysqldump`/`mysql` shell
