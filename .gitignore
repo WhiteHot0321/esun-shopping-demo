@@ -12,6 +12,9 @@ frontend/.vite/
 .env
 *.log
 
+# Local DB backups (contain real member/order data; never commit dump content)
+backups/
+
 # IDE
 .idea/
 .vscode/

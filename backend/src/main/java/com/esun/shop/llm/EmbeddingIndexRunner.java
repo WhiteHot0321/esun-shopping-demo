@@ -72,7 +72,7 @@ public class EmbeddingIndexRunner implements ApplicationRunner {
                 docEmbeddingRepository.upsert(doc.sourceType(), doc.sourceId(), doc.content(), embedding);
                 indexed++;
             } catch (LlmException | UnsupportedOperationException ex) {
-                log.warn("略過 {}/{} 的 embedding 建立：{}", doc.sourceType(), doc.sourceId(), ex.getMessage());
+                log.warn("略過 {}/{} 的 embedding 建立：{}", doc.sourceType(), doc.sourceId(), ex.getMessage(), ex);
             }
         }
 
