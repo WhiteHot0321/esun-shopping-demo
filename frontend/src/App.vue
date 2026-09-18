@@ -10,7 +10,9 @@
     <AuthPanel :authenticated="auth.isAuthenticated" :email="auth.email" :mode="authMode"
       :form="authForm" :busy="isAuthenticating" @submit="submitAuth" @toggle="toggleAuthMode" @logout="logout" />
 
-    <ShopWorkspace :authenticated="auth.isAuthenticated" @message="message = $event" />
+    <ProductManagement :authenticated="auth.isAuthenticated" @message="message = $event" @changed="catalogRefreshKey += 1" />
+    <ShopWorkspace :authenticated="auth.isAuthenticated" :refresh-key="catalogRefreshKey" @message="message = $event" />
+    <OrderHistory :authenticated="auth.isAuthenticated" />
 
     <SupportChat />
   </div>
@@ -21,6 +23,8 @@ import { onMounted, onUnmounted, reactive, ref } from 'vue'
 import api from './api'
 import AuthPanel from './components/AuthPanel.vue'
 import ShopWorkspace from './components/ShopWorkspace.vue'
+import ProductManagement from './components/ProductManagement.vue'
+import OrderHistory from './components/OrderHistory.vue'
 import { useAuthStore } from './stores/auth'
 import SupportChat from './components/SupportChat.vue'
 
@@ -29,6 +33,7 @@ const authMode = ref('login')
 const isAuthenticating = ref(false)
 const authForm = reactive({ email: '', password: '' })
 const message = ref('')
+const catalogRefreshKey = ref(0)
 
 const submitAuth = async () => {
   if (isAuthenticating.value) return
@@ -67,6 +72,11 @@ const handleAuthExpired = () => {
 }
 
 onMounted(() => {
+  const paymentParams = new URLSearchParams(window.location.search)
+  if (paymentParams.has('payment') || paymentParams.has('RtnCode') || paymentParams.has('MerchantTradeNo')) {
+    // This is deliberately only a bounded browser notice. The server callback is authoritative.
+    message.value = '已從付款頁返回；付款結果仍以系統收到並驗證的通知為準。'
+  }
   window.addEventListener('auth-expired', handleAuthExpired)
 })
 

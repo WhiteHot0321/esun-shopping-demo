@@ -4,13 +4,13 @@ import { createPinia } from 'pinia'
 import App from './App.vue'
 import api from './api'
 
-vi.mock('./api', () => ({ default: { get: vi.fn(), post: vi.fn() } }))
+vi.mock('./api', () => ({ default: { get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() } }))
 let wrapper
 const button = text => wrapper.findAll('button').find(b => b.text() === text)
 const deferred = () => { let resolve, reject; const promise = new Promise((a, b) => { resolve = a; reject = b }); return { promise, resolve, reject } }
 const loginForm = async () => {
   await wrapper.get('input[placeholder="Email"]').setValue('member@example.com')
-  await wrapper.get('input[placeholder="密碼"]').setValue('password123')
+  await wrapper.get('input[type="password"]').setValue('password123')
 }
 beforeEach(async () => {
   localStorage.clear()
@@ -54,7 +54,7 @@ describe('authentication UI', () => {
     expect(localStorage.getItem('accessToken')).toBe('jwt')
     await button('登出').trigger('click')
     expect(localStorage.getItem('accessToken')).toBeNull()
-    expect(wrapper.get('input[placeholder="密碼"]').element.value).toBe('')
+    expect(wrapper.get('input[type="password"]').element.value).toBe('')
   })
   it('holds busy state and mode until login completes, then handles expiry', async () => {
     const pending = deferred()
@@ -77,7 +77,6 @@ describe('shop UI', () => {
   it('loads products and calculates preview, submits once and clears cart on success', async () => {
     expect(wrapper.text()).toContain('Tea')
     await wrapper.get('tbody input').setValue(2)
-    await wrapper.get('input[placeholder="請輸入會員編號"]').setValue('M001')
     expect(wrapper.text()).toContain('總金額：25')
     const pending = deferred()
     api.post.mockReturnValue(pending.promise)
@@ -85,12 +84,32 @@ describe('shop UI', () => {
     await button('建立訂單').trigger('click')
     expect(api.post).toHaveBeenCalledTimes(1)
     expect(button('建立訂單').attributes('disabled')).toBeDefined()
-    expect(api.post).toHaveBeenCalledWith('/orders', expect.objectContaining({ memberId: 'M001', payStatus: 'PENDING', requestId: expect.any(String), items: [{ productId: 'P001', quantity: 2 }] }))
+    expect(api.post).toHaveBeenCalledWith('/orders', expect.objectContaining({ requestId: expect.any(String), items: [{ productId: 'P001', quantity: 2 }] }))
+    expect(api.post.mock.calls[0][1]).not.toHaveProperty('memberId')
+    expect(api.post.mock.calls.at(-1)[1]).not.toHaveProperty('payStatus')
     pending.resolve({ data: { data: { orderId: 'ORDER-1' } } })
     await flushPromises()
     expect(wrapper.text()).toContain('訂單建立成功，訂單編號：ORDER-1')
     expect(wrapper.get('tbody input').element.value).toBe('0')
     expect(api.get).toHaveBeenCalledTimes(2)
+  })
+  it('requests a server-owned payment form and submits its fields in an ephemeral POST form', async () => {
+    await wrapper.get('tbody input').setValue(1)
+    api.post.mockResolvedValueOnce({ data: { data: { orderId: 'ORDER-1' } } })
+    await button('建立訂單').trigger('click')
+    await flushPromises()
+    const submitted = {}
+    const submit = vi.spyOn(HTMLFormElement.prototype, 'submit').mockImplementation(function () {
+      submitted.action = this.action
+      submitted.fields = Object.fromEntries([...this.querySelectorAll('input')].map(input => [input.name, input.value]))
+    })
+    api.post.mockResolvedValueOnce({ data: { data: { actionUrl: 'https://payment.example/checkout', fields: { MerchantID: 'merchant', TotalAmount: '13', CheckMacValue: 'signature' } } } })
+    await button('前往付款').trigger('click')
+    await flushPromises()
+    expect(api.post).toHaveBeenLastCalledWith('/orders/ORDER-1/payment-form')
+    expect(submitted).toEqual({ action: 'https://payment.example/checkout', fields: { MerchantID: 'merchant', TotalAmount: '13', CheckMacValue: 'signature' } })
+    expect(submitted.fields).not.toHaveProperty('HashKey')
+    submit.mockRestore()
   })
   it('retries a lost response with the original request after cart and products change', async () => {
     await wrapper.get('tbody input').setValue(2)
@@ -128,5 +147,17 @@ describe('shop UI', () => {
     await flushPromises()
     expect(wrapper.text()).toContain('商品新增成功')
     expect(wrapper.get('input[placeholder="商品編號"]').element.value).toBe('')
+  })
+})
+
+describe('payment return UI', () => {
+  it('shows only a bounded notice after returning from the provider', async () => {
+    wrapper.unmount()
+    history.replaceState({}, '', '/?RtnCode=1&MerchantTradeNo=untrusted')
+    wrapper = mount(App, { global: { plugins: [createPinia()] } })
+    await flushPromises()
+    expect(wrapper.text()).toContain('已從付款頁返回；付款結果仍以系統收到並驗證的通知為準。')
+    expect(api.post).not.toHaveBeenCalled()
+    history.replaceState({}, '', '/')
   })
 })

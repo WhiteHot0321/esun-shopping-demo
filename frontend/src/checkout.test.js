@@ -2,8 +2,8 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createCheckoutLifecycle } from './checkout.js'
 
-const firstPayload = { memberId: 'M001', payStatus: 'PENDING', items: [{ productId: 'P001', quantity: 1 }] }
-const changedPayload = { memberId: 'M001', payStatus: 'PENDING', items: [{ productId: 'P002', quantity: 1 }] }
+const firstPayload = { items: [{ productId: 'P001', quantity: 1 }] }
+const changedPayload = { items: [{ productId: 'P002', quantity: 1 }] }
 
 test('retries an ambiguous checkout with the original key and payload even when the visible cart is empty', async () => {
   const lifecycle = createCheckoutLifecycle(() => '00000000-0000-4000-8000-000000000001')
