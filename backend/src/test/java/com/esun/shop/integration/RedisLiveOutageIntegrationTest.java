@@ -35,7 +35,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 /** Live dependency outage; only this test's disposable Redis is paused. */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestPropertySource(properties = {"stock.redis.enabled=true", "spring.data.redis.timeout=200ms",
-        "spring.data.redis.connect-timeout=200ms", "stock.redis.audit-interval-ms=3600000"})
+        "spring.data.redis.connect-timeout=200ms", "stock.redis.audit-interval-ms=3600000",
+        "spring.datasource.hikari.maximum-pool-size=30"})
 class RedisLiveOutageIntegrationTest extends AbstractMySqlIntegrationTest {
     static final GenericContainer<?> REDIS = new GenericContainer<>(DockerImageName.parse("redis:7-alpine"))
             .withExposedPorts(6379);
@@ -53,6 +54,7 @@ class RedisLiveOutageIntegrationTest extends AbstractMySqlIntegrationTest {
     @Autowired StockCacheService cache;
     @Autowired OrderTransactionService transactions;
     @Autowired com.esun.shop.repository.ProductRepository products;
+    @Autowired com.esun.shop.repository.OrderRepository orders;
 
     @Test
     void twentyHttpOrdersSurviveLivePauseAndRecoverFromDatabaseSnapshot() throws Exception {
@@ -127,7 +129,7 @@ class RedisLiveOutageIntegrationTest extends AbstractMySqlIntegrationTest {
         // Fresh service instance models process-local latch reset, using the real DB proxy.
         StockCacheService restartedCache = new StockCacheService(redis, products, true);
         restartedCache.preload();
-        OrderService restartedOrders = new OrderService(transactions, restartedCache);
+        OrderService restartedOrders = new OrderService(transactions, restartedCache, orders);
         assertThat(restartedOrders.createOrder(request(product))).isNotBlank();
         assertStock(product, 76);
         assertThat(restartedCache.audit()).isEmpty();
