@@ -7,6 +7,8 @@ public class Product {
     private String productName;
     private BigDecimal price;
     private Integer quantity;
+    private String creatorId;
+    private java.time.LocalDateTime deletedAt;
 
     public String getProductId() {
         return productId;
@@ -39,4 +41,12 @@ public class Product {
     public void setQuantity(Integer quantity) {
         this.quantity = quantity;
     }
+
+    public String getCreatorId() { return creatorId; }
+
+    public void setCreatorId(String creatorId) { this.creatorId = creatorId; }
+
+    public java.time.LocalDateTime getDeletedAt() { return deletedAt; }
+
+    public void setDeletedAt(java.time.LocalDateTime deletedAt) { this.deletedAt = deletedAt; }
 }

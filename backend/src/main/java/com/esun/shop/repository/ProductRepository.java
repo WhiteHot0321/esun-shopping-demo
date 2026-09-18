@@ -10,6 +10,7 @@ import org.springframework.stereotype.Repository;
 import javax.sql.DataSource;
 import java.util.Collection;
 import java.util.Collections;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -22,6 +23,9 @@ public class ProductRepository {
         p.setProductName(rs.getString("product_name"));
         p.setPrice(rs.getBigDecimal("price"));
         p.setQuantity(rs.getInt("quantity"));
+        p.setCreatorId(rs.getString("creator_id"));
+        var deletedAt = rs.getTimestamp("deleted_at");
+        p.setDeletedAt(deletedAt == null ? null : deletedAt.toLocalDateTime());
         return p;
     };
 
@@ -42,28 +46,35 @@ public class ProductRepository {
     }
 
     public void addProduct(Product product) {
-        Map<String, Object> params = new HashMap<>();
-        params.put("p_product_id", product.getProductId());
-        params.put("p_product_name", product.getProductName());
-        params.put("p_price", product.getPrice());
-        params.put("p_quantity", product.getQuantity());
-        addProductCall.execute(params);
+        jdbcTemplate.update("INSERT INTO product(product_id, product_name, price, quantity, creator_id) VALUES (?, ?, ?, ?, ?)",
+                product.getProductId(), product.getProductName(), product.getPrice(), product.getQuantity(), product.getCreatorId());
     }
 
     @SuppressWarnings("unchecked")
     public List<Product> getAvailableProducts() {
-        Map<String, Object> result = getAvailableProductsCall.execute(new HashMap<>());
-        return (List<Product>) result.get("products");
+        return jdbcTemplate.query(selectProductColumns() + " WHERE quantity > 0 AND deleted_at IS NULL ORDER BY product_id",
+                PRODUCT_ROW_MAPPER);
     }
 
     public Product findById(String productId) {
-        String sql = "SELECT product_id, product_name, price, quantity FROM product WHERE product_id = ?";
+        String sql = selectProductColumns() + " WHERE product_id = ? AND deleted_at IS NULL";
         List<Product> list = jdbcTemplate.query(sql, PRODUCT_ROW_MAPPER, productId);
         return list.isEmpty() ? null : list.get(0);
     }
 
+    public Product findIncludingDeletedById(String productId) {
+        List<Product> list = jdbcTemplate.query(selectProductColumns() + " WHERE product_id = ?", PRODUCT_ROW_MAPPER, productId);
+        return list.isEmpty() ? null : list.get(0);
+    }
+
+    /** Owner administration needs both active and soft-deleted rows; public paths remain filtered. */
+    public List<Product> findByCreator(String creatorId) {
+        return jdbcTemplate.query(selectProductColumns() + " WHERE creator_id = ? ORDER BY product_id",
+                PRODUCT_ROW_MAPPER, creatorId);
+    }
+
     public List<Product> findAllStock() {
-        return jdbcTemplate.query("SELECT product_id, product_name, price, quantity FROM product", PRODUCT_ROW_MAPPER);
+        return jdbcTemplate.query(selectProductColumns() + " WHERE deleted_at IS NULL", PRODUCT_ROW_MAPPER);
     }
 
     /**
@@ -74,12 +85,12 @@ public class ProductRepository {
             return List.of();
         }
         String placeholders = String.join(",", Collections.nCopies(productIds.size(), "?"));
-        String sql = "SELECT product_id, product_name, price, quantity FROM product WHERE product_id IN (" + placeholders + ")";
+        String sql = selectProductColumns() + " WHERE product_id IN (" + placeholders + ") AND deleted_at IS NULL";
         return jdbcTemplate.query(sql, PRODUCT_ROW_MAPPER, productIds.toArray());
     }
 
     public List<IndexableDoc> findAllForIndexing() {
-        String sql = "SELECT product_id, product_name, updated_at FROM product";
+        String sql = "SELECT product_id, product_name, updated_at FROM product WHERE deleted_at IS NULL";
         return jdbcTemplate.query(sql, (rs, rowNum) -> new IndexableDoc(
                 "product",
                 rs.getString("product_id"),
@@ -92,5 +103,27 @@ public class ProductRepository {
         params.put("p_product_id", productId);
         params.put("p_buy_quantity", quantity);
         decreaseStockCall.execute(params);
+    }
+
+    public int updateOwnedProduct(String productId, String creatorId, String productName, java.math.BigDecimal price) {
+        return jdbcTemplate.update("UPDATE product SET product_name = ?, price = ? "
+                        + "WHERE product_id = ? AND creator_id = ? AND deleted_at IS NULL",
+                productName, price, productId, creatorId);
+    }
+
+    public int softDeleteOwnedProduct(String productId, String creatorId) {
+        return jdbcTemplate.update("UPDATE product SET deleted_at = CURRENT_TIMESTAMP "
+                        + "WHERE product_id = ? AND creator_id = ? AND deleted_at IS NULL", productId, creatorId);
+    }
+
+    /** A single conditional SQL update prevents concurrent restocks from losing increments. */
+    public int restockOwnedProduct(String productId, String creatorId, int amount) {
+        return jdbcTemplate.update("UPDATE product SET quantity = quantity + ? "
+                        + "WHERE product_id = ? AND creator_id = ? AND deleted_at IS NULL",
+                amount, productId, creatorId);
+    }
+
+    private static String selectProductColumns() {
+        return "SELECT product_id, product_name, price, quantity, creator_id, deleted_at FROM product";
     }
 }
