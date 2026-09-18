@@ -5,6 +5,63 @@ Baseline: advanced-v2, merge commit 6bd4c13 (merges codex/phase21-acceptance), c
 
 ## Current acceptance status (supersedes historical entries below)
 
+- **Phase 3.0 #4 — 備份與恢復演練 (Medium), executed and closed — 2026-09-18, Claude Code
+  (MODE: IMPLEMENT), branch `feature/frontend-ux-revamp`, uncommitted pending user decision on
+  commit/push.** `scripts/mysql-backup-restore.ps1` (authored by Codex) had never actually been run
+  end-to-end before this session — its own result doc's acceptance checkboxes were pre-checked from
+  static review only. Running it for real against the live `esun-mysql` container surfaced and fixed
+  four real defects: (1) MySQL SQL-identifier backticks misapplied to `mysqldump`/`mysql` shell
+  command-line database-name arguments triggered POSIX `sh` command substitution
+  (`esun_shop: command not found`); (2) `-p"$MYSQL_ROOT_PASSWORD"`'s stderr password warning was
+  misread as a terminating error under Windows PowerShell 5.1's `2>&1` + `$ErrorActionPreference=
+  'Stop'` combination — switched to the `MYSQL_PWD` env var; (3) `Invoke-MySql`'s inline
+  `-e "<SQL>"` argument got corrupted by .NET's native-process argument re-quoting on Windows —
+  switched to writing SQL to a temp file and `docker cp`-ing it in, matching the existing
+  backup/restore file-transfer pattern; (4) the Drill's original full-dump SHA-256 comparison
+  produced a false failure on a byte-correct restore, because MySQL's dictionary records whether a
+  column's collation was "explicitly" resolved at `CREATE TABLE` time, and that bookkeeping differs
+  between the original schema-init path and a restore-from-dump path even when the declared
+  collation is identical — confirmed via line diff that all 42 differing lines were only this
+  cosmetic annotation and all 8/8 `INSERT` statements were byte-identical. Redesigned the Drill's
+  pass/fail check to a data-only dump hash (`--no-create-info`) plus a sorted table-name-list
+  comparison; full structural dumps are still saved as evidence. After the fixes: `Backup` against
+  real `esun_shop` succeeded (sha256 `41A1DDE0...35004`); `Restore`'s two safety guards (refuse
+  without `-Force`; refuse overwriting the source without `-AllowSourceOverwrite`) both correctly
+  rejected; a real restore into a scratch database (`esun_backup_test`) produced all 8 expected
+  tables and was manually dropped; the full `Drill` action (backup → restore into temp DB → simulate
+  corruption → restore again → verify content+table-list → cleanup) returned `DRILL_OK`, and
+  post-drill checks confirmed the temporary database was gone, no leftover container temp files, and
+  the source `shop_order` row count (12) was unchanged throughout. `backups/` (contains real
+  member/order data) was added to `.gitignore` — it was previously untracked and not ignored.
+  `docs/MANUAL_TESTING_GUIDE.md` gained a new "第九步：備份與恢復演練" section (the guide's intro
+  already listed this as test method 4 but had no matching section). Full evidence, commands and
+  exact hashes: `docs/tasks/024-phase30-backup-restore-result.md`. Scheduling/off-site retention
+  remains explicitly out of scope for this round per the task's own acceptance checklist. This task's
+  own exclusions say no commit/push/merge; changes are complete but left uncommitted pending the
+  user's decision.
+- **`feature/frontend-ux-revamp` regression + manual acceptance — 2026-09-17 22:28 Asia/Taipei,
+  Claude Code (MODE: IMPLEMENT), commit 6ae0641, branched off the Phase 2.1 closure above.** This
+  branch's four prior commits (795d864 sticky message banner, ec140f7 real field validation
+  messages, e846a9a shopping UX overhaul — catalog cards/cart sidebar/toasts/chat widget, d09417d
+  Ollama port-collision fix for a native Windows Ollama install) had no test evidence recorded
+  before this entry. Full backend `mvn clean test`: **81/81, 0 failures/errors/skipped**, JaCoCo
+  gate passing — matches the Phase 2.1 baseline, no regression. Frontend `npm test`:
+  checkout.test.js 3/3 + `App.spec.js` **16/16** (up from the Phase 2 baseline's 9/9 — new cases
+  added on this branch) + `npm run build` clean. Manual browser E2E against the user's own running
+  dev servers (backend :8080, frontend :5173, confirmed to be this app via page title and a real
+  `/api/products/available` response before reusing them, not a fresh instance) with mysql/redis/
+  ollama containers already up: (1) cart sidebar — added 1x osii 舒壓按摩椅 + 2x 起司蛋糕, sidebar
+  correctly totaled NT$100,400; (2) checkout — `POST /api/orders` returned 200, stock decremented
+  exactly (P001 4→3, P002 44→42), cart cleared, and the success banner (order id
+  Ms20260917222523056LJGDIH) stayed sticky at the top of the page; (3) field validation — submitting
+  the empty "上架新商品" form showed four distinct per-field messages (請輸入商品編號/商品名稱/
+  價格/庫存數量), not a generic error; (4) AI 客服 chat widget — asking "有哪些付款方式？" hit
+  `POST /api/support/ask` (200) and returned a correctly grounded answer with FAQ/product sources,
+  confirming the Ollama port fix works against this machine's native-Windows-Ollama-plus-Docker
+  setup. No console errors, no failed network requests observed during the session. Not covered by
+  this pass: automated component tests for the new cart-sidebar/toast/chat-widget UI itself (still
+  relies on manual verification), mobile-width layout check, and re-running the Phase 1.5/2.5
+  load/fault suites (out of scope for a UI-only branch).
 - **Phase 2.1 closed — 2026-09-16 17:12 Asia/Taipei, Claude Code (MODE: IMPLEMENT).** Finished the
   already-in-progress merge of the LLM product/FAQ support chat (origin/claude/phase-2-1-ilfbgw,
   PR #3) in worktree `codex/phase21-acceptance`, fixed a double-HTML-escaping bug in
@@ -66,6 +123,19 @@ Baseline: advanced-v2, merge commit 6bd4c13 (merges codex/phase21-acceptance), c
   has no read/list methods despite `shop_order` storing `member_id`. Frontend shows the
   new order id in a one-shot toast only. Full gap description and proposed scope:
   `docs/tasks/015-order-history-candidate.md`. Not implemented; not scheduled ahead of
+  other Phase 2 work.
+- **Role-based Phase 3 feature lists — recorded 2026-09-17.** Three code-verified gap
+  analyses covering seller (`docs/tasks/016-feature-gap-analysis.md`), buyer
+  (`docs/tasks/017-buyer-feature-list.md`) and maintainer/ops
+  (`docs/tasks/018-maintainer-feature-list.md`) perspectives, plus a cross-list
+  split/implementation strategy (`docs/tasks/019-phase3-role-based-split-plan.md`).
+  Notable verified findings: `shop_order` has no `order_status` column (016 had
+  mis-described it as present-but-unwired), `member` has no role column and
+  `ProductController`'s `POST /api/products` has no role check today (any authenticated
+  buyer can create products), and the cart has no persistence (no `localStorage`, no
+  server-side cart). 019 recommends RBAC + the buyer schema additions
+  (`order_status`/shipping address) as the highest-priority Phase 3.0 foundation before
+  any role-dependent feature in 016/017/018. Not implemented; not scheduled ahead of
   other Phase 2 work.
 
 ## Historical records below
