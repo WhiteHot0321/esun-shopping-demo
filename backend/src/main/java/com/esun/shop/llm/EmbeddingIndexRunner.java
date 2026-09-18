@@ -20,7 +20,9 @@ import java.util.Map;
  * On startup, embeds any product/FAQ row that is missing from {@code doc_embedding} or whose
  * source row changed since it was last embedded, then tells {@link VectorSearchService} to load
  * the refreshed table into memory. Runs after all beans are constructed so it always sees the
- * fully wired repositories and LLM client.
+ * fully wired repositories and LLM client. Per-doc embed+upsert work is delegated to
+ * {@link EmbeddingIndexService}, the same path product writes use for incremental, single-item
+ * re-indexing via {@link EmbeddingIndexService#indexProduct(String)}.
  */
 @Component
 @ConditionalOnProperty(name = "llm.indexing.enabled", havingValue = "true", matchIfMissing = true)
@@ -30,18 +32,18 @@ public class EmbeddingIndexRunner implements ApplicationRunner {
     private final ProductRepository productRepository;
     private final FaqRepository faqRepository;
     private final DocEmbeddingRepository docEmbeddingRepository;
-    private final LlmClient llmClient;
+    private final EmbeddingIndexService embeddingIndexService;
     private final VectorSearchService vectorSearchService;
 
     public EmbeddingIndexRunner(ProductRepository productRepository,
                                  FaqRepository faqRepository,
                                  DocEmbeddingRepository docEmbeddingRepository,
-                                 LlmClient llmClient,
+                                 EmbeddingIndexService embeddingIndexService,
                                  VectorSearchService vectorSearchService) {
         this.productRepository = productRepository;
         this.faqRepository = faqRepository;
         this.docEmbeddingRepository = docEmbeddingRepository;
-        this.llmClient = llmClient;
+        this.embeddingIndexService = embeddingIndexService;
         this.vectorSearchService = vectorSearchService;
     }
 
@@ -67,12 +69,8 @@ public class EmbeddingIndexRunner implements ApplicationRunner {
             if (existing != null && !existing.isBefore(doc.updatedAt())) {
                 continue;
             }
-            try {
-                float[] embedding = llmClient.embed(doc.content());
-                docEmbeddingRepository.upsert(doc.sourceType(), doc.sourceId(), doc.content(), embedding);
+            if (embeddingIndexService.indexDoc(doc)) {
                 indexed++;
-            } catch (LlmException | UnsupportedOperationException ex) {
-                log.warn("略過 {}/{} 的 embedding 建立：{}", doc.sourceType(), doc.sourceId(), ex.getMessage(), ex);
             }
         }
 
