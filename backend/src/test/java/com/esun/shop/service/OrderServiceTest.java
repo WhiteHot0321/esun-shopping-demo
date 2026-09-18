@@ -102,6 +102,19 @@ class OrderServiceTest {
     }
 
     @Test
+    void createOrder_clientSuppliedPaidStatus_isPersistedAsPending() {
+        when(productRepository.findByIds(any())).thenReturn(List.of(product("P001", "100.00", 10)));
+        CreateOrderRequest req = request(List.of(item("P001", 1)));
+        req.setPayStatus(PayStatus.PAID);
+
+        orderService.createOrder(req);
+
+        ArgumentCaptor<ShopOrder> orderCaptor = ArgumentCaptor.forClass(ShopOrder.class);
+        verify(orderRepository).insertOrder(orderCaptor.capture());
+        assertThat(orderCaptor.getValue().getPayStatus()).isEqualTo(PayStatus.PENDING.ordinal());
+    }
+
+    @Test
     void createOrder_multipleItems_sumsItemPricesAcrossAllLines() {
         when(productRepository.findByIds(any())).thenReturn(List.of(
                 product("P001", "100.00", 10),

@@ -27,6 +27,14 @@ stock:
   redis:
     enabled: ${STOCK_REDIS_ENABLED:false}
 
+ecpay:
+  merchant-id: ${ECPAY_MERCHANT_ID:}
+  hash-key: ${ECPAY_HASH_KEY:}
+  hash-iv: ${ECPAY_HASH_IV:}
+  payment-url: ${ECPAY_PAYMENT_URL:}
+  callback-url: ${ECPAY_CALLBACK_URL:}
+  return-url: ${ECPAY_RETURN_URL:}
+
 llm:
   provider: ${LLM_PROVIDER:ollama}
   indexing:

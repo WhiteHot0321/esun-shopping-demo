@@ -41,7 +41,8 @@ class OrderControllerTest {
         for (String requestId : new String[]{null, "", "not-a-uuid"}) {
             mockMvc.perform(post("/api/orders")
                             .contentType(MediaType.APPLICATION_JSON)
-                            .content(payload(requestId)))
+                            .content(payload(requestId))
+                            .requestAttr("authenticatedEmail", "member@example.com"))
                     .andExpect(status().isBadRequest());
         }
     }
@@ -50,10 +51,10 @@ class OrderControllerTest {
     void createOrder_duplicateReplay_returnsOriginalOrderIdWith200() throws Exception {
         when(orderService.createOrder(any())).thenReturn("MsORIGINAL");
 
-        mockMvc.perform(post("/api/orders").contentType(MediaType.APPLICATION_JSON).content(payload(REQUEST_ID)))
+        mockMvc.perform(post("/api/orders").contentType(MediaType.APPLICATION_JSON).content(payload(REQUEST_ID)).requestAttr("authenticatedEmail", "member@example.com"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.orderId").value("MsORIGINAL"));
-        mockMvc.perform(post("/api/orders").contentType(MediaType.APPLICATION_JSON).content(payload(REQUEST_ID)))
+        mockMvc.perform(post("/api/orders").contentType(MediaType.APPLICATION_JSON).content(payload(REQUEST_ID)).requestAttr("authenticatedEmail", "member@example.com"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.orderId").value("MsORIGINAL"));
         verify(orderService, times(2)).createOrder(any());
@@ -63,7 +64,7 @@ class OrderControllerTest {
     void createOrder_unrelatedUniqueCollision_returns409() throws Exception {
         doThrow(new DuplicateKeyException("shop_order collision")).when(orderService).createOrder(any());
 
-        mockMvc.perform(post("/api/orders").contentType(MediaType.APPLICATION_JSON).content(payload(REQUEST_ID)))
+        mockMvc.perform(post("/api/orders").contentType(MediaType.APPLICATION_JSON).content(payload(REQUEST_ID)).requestAttr("authenticatedEmail", "member@example.com"))
                 .andExpect(status().isConflict());
     }
 
@@ -72,7 +73,7 @@ class OrderControllerTest {
         doThrow(new BusinessException("requestId 已被其他會員使用", HttpStatus.CONFLICT))
                 .when(orderService).createOrder(any());
 
-        mockMvc.perform(post("/api/orders").contentType(MediaType.APPLICATION_JSON).content(payload(REQUEST_ID)))
+        mockMvc.perform(post("/api/orders").contentType(MediaType.APPLICATION_JSON).content(payload(REQUEST_ID)).requestAttr("authenticatedEmail", "member@example.com"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.data").doesNotExist());
     }
@@ -81,7 +82,7 @@ class OrderControllerTest {
     void createOrder_exhaustedRetryHasMachineReadableCode() throws Exception {
         doThrow(new com.esun.shop.service.ConcurrentOrderException(REQUEST_ID, new RuntimeException()))
                 .when(orderService).createOrder(any());
-        mockMvc.perform(post("/api/orders").contentType(MediaType.APPLICATION_JSON).content(payload(REQUEST_ID)))
+        mockMvc.perform(post("/api/orders").contentType(MediaType.APPLICATION_JSON).content(payload(REQUEST_ID)).requestAttr("authenticatedEmail", "member@example.com"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("CONCURRENT_CONFLICT"));
     }
@@ -90,7 +91,7 @@ class OrderControllerTest {
     void createOrder_databaseErrorHasDifferentCode() throws Exception {
         doThrow(new org.springframework.dao.DataAccessResourceFailureException("failure"))
                 .when(orderService).createOrder(any());
-        mockMvc.perform(post("/api/orders").contentType(MediaType.APPLICATION_JSON).content(payload(REQUEST_ID)))
+        mockMvc.perform(post("/api/orders").contentType(MediaType.APPLICATION_JSON).content(payload(REQUEST_ID)).requestAttr("authenticatedEmail", "member@example.com"))
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.code").value("DB_ERROR"));
     }

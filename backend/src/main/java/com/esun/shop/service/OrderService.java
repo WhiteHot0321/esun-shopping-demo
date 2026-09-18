@@ -1,6 +1,12 @@
 package com.esun.shop.service;
 
 import com.esun.shop.dto.CreateOrderRequest;
+import com.esun.shop.dto.OrderDetailResponse;
+import com.esun.shop.dto.OrderPageResponse;
+import com.esun.shop.dto.OrderSummaryResponse;
+import com.esun.shop.model.OrderDetail;
+import com.esun.shop.model.PayStatus;
+import com.esun.shop.model.ShopOrder;
 import com.esun.shop.repository.OrderRepository;
 import com.esun.shop.repository.ProductRepository;
 import org.springframework.dao.CannotAcquireLockException;
@@ -25,21 +31,22 @@ public class OrderService {
     private final OrderTransactionService transactionService;
     private final AtomicLong retryCount = new AtomicLong();
     private final StockCacheService stockCacheService;
+    private final OrderRepository orderRepository;
 
     @Autowired
-    public OrderService(OrderTransactionService transactionService, StockCacheService stockCacheService) {
+    public OrderService(OrderTransactionService transactionService, StockCacheService stockCacheService, OrderRepository orderRepository) {
         this.transactionService = transactionService;
         this.stockCacheService = stockCacheService;
+        this.orderRepository = orderRepository;
     }
 
     public OrderService(OrderTransactionService transactionService) {
-        this.transactionService = transactionService;
-        this.stockCacheService = null;
+        this(transactionService, null, null);
     }
 
     /** Compatibility constructor used by isolated service unit tests. */
     public OrderService(ProductRepository productRepository, OrderRepository orderRepository) {
-        this(new OrderTransactionService(productRepository, orderRepository));
+        this(new OrderTransactionService(productRepository, orderRepository), null, orderRepository);
     }
 
     @Retryable(retryFor = {CannotAcquireLockException.class, DeadlockLoserDataAccessException.class},
@@ -98,5 +105,40 @@ public class OrderService {
 
     public long getRetryCount() {
         return retryCount.get();
+    }
+
+    public OrderPageResponse getOrders(String memberId, int page, int size, Integer payStatus) {
+        requireMember(memberId);
+        if (page < 0 || size < 1 || size > 100 || !isPayStatus(payStatus)) {
+            throw new BusinessException("分頁或付款狀態參數不合法", org.springframework.http.HttpStatus.BAD_REQUEST);
+        }
+        long total = orderRepository.countByMemberId(memberId, payStatus);
+        List<OrderSummaryResponse> content = orderRepository.findByMemberId(memberId, payStatus, size, page * size).stream()
+                .map(order -> new OrderSummaryResponse(order.getOrderId(), order.getPrice(), order.getPayStatus(), order.getCreatedAt()))
+                .toList();
+        return new OrderPageResponse(content, page, size, total, (int) Math.ceil((double) total / size));
+    }
+
+    public OrderDetailResponse getOrderDetail(String orderId, String memberId) {
+        requireMember(memberId);
+        ShopOrder order = orderRepository.findOrderById(orderId)
+                .orElseThrow(() -> new BusinessException("訂單不存在", org.springframework.http.HttpStatus.NOT_FOUND));
+        if (!memberId.equals(order.getMemberId())) {
+            throw new BusinessException("無權存取此訂單", org.springframework.http.HttpStatus.FORBIDDEN);
+        }
+        List<OrderDetailResponse.Item> items = orderRepository.findDetailsByOrderId(orderId).stream()
+                .map(item -> new OrderDetailResponse.Item(item.getProductId(), item.getQuantity(), item.getUnitPrice(), item.getItemPrice()))
+                .toList();
+        return new OrderDetailResponse(order.getOrderId(), order.getPrice(), order.getPayStatus(), order.getCreatedAt(), items);
+    }
+
+    private static boolean isPayStatus(Integer payStatus) {
+        return payStatus == null || (payStatus >= 0 && payStatus < PayStatus.values().length);
+    }
+
+    private static void requireMember(String memberId) {
+        if (memberId == null || memberId.isBlank()) {
+            throw new BusinessException("缺少登入憑證", org.springframework.http.HttpStatus.UNAUTHORIZED);
+        }
     }
 }

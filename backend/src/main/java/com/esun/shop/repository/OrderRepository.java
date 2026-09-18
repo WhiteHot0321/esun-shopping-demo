@@ -6,6 +6,7 @@ import com.esun.shop.model.ShopOrder;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -45,5 +46,45 @@ public class OrderRepository {
                 detail.getQuantity(),
                 detail.getUnitPrice(),
                 detail.getItemPrice());
+    }
+
+    public List<ShopOrder> findByMemberId(String memberId, Integer payStatus, int size, int offset) {
+        String filter = payStatus == null ? "" : " AND pay_status = ?";
+        String sql = "SELECT order_id, member_id, price, pay_status, created_at FROM shop_order "
+                + "WHERE member_id = ?" + filter + " ORDER BY created_at DESC, order_id DESC LIMIT ? OFFSET ?";
+        Object[] params = payStatus == null ? new Object[]{memberId, size, offset}
+                : new Object[]{memberId, payStatus, size, offset};
+        return jdbcTemplate.query(sql, (rs, rowNum) -> mapOrder(rs), params);
+    }
+
+    public long countByMemberId(String memberId, Integer payStatus) {
+        String filter = payStatus == null ? "" : " AND pay_status = ?";
+        String sql = "SELECT COUNT(*) FROM shop_order WHERE member_id = ?" + filter;
+        return payStatus == null ? jdbcTemplate.queryForObject(sql, Long.class, memberId)
+                : jdbcTemplate.queryForObject(sql, Long.class, memberId, payStatus);
+    }
+
+    public Optional<ShopOrder> findOrderById(String orderId) {
+        return jdbcTemplate.query("SELECT order_id, member_id, price, pay_status, created_at FROM shop_order WHERE order_id = ?",
+                (rs, rowNum) -> mapOrder(rs), orderId).stream().findFirst();
+    }
+
+    public List<OrderDetail> findDetailsByOrderId(String orderId) {
+        return jdbcTemplate.query("SELECT order_item_sn, order_id, product_id, quantity, unit_price, item_price "
+                        + "FROM order_detail WHERE order_id = ? ORDER BY order_item_sn", (rs, rowNum) -> {
+            OrderDetail detail = new OrderDetail();
+            detail.setOrderItemSn(rs.getLong("order_item_sn")); detail.setOrderId(rs.getString("order_id"));
+            detail.setProductId(rs.getString("product_id")); detail.setQuantity(rs.getInt("quantity"));
+            detail.setUnitPrice(rs.getBigDecimal("unit_price")); detail.setItemPrice(rs.getBigDecimal("item_price"));
+            return detail;
+        }, orderId);
+    }
+
+    private static ShopOrder mapOrder(java.sql.ResultSet rs) throws java.sql.SQLException {
+        ShopOrder order = new ShopOrder();
+        order.setOrderId(rs.getString("order_id")); order.setMemberId(rs.getString("member_id"));
+        order.setPrice(rs.getBigDecimal("price")); order.setPayStatus(rs.getInt("pay_status"));
+        order.setCreatedAt(rs.getTimestamp("created_at").toLocalDateTime());
+        return order;
     }
 }

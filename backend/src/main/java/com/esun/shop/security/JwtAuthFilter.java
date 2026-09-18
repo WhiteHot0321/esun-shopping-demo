@@ -27,9 +27,11 @@ import java.io.IOException;
  *
  * Endpoint protection decision (see PR description for the full writeup):
  *  - Public: POST /api/auth/register, POST /api/auth/login, GET /api/products/available,
+ *    POST /api/payments/ecpay/callback (ECPay authenticates this with CheckMacValue),
  *    POST /api/support/ask (a shopper must be able to browse, ask product questions,
  *    and log in before they have a token).
- *  - Protected: POST /api/products, POST /api/orders (state-changing actions).
+ *  - Protected (default - anything not listed above): POST /api/products, POST /api/orders,
+ *    GET /api/orders and GET /api/orders/{'{'}id{'}'} (owner-only order history/detail).
  */
 @Component
 public class JwtAuthFilter extends OncePerRequestFilter {
@@ -79,7 +81,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         if (HttpMethod.POST.matches(request.getMethod())
                 && (path.equals("/api/auth/register")
                 || path.equals("/api/auth/login")
-                || path.equals("/api/support/ask"))) {
+                || path.equals("/api/support/ask")
+                || path.equals("/api/payments/ecpay/callback"))) {
             return true;
         }
         return HttpMethod.GET.matches(request.getMethod()) && path.equals("/api/products/available");

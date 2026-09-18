@@ -56,7 +56,7 @@ class OrderControllerValidationTest {
                 "payStatus", "PENDING",
                 "items", java.util.List.of(Map.of("productId", "P001", "quantity", -1))));
 
-        mockMvc.perform(post("/api/orders").contentType("application/json").content(body))
+        mockMvc.perform(post("/api/orders").contentType("application/json").content(body).requestAttr("authenticatedEmail", "member@example.com"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false));
 
@@ -70,7 +70,7 @@ class OrderControllerValidationTest {
                 "payStatus", "PENDING",
                 "items", java.util.List.of(Map.of("productId", "P001"))));
 
-        mockMvc.perform(post("/api/orders").contentType("application/json").content(body))
+        mockMvc.perform(post("/api/orders").contentType("application/json").content(body).requestAttr("authenticatedEmail", "member@example.com"))
                 .andExpect(status().isBadRequest());
 
         verify(orderService, never()).createOrder(any());
@@ -83,23 +83,27 @@ class OrderControllerValidationTest {
                 "payStatus", "PENDING",
                 "items", java.util.List.of()));
 
-        mockMvc.perform(post("/api/orders").contentType("application/json").content(body))
+        mockMvc.perform(post("/api/orders").contentType("application/json").content(body).requestAttr("authenticatedEmail", "member@example.com"))
                 .andExpect(status().isBadRequest());
 
         verify(orderService, never()).createOrder(any());
     }
 
     @Test
-    void createOrder_blankMemberId_returns400AndNeverCallsService() throws Exception {
+    void createOrder_bodyMemberIdIsIgnoredAndJwtIdentityIsUsed() throws Exception {
+        org.mockito.Mockito.when(orderService.createOrder(any())).thenReturn("ORDER-1");
         String body = objectMapper.writeValueAsString(Map.of(
+                "requestId", "00000000-0000-4000-8000-000000000010",
                 "memberId", "   ",
                 "payStatus", "PENDING",
                 "items", java.util.List.of(Map.of("productId", "P001", "quantity", 1))));
 
-        mockMvc.perform(post("/api/orders").contentType("application/json").content(body))
-                .andExpect(status().isBadRequest());
+        mockMvc.perform(post("/api/orders").contentType("application/json").content(body).requestAttr("authenticatedEmail", "member@example.com"))
+                .andExpect(status().isOk());
 
-        verify(orderService, never()).createOrder(any());
+        org.mockito.ArgumentCaptor<com.esun.shop.dto.CreateOrderRequest> request = org.mockito.ArgumentCaptor.forClass(com.esun.shop.dto.CreateOrderRequest.class);
+        verify(orderService).createOrder(request.capture());
+        org.assertj.core.api.Assertions.assertThat(request.getValue().getMemberId()).isEqualTo("member@example.com");
     }
 
     @Test

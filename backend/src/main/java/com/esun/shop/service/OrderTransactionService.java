@@ -5,6 +5,7 @@ import com.esun.shop.dto.OrderItemRequest;
 import com.esun.shop.exception.BusinessException;
 import com.esun.shop.model.OrderDetail;
 import com.esun.shop.model.OrderRequest;
+import com.esun.shop.model.PayStatus;
 import com.esun.shop.model.Product;
 import com.esun.shop.model.ShopOrder;
 import com.esun.shop.repository.OrderRepository;
@@ -82,7 +83,9 @@ public class OrderTransactionService {
         order.setOrderId(orderId);
         order.setMemberId(memberId);
         order.setPrice(totalPrice);
-        order.setPayStatus(request.getPayStatus().ordinal());
+        // Payment state is server-owned. A buyer must never create an already-paid
+        // or shipped order by supplying a crafted request body.
+        order.setPayStatus(PayStatus.PENDING.ordinal());
         orderRepository.insertOrder(order);
         for (OrderItemRequest item : request.getItems().stream().sorted(Comparator.comparing(OrderItemRequest::getProductId)).toList()) {
             Product product = productMap.get(item.getProductId());

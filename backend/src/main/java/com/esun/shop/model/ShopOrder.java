@@ -7,6 +7,7 @@ public class ShopOrder {
     private String memberId;
     private BigDecimal price;
     private Integer payStatus;
+    private java.time.LocalDateTime createdAt;
 
     public String getOrderId() {
         return orderId;
@@ -39,4 +40,7 @@ public class ShopOrder {
     public void setPayStatus(Integer payStatus) {
         this.payStatus = payStatus;
     }
+
+    public java.time.LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(java.time.LocalDateTime createdAt) { this.createdAt = createdAt; }
 }

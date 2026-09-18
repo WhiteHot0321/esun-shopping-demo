@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentCaptor.forClass;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -120,6 +121,10 @@ class JwtAuthFilterTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.orderId").value("ORD123"));
+
+        var request = forClass(com.esun.shop.dto.CreateOrderRequest.class);
+        verify(orderService).createOrder(request.capture());
+        org.assertj.core.api.Assertions.assertThat(request.getValue().getMemberId()).isEqualTo("user@example.com");
     }
 
     @Test
@@ -150,7 +155,10 @@ class JwtAuthFilterTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
 
-        verify(productService).createProduct(any());
+        verify(productService).createProduct(any(), org.mockito.ArgumentMatchers.eq("user@example.com"));
+
+        mockMvc.perform(post("/api/admin/products").contentType("application/json").content(body))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
