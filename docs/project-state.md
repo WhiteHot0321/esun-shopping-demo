@@ -5,8 +5,9 @@ Baseline: advanced-v2, merge commit 6bd4c13 (merges codex/phase21-acceptance), c
 
 ## Current acceptance status (supersedes historical entries below)
 
-- **Phase 3.1 #5 — 忘記密碼 & 修改密碼 [Buyer], implemented and verified, not yet committed —
-  2026-09-18, Claude Code (MODE: IMPLEMENT), branch `feature/frontend-ux-revamp`.** Per the P0
+- **Phase 3.1 #5 — 忘記密碼 & 修改密碼 [Buyer], implemented, corrected and verified —
+  2026-09-18–19, Claude Code + Codex, branch `feature/frontend-ux-revamp`; original implementation
+  commit `03249a0`.** Per the P0
   scope in `docs/tasks/017-buyer-feature-list.md` §1.4: `POST /api/auth/forgot-password`
   (public), `POST /api/auth/reset-password` (public, one-time token) and
   `POST /api/auth/change-password` (JWT-protected) added to `AuthController`/`AuthService`.
@@ -49,7 +50,14 @@ Baseline: advanced-v2, merge commit 6bd4c13 (merges codex/phase21-acceptance), c
   other UI-only additions). Changes are implemented and verified but **not committed** — this
   branch already carries other uncommitted, unrelated work from before this session
   (`docs/analysis/`, `docs/tasks/016-020`, `package-lock.json`, `AGENTS.md`), so committing was
-  left for an explicit user decision on scope rather than bundled automatically.
+  left for an explicit user decision on scope rather than bundled automatically. **Independent
+  Codex correction, 2026-09-19:** the original query → password update → `markUsed` sequence was
+  not atomic under concurrent replay. Task 025 now locks the token row with `SELECT ... FOR UPDATE`,
+  conditionally consumes it and updates the password in one `@Transactional` boundary. The first
+  real-MySQL run also found and fixed an application/MySQL timezone mismatch by standardizing token
+  expiry on UTC. Final targeted Testcontainers verification: `AuthIntegrationTest` 5/5 plus
+  `AuthServiceTest` 12/12, **17/17 PASS**; independent Terra static security review PASS. Detailed
+  evidence: `docs/tasks/025-phase31-password-reset-atomicity.md`.
 - **Product embedding re-index + member_id widening, committed — 2026-09-18, Claude Code
   (MODE: IMPLEMENT), commits `224c348` and `3f2ab48` on `advanced-v2` (rebased from
   `feature/frontend-ux-revamp` after PR #6 merged).** Two independent fixes picked up from

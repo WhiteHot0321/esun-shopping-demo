@@ -186,14 +186,15 @@ class AuthServiceTest {
         PasswordResetToken token = new PasswordResetToken();
         token.setId(9L);
         token.setMemberId(1L);
-        when(passwordResetTokenRepository.findValidByTokenHash(anyString())).thenReturn(token);
+        when(passwordResetTokenRepository.findValidByTokenHashForUpdate(anyString())).thenReturn(token);
+        when(passwordResetTokenRepository.markUsedIfUnusedAndUnexpired(9L)).thenReturn(1);
 
         authService.resetPassword(request);
 
         ArgumentCaptor<String> hashCaptor = ArgumentCaptor.forClass(String.class);
         verify(memberRepository).updatePasswordHash(eq(1L), hashCaptor.capture());
         assertThat(BCrypt.checkpw("new-password123", hashCaptor.getValue())).isTrue();
-        verify(passwordResetTokenRepository).markUsed(9L);
+        verify(passwordResetTokenRepository).markUsedIfUnusedAndUnexpired(9L);
     }
 
     @Test
@@ -201,7 +202,26 @@ class AuthServiceTest {
         ResetPasswordRequest request = new ResetPasswordRequest();
         request.setToken("bad-token");
         request.setNewPassword("new-password123");
-        when(passwordResetTokenRepository.findValidByTokenHash(anyString())).thenReturn(null);
+        when(passwordResetTokenRepository.findValidByTokenHashForUpdate(anyString())).thenReturn(null);
+
+        assertThatThrownBy(() -> authService.resetPassword(request))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> assertThat(((BusinessException) ex).getStatus()).isEqualTo(HttpStatus.BAD_REQUEST));
+
+        verify(memberRepository, never()).updatePasswordHash(anyLong(), anyString());
+    }
+
+    @Test
+    void resetPassword_tokenConsumptionLost_returns400AndDoesNotUpdate() {
+        ResetPasswordRequest request = new ResetPasswordRequest();
+        request.setToken("raw-token-value");
+        request.setNewPassword("new-password123");
+
+        PasswordResetToken token = new PasswordResetToken();
+        token.setId(9L);
+        token.setMemberId(1L);
+        when(passwordResetTokenRepository.findValidByTokenHashForUpdate(anyString())).thenReturn(token);
+        when(passwordResetTokenRepository.markUsedIfUnusedAndUnexpired(9L)).thenReturn(0);
 
         assertThatThrownBy(() -> authService.resetPassword(request))
                 .isInstanceOf(BusinessException.class)

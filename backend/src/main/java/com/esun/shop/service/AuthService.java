@@ -17,6 +17,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -24,6 +25,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.HexFormat;
 
 @Service
@@ -82,20 +84,27 @@ public class AuthService {
         // reasoning as login()'s unified error message.
         if (member != null) {
             String rawToken = generateRawToken();
-            LocalDateTime expiresAt = LocalDateTime.now().plus(RESET_TOKEN_TTL);
+            LocalDateTime expiresAt = LocalDateTime.now(ZoneOffset.UTC).plus(RESET_TOKEN_TTL);
             passwordResetTokenRepository.createForMember(member.getId(), hashToken(rawToken), expiresAt);
             log.info("已產生密碼重設權杖 member_id={}，30 分鐘後過期（尚無寄信服務，token 僅記錄於日誌）: {}",
                     member.getId(), rawToken);
         }
     }
 
+    @Transactional
     public void resetPassword(ResetPasswordRequest request) {
-        PasswordResetToken resetToken = passwordResetTokenRepository.findValidByTokenHash(hashToken(request.getToken()));
+        PasswordResetToken resetToken = passwordResetTokenRepository
+                .findValidByTokenHashForUpdate(hashToken(request.getToken()));
         if (resetToken == null) {
             throw new BusinessException("重設連結無效或已過期", HttpStatus.BAD_REQUEST);
         }
+
+        int consumed = passwordResetTokenRepository.markUsedIfUnusedAndUnexpired(resetToken.getId());
+        if (consumed != 1) {
+            throw new BusinessException("重設連結無效或已過期", HttpStatus.BAD_REQUEST);
+        }
+
         memberRepository.updatePasswordHash(resetToken.getMemberId(), passwordEncoder.encode(request.getNewPassword()));
-        passwordResetTokenRepository.markUsed(resetToken.getId());
     }
 
     public void changePassword(String email, ChangePasswordRequest request) {

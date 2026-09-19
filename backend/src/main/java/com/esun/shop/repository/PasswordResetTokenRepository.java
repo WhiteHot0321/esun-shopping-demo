@@ -36,7 +36,7 @@ public class PasswordResetTokenRepository {
     /** Any earlier unused tokens for this member are superseded so at most one stays valid. */
     public PasswordResetToken createForMember(Long memberId, String tokenHash, LocalDateTime expiresAt) {
         jdbcTemplate.update(
-                "UPDATE password_reset_token SET used_at = NOW() WHERE member_id = ? AND used_at IS NULL",
+                "UPDATE password_reset_token SET used_at = UTC_TIMESTAMP() WHERE member_id = ? AND used_at IS NULL",
                 memberId);
 
         String sql = "INSERT INTO password_reset_token (member_id, token_hash, expires_at) VALUES (?, ?, ?)";
@@ -57,14 +57,22 @@ public class PasswordResetTokenRepository {
         return token;
     }
 
-    public PasswordResetToken findValidByTokenHash(String tokenHash) {
+    /**
+     * Locks a currently valid token until the surrounding transaction finishes. This makes
+     * validation and consumption one database-critical section: a concurrent reset using the
+     * same token waits here and then observes the committed {@code used_at} value.
+     */
+    public PasswordResetToken findValidByTokenHashForUpdate(String tokenHash) {
         String sql = "SELECT id, member_id, token_hash, expires_at, used_at, created_at FROM password_reset_token "
-                + "WHERE token_hash = ? AND used_at IS NULL AND expires_at > NOW()";
+                + "WHERE token_hash = ? AND used_at IS NULL AND expires_at > UTC_TIMESTAMP() FOR UPDATE";
         List<PasswordResetToken> list = jdbcTemplate.query(sql, ROW_MAPPER, tokenHash);
         return list.isEmpty() ? null : list.get(0);
     }
 
-    public void markUsed(Long id) {
-        jdbcTemplate.update("UPDATE password_reset_token SET used_at = NOW() WHERE id = ?", id);
+    public int markUsedIfUnusedAndUnexpired(Long id) {
+        return jdbcTemplate.update(
+                "UPDATE password_reset_token SET used_at = UTC_TIMESTAMP() "
+                        + "WHERE id = ? AND used_at IS NULL AND expires_at > UTC_TIMESTAMP()",
+                id);
     }
 }
