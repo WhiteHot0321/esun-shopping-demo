@@ -50,4 +50,8 @@ public class MemberRepository {
         member.setPasswordHash(passwordHash);
         return member;
     }
+
+    public void updatePasswordHash(Long memberId, String passwordHash) {
+        jdbcTemplate.update("UPDATE member SET password_hash = ? WHERE id = ?", passwordHash, memberId);
+    }
 }

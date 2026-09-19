@@ -235,7 +235,11 @@ input:disabled { opacity: 0.6; }
 
 .notice { display: grid; gap: 8px; padding: 12px 14px; border-radius: var(--radius-sm); margin-bottom: 14px; font-size: 0.875rem; }
 .notice--warn { background: var(--warn-soft); border: 1px solid color-mix(in srgb, var(--warn) 40%, transparent); }
+.notice--success { background: var(--success-soft); border: 1px solid color-mix(in srgb, var(--success) 40%, transparent); }
+.notice--error { background: var(--danger-soft); border: 1px solid color-mix(in srgb, var(--danger) 40%, transparent); }
 .notice__title { font-weight: 700; color: var(--warn); }
+.notice--success .notice__title { color: var(--success); }
+.notice--error .notice__title { color: var(--danger); }
 
 /* ---------- Product form ---------- */
 .product-form summary { cursor: pointer; list-style: none; }

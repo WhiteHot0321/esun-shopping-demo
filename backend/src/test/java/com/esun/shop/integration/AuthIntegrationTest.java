@@ -49,4 +49,64 @@ class AuthIntegrationTest extends AbstractMySqlIntegrationTest {
         mvc.perform(post("/api/auth/other")).andExpect(status().isUnauthorized());
         mvc.perform(get("/api/products/available")).andExpect(status().isOk());
     }
+
+    @Test
+    void changePasswordRequiresAuthAndUpdatesRealHash() throws Exception {
+        String email = "changepw-" + UUID.randomUUID() + "@example.com";
+        String registered = mvc.perform(post("/api/auth/register").contentType("application/json")
+                        .content(mapper.writeValueAsString(Map.of("email", email, "password", "original-pw"))))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        String token = mapper.readTree(registered).path("data").path("token").asText();
+
+        mvc.perform(post("/api/auth/change-password").contentType("application/json")
+                        .content(mapper.writeValueAsString(Map.of("currentPassword", "original-pw", "newPassword", "brand-new-pw"))))
+                .andExpect(status().isUnauthorized());
+
+        // 400, not 401: the JWT itself is valid, only the current-password field is wrong - a
+        // 401 here would trip the frontend's global "session expired" interceptor.
+        mvc.perform(post("/api/auth/change-password").header("Authorization", "Bearer " + token)
+                        .contentType("application/json")
+                        .content(mapper.writeValueAsString(Map.of("currentPassword", "wrong-pw", "newPassword", "brand-new-pw"))))
+                .andExpect(status().isBadRequest());
+
+        mvc.perform(post("/api/auth/change-password").header("Authorization", "Bearer " + token)
+                        .contentType("application/json")
+                        .content(mapper.writeValueAsString(Map.of("currentPassword", "original-pw", "newPassword", "brand-new-pw"))))
+                .andExpect(status().isOk());
+
+        String hash = jdbc.queryForObject("SELECT password_hash FROM member WHERE email = ?", String.class, email);
+        assertThat(new BCryptPasswordEncoder().matches("brand-new-pw", hash)).isTrue();
+        mvc.perform(post("/api/auth/login").contentType("application/json")
+                        .content(mapper.writeValueAsString(Map.of("email", email, "password", "original-pw"))))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(post("/api/auth/login").contentType("application/json")
+                        .content(mapper.writeValueAsString(Map.of("email", email, "password", "brand-new-pw"))))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void forgotPasswordCreatesTokenOnlyForRealAccountsAndResetPasswordRejectsBadTokens() throws Exception {
+        String email = "forgotpw-" + UUID.randomUUID() + "@example.com";
+        mvc.perform(post("/api/auth/register").contentType("application/json")
+                        .content(mapper.writeValueAsString(Map.of("email", email, "password", "original-pw"))))
+                .andExpect(status().isOk());
+
+        Long memberId = jdbc.queryForObject("SELECT id FROM member WHERE email = ?", Long.class, email);
+
+        // Unknown email: same 200 response, no row created - avoids account enumeration.
+        mvc.perform(post("/api/auth/forgot-password").contentType("application/json")
+                        .content(mapper.writeValueAsString(Map.of("email", "nobody-" + UUID.randomUUID() + "@example.com"))))
+                .andExpect(status().isOk());
+
+        mvc.perform(post("/api/auth/forgot-password").contentType("application/json")
+                        .content(mapper.writeValueAsString(Map.of("email", email))))
+                .andExpect(status().isOk());
+        Integer tokenCount = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM password_reset_token WHERE member_id = ? AND used_at IS NULL", Integer.class, memberId);
+        assertThat(tokenCount).isEqualTo(1);
+
+        mvc.perform(post("/api/auth/reset-password").contentType("application/json")
+                        .content(mapper.writeValueAsString(Map.of("token", "not-a-real-token", "newPassword", "whatever-pw"))))
+                .andExpect(status().isBadRequest());
+    }
 }

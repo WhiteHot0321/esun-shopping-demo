@@ -1,14 +1,16 @@
 <template>
   <section class="panel auth-panel" aria-labelledby="auth-title">
-    <div class="segmented" role="tablist" aria-label="登入或註冊">
+    <div v-if="mode !== 'forgot'" class="segmented" role="tablist" aria-label="登入或註冊">
       <button v-for="option in modes" :key="option.value" type="button" role="tab"
         :aria-selected="mode === option.value" :class="{ active: mode === option.value }"
         :disabled="busy" @click="switchMode(option.value)">{{ option.label }}</button>
     </div>
 
-    <h2 id="auth-title" class="panel__title">{{ mode === 'login' ? '登入後即可結帳' : '建立新帳號' }}</h2>
+    <h2 id="auth-title" class="panel__title">
+      {{ mode === 'login' ? '登入後即可結帳' : mode === 'register' ? '建立新帳號' : '忘記密碼' }}
+    </h2>
 
-    <form novalidate @submit.prevent="submit">
+    <form v-if="mode !== 'forgot'" novalidate @submit.prevent="submit">
       <div class="field">
         <label for="auth-email">Email</label>
         <input id="auth-email" v-model.trim="form.email" type="email" autocomplete="email" inputmode="email"
@@ -35,6 +37,28 @@
         <span v-if="busy" class="spinner" aria-hidden="true"></span>
         {{ busy ? '處理中…' : submitLabel }}
       </button>
+
+      <button v-if="mode === 'login'" type="button" class="link-button" :disabled="busy"
+        @click="switchMode('forgot')">忘記密碼？</button>
+    </form>
+
+    <form v-else novalidate @submit.prevent="submitForgot">
+      <p class="field__hint">輸入註冊時使用的 Email，我們會寄出重設密碼的連結。</p>
+      <div class="field">
+        <label for="forgot-email">Email</label>
+        <input id="forgot-email" v-model.trim="forgotForm.email" type="email" autocomplete="email" inputmode="email"
+          placeholder="you@example.com" :aria-invalid="Boolean(forgotShownError)"
+          :aria-describedby="forgotShownError ? 'forgot-email-error' : undefined"
+          @blur="forgotTouched = true" />
+        <p v-if="forgotShownError" id="forgot-email-error" class="field__error">{{ forgotShownError }}</p>
+      </div>
+
+      <button type="submit" class="btn btn--primary btn--block" :disabled="busy">
+        <span v-if="busy" class="spinner" aria-hidden="true"></span>
+        {{ busy ? '處理中…' : '寄送重設連結' }}
+      </button>
+
+      <button type="button" class="link-button" :disabled="busy" @click="switchMode('login')">返回登入</button>
     </form>
   </section>
 </template>
@@ -54,6 +78,8 @@ const busy = ref(false)
 const showPassword = ref(false)
 const form = reactive({ email: '', password: '' })
 const touched = reactive({ email: false, password: false })
+const forgotForm = reactive({ email: '' })
+const forgotTouched = ref(false)
 
 const submitLabel = computed(() => (mode.value === 'login' ? '登入' : '註冊並登入'))
 
@@ -68,10 +94,18 @@ const shownErrors = computed(() => ({
   password: touched.password ? errors.value.password : ''
 }))
 
+const forgotError = computed(() => !forgotForm.email ? '請輸入 Email'
+  : !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(forgotForm.email) ? 'Email 格式不正確' : '')
+const forgotShownError = computed(() => (forgotTouched.value ? forgotError.value : ''))
+
 const switchMode = (next) => {
   if (busy.value || mode.value === next) return
   mode.value = next
   touched.password = false
+  if (next === 'forgot') {
+    forgotForm.email = form.email
+    forgotTouched.value = false
+  }
 }
 
 const submit = async () => {
@@ -95,6 +129,27 @@ const submit = async () => {
     form.password = ''
     touched.password = false
     document.getElementById('auth-password')?.focus()
+  } finally {
+    busy.value = false
+  }
+}
+
+const submitForgot = async () => {
+  if (busy.value) return
+  forgotTouched.value = true
+  if (forgotError.value) {
+    document.getElementById('forgot-email')?.focus()
+    return
+  }
+  busy.value = true
+  try {
+    await api.post('/auth/forgot-password', { email: forgotForm.email })
+    // Same message whether or not the email is registered, so the response can't be used to
+    // check which emails have an account - the backend behaves the same way for both cases.
+    toast.success('若該 Email 已註冊，重設密碼的連結將會寄出')
+    mode.value = 'login'
+  } catch (error) {
+    toast.error(errorText(error, '請求失敗，請稍後再試'))
   } finally {
     busy.value = false
   }

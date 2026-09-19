@@ -11,8 +11,8 @@ import org.testcontainers.utility.MountableFile;
  * Shared real-MySQL fixture for the Testcontainers integration tests.
  *
  * Loads the actual backend/DB/01_schema.sql -> 02_data.sql -> 03_stored_procedures.sql ->
- * 04_faq.sql -> 04_member.sql scripts (the same files docker-compose.yml mounts into
- * /docker-entrypoint-initdb.d)
+ * 04_faq.sql -> 04_member.sql -> 05_password_reset_token.sql scripts (the same files
+ * docker-compose.yml mounts into /docker-entrypoint-initdb.d)
  * via withCopyFileToContainer, relying on the official mysql image running everything
  * under /docker-entrypoint-initdb.d in alphabetical (01/02/03) order - no hand-rolled
  * reduced schema, so this is exercising the real DDL/stored procedures.
@@ -46,7 +46,10 @@ abstract class AbstractMySqlIntegrationTest {
             .withCopyFileToContainer(
                     MountableFile.forHostPath("DB/04_faq.sql"), "/docker-entrypoint-initdb.d/04_faq.sql")
             .withCopyFileToContainer(
-                    MountableFile.forHostPath("DB/04_member.sql"), "/docker-entrypoint-initdb.d/04_member.sql");
+                    MountableFile.forHostPath("DB/04_member.sql"), "/docker-entrypoint-initdb.d/04_member.sql")
+            .withCopyFileToContainer(
+                    MountableFile.forHostPath("DB/05_password_reset_token.sql"),
+                    "/docker-entrypoint-initdb.d/05_password_reset_token.sql");
 
     static {
         MYSQL.start();

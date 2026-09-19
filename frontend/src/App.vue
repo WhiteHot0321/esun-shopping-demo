@@ -10,6 +10,7 @@
       <div class="topbar__user">
         <template v-if="auth.isAuthenticated">
           <span class="topbar__email" :title="auth.email">{{ auth.email }}</span>
+          <button type="button" class="btn btn--ghost btn--sm" @click="showChangePassword = !showChangePassword">修改密碼</button>
           <button type="button" class="btn btn--ghost btn--sm" @click="logout">登出</button>
         </template>
         <button v-else type="button" class="btn btn--primary btn--sm" @click="focusLogin">登入 / 註冊</button>
@@ -18,6 +19,7 @@
   </header>
 
   <main id="main" class="container">
+    <ChangePasswordPanel v-if="showChangePassword" @close="showChangePassword = false" />
     <ShopWorkspace />
   </main>
 
@@ -26,7 +28,8 @@
 </template>
 
 <script setup>
-import { nextTick, onMounted, onUnmounted, provide } from 'vue'
+import { nextTick, onMounted, onUnmounted, provide, ref, watch } from 'vue'
+import ChangePasswordPanel from './components/ChangePasswordPanel.vue'
 import ShopWorkspace from './components/ShopWorkspace.vue'
 import SupportChat from './components/SupportChat.vue'
 import ToastStack from './components/ToastStack.vue'
@@ -36,6 +39,11 @@ import { useAuthStore } from './stores/auth'
 const auth = useAuthStore()
 const toast = createToasts()
 provide(TOAST_KEY, toast)
+
+const showChangePassword = ref(false)
+// Logging out (or a 401 auth-expiry) while the panel is open would otherwise leave it open
+// on top of a logged-out header.
+watch(() => auth.isAuthenticated, (authenticated) => { if (!authenticated) showChangePassword.value = false })
 
 const focusLogin = async () => {
   await nextTick()

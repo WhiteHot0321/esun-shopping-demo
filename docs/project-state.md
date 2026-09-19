@@ -5,6 +5,51 @@ Baseline: advanced-v2, merge commit 6bd4c13 (merges codex/phase21-acceptance), c
 
 ## Current acceptance status (supersedes historical entries below)
 
+- **Phase 3.1 #5 — 忘記密碼 & 修改密碼 [Buyer], implemented and verified, not yet committed —
+  2026-09-18, Claude Code (MODE: IMPLEMENT), branch `feature/frontend-ux-revamp`.** Per the P0
+  scope in `docs/tasks/017-buyer-feature-list.md` §1.4: `POST /api/auth/forgot-password`
+  (public), `POST /api/auth/reset-password` (public, one-time token) and
+  `POST /api/auth/change-password` (JWT-protected) added to `AuthController`/`AuthService`.
+  Since no SMTP/mail infrastructure exists yet, this is deliberately the task's own described
+  "minimal token-only version": a 256-bit random token is generated, its SHA-256 hash (never the
+  raw token) is stored in a new `password_reset_token` table
+  (`backend/DB/05_password_reset_token.sql`, 30-minute expiry, one-time use enforced via
+  `used_at`, superseding any earlier unused token for the same member), and the raw token is
+  logged server-side instead of emailed — wiring a real mail sender is an explicit follow-up, not
+  part of this pass. `forgot-password` always returns 200 regardless of whether the email is
+  registered (same account-enumeration defense as `login`'s unified error message).
+  **Bug found and fixed during manual browser verification**: `change-password` initially reused
+  HTTP 401 for "wrong current password," but the frontend's global axios response interceptor
+  (`frontend/src/api.js`) treats *any* 401 as session expiry and force-logs-out the caller — so a
+  simple typo in the current-password field would silently end the user's session instead of
+  showing a field error. Fixed by using 400 for that case (the JWT itself is still valid; only
+  the submitted field is wrong), verified both via the corrected unit/integration tests and live
+  in the browser (error toast shown, session preserved). Frontend: `AuthPanel.vue` gained a
+  "忘記密碼？" link and a forgot-password mode; new `ChangePasswordPanel.vue` (toggled from the
+  topbar "修改密碼" button) and `ResetPasswordView.vue` (new `/reset-password?token=...` route in
+  `router.js`, which was already real infrastructure — not a placeholder as earlier docs assumed)
+  handle the other two flows. Full backend `mvn clean test`: **89/89, 0 failures/errors/skipped**
+  (81 baseline + 8 new), run against real MySQL via Testcontainers (the new DB file added to
+  `AbstractMySqlIntegrationTest`'s init list). Frontend `npm test` (3+16/16) and `npm run build`
+  both clean. Manual browser E2E against the user's live dev containers (`esun-mysql` on host
+  port 3310; the new table was applied there by hand since the long-running container predates
+  this migration file) with a fresh Spring Boot instance and the Vite dev server: register →
+  change-password (wrong password rejected without logout, correct password accepted, re-login
+  with the new password succeeds) → forgot-password (identical success message queried for both a
+  registered and an unregistered email) → reset-password via the logged token (real page renders,
+  password reset, login with the new password succeeds, and replaying the same token via curl is
+  correctly rejected with 400 — one-time use confirmed). Also fixed an unrelated pre-existing bug
+  found while starting the preview: `.claude/launch.json`'s `frontend-dev` entry was missing
+  `cwd: "frontend"`, so `preview_start` tried to run `npm run dev` from the repo root and failed;
+  added the missing field (`frontend-mock-ui`/`backend` already had it). Test account created
+  during verification was deleted from the live `esun-mysql` container afterward. Not done: an
+  actual email-sending integration (explicitly deferred per the task's own scope), rate-limiting
+  repeated forgot-password requests, and an automated frontend component test for the three new
+  Vue components (covered by manual E2E only, matching this branch's existing pattern for its
+  other UI-only additions). Changes are implemented and verified but **not committed** — this
+  branch already carries other uncommitted, unrelated work from before this session
+  (`docs/analysis/`, `docs/tasks/016-020`, `package-lock.json`, `AGENTS.md`), so committing was
+  left for an explicit user decision on scope rather than bundled automatically.
 - **Product embedding re-index + member_id widening, committed — 2026-09-18, Claude Code
   (MODE: IMPLEMENT), commits `224c348` and `3f2ab48` on `advanced-v2` (rebased from
   `feature/frontend-ux-revamp` after PR #6 merged).** Two independent fixes picked up from
