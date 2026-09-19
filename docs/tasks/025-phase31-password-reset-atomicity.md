@@ -6,6 +6,7 @@ Baseline: `8fa3096506f7a7566b01eccb0b0e894a4c168514` on `feature/frontend-ux-rev
 Risk: security / transaction / concurrency  
 Implementer: Codex  
 Independent reviewer: Terra (`password_reset_review`)
+Correction commit: `50ce7f9`
 
 ## Scope and acceptance
 
@@ -60,9 +61,9 @@ winning transaction commits.
 
 ## Remaining
 
-Synchronize the Phase 3.1 #5 status in local project state and the required Notion tracking pages,
-then commit only the scoped correction and synchronization files. SMTP delivery, rate limiting and
-frontend component automation remain the previously documented follow-ups, outside this correction.
+Local project state and the required Notion tracking pages were synchronized and read back after
+the correction commit. SMTP delivery, rate limiting and frontend component automation remain the
+previously documented follow-ups, outside this correction.
 
 ## Metrics
 

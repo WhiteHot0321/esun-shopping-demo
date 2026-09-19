@@ -57,7 +57,7 @@ Baseline: advanced-v2, merge commit 6bd4c13 (merges codex/phase21-acceptance), c
   real-MySQL run also found and fixed an application/MySQL timezone mismatch by standardizing token
   expiry on UTC. Final targeted Testcontainers verification: `AuthIntegrationTest` 5/5 plus
   `AuthServiceTest` 12/12, **17/17 PASS**; independent Terra static security review PASS. Detailed
-  evidence: `docs/tasks/025-phase31-password-reset-atomicity.md`.
+  evidence: `docs/tasks/025-phase31-password-reset-atomicity.md`; correction commit `50ce7f9`.
 - **Product embedding re-index + member_id widening, committed — 2026-09-18, Claude Code
   (MODE: IMPLEMENT), commits `224c348` and `3f2ab48` on `advanced-v2` (rebased from
   `feature/frontend-ux-revamp` after PR #6 merged).** Two independent fixes picked up from
