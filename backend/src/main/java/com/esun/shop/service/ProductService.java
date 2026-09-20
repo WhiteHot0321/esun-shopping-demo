@@ -21,6 +21,13 @@ public class ProductService {
     }
 
     public void createProduct(CreateProductRequest request) {
+        createProduct(request, "legacy");
+    }
+
+    public void createProduct(CreateProductRequest request, String creatorId) {
+        if (creatorId == null || creatorId.isBlank()) {
+            throw new BusinessException("缺少登入憑證", HttpStatus.UNAUTHORIZED);
+        }
         String productId = request.getProductId().trim();
         if (productRepository.findById(productId) != null) {
             throw new BusinessException("商品編號已存在", HttpStatus.CONFLICT);
@@ -31,10 +38,15 @@ public class ProductService {
         product.setProductName(escapeHtml(request.getProductName().trim()));
         product.setPrice(request.getPrice());
         product.setQuantity(request.getQuantity());
+        product.setCreatorId(creatorId);
         productRepository.addProduct(product);
 
         // 讓 AI 客服立即查得到新商品，不必等下次應用程式啟動才重新索引。
         embeddingIndexService.indexProduct(productId);
+    }
+
+    public boolean isOwnedBy(String productId, String creatorId) {
+        return creatorId != null && productRepository.isOwnedBy(productId, creatorId);
     }
 
     public List<Product> getAvailableProducts() {

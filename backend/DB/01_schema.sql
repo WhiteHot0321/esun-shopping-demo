@@ -4,6 +4,7 @@ USE esun_shop;
 DROP TABLE IF EXISTS order_detail;
 DROP TABLE IF EXISTS order_request;
 DROP TABLE IF EXISTS shop_order;
+DROP TABLE IF EXISTS product_review;
 DROP TABLE IF EXISTS product;
 
 CREATE TABLE product (
@@ -11,8 +12,10 @@ CREATE TABLE product (
     product_name VARCHAR(100) NOT NULL,
     price        DECIMAL(12,2) NOT NULL CHECK (price >= 0),
     quantity     INT NOT NULL CHECK (quantity >= 0),
+    creator_id   VARCHAR(255) NULL,
     created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_product_creator (creator_id)
 );
 
 CREATE TABLE shop_order (

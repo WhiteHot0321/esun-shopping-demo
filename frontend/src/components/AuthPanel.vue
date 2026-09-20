@@ -120,7 +120,7 @@ const submit = async () => {
   const registering = mode.value === 'register'
   try {
     const { data: result } = await api.post(registering ? '/auth/register' : '/auth/login', { ...form })
-    auth.setSession(result.data.token, result.data.email)
+    auth.setSession(result.data.token, result.data.email, result.data.role)
     toast.success(registering ? '註冊成功，已自動登入' : `歡迎回來，${result.data.email}`)
     Object.assign(form, { email: '', password: '' })
     Object.assign(touched, { email: false, password: false })

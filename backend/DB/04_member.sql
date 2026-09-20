@@ -8,5 +8,7 @@ CREATE TABLE member (
     password_hash VARCHAR(255) NOT NULL,
     display_name  VARCHAR(100) NULL,
     phone         VARCHAR(30) NULL,
-    created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    role          VARCHAR(20) NOT NULL DEFAULT 'BUYER',
+    created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_member_role CHECK (role IN ('BUYER', 'SELLER', 'ADMIN'))
 );

@@ -43,6 +43,10 @@
         </div>
         <h3 class="product-card__name">{{ item.productName }}</h3>
         <p class="product-card__price">{{ formatPrice(item.price) }}</p>
+        <p class="muted" :aria-label="`${item.productName} 評分`">
+          ★ {{ Number(item.averageRating || 0).toFixed(1) }}（{{ item.reviewCount || 0 }} 則）
+        </p>
+        <button type="button" class="btn btn--ghost btn--sm" @click="$emit('view-reviews', item)">查看評論</button>
         <QuantityStepper :model-value="quantities[item.productId] || 0" :max="item.quantity" :label="item.productName"
           @update:model-value="$emit('set-quantity', item.productId, $event)" />
       </li>
@@ -60,7 +64,7 @@ const props = defineProps({
   quantities: { type: Object, required: true },
   status: { type: String, default: 'ready' }
 })
-defineEmits(['reload', 'set-quantity'])
+defineEmits(['reload', 'set-quantity', 'view-reviews'])
 
 const keyword = ref('')
 const filtered = computed(() => {

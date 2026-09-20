@@ -62,8 +62,9 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         String token = header.substring(BEARER_PREFIX.length());
         try {
-            String email = jwtService.extractEmail(token);
-            request.setAttribute("authenticatedEmail", email);
+            JwtService.JwtIdentity identity = jwtService.extractIdentity(token);
+            request.setAttribute("authenticatedEmail", identity.email());
+            request.setAttribute("authenticatedRole", identity.role());
         } catch (JwtException | IllegalArgumentException ex) {
             log.warn("JWT 驗證失敗: {}", ex.getMessage());
             unauthorized(response, "登入憑證無效或已過期");
@@ -86,7 +87,9 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 || path.equals("/api/support/ask"))) {
             return true;
         }
-        return HttpMethod.GET.matches(request.getMethod()) && path.equals("/api/products/available");
+        return HttpMethod.GET.matches(request.getMethod())
+                && (path.equals("/api/products/available")
+                || path.matches("/api/products/[^/]+/reviews"));
     }
 
     private void unauthorized(HttpServletResponse response, String message) throws IOException {

@@ -2,8 +2,10 @@
   <div class="workspace">
     <div class="workspace__main">
       <ProductCatalog :products="products" :quantities="quantities" :status="loadStatus" @reload="loadProducts"
-        @set-quantity="setQuantity" />
-      <ProductForm v-if="auth.isAuthenticated" @created="loadProducts" />
+        @set-quantity="setQuantity" @view-reviews="reviewProduct = $event" />
+      <ProductReviews v-if="reviewProduct" :product="reviewProduct" :authenticated="auth.isAuthenticated"
+        :role="auth.role" @close="reviewProduct = null" @changed="loadProducts" />
+      <ProductForm v-if="auth.isAuthenticated && ['SELLER', 'ADMIN'].includes(auth.role)" @created="loadProducts" />
     </div>
 
     <aside class="workspace__side">
@@ -32,11 +34,13 @@ import AuthPanel from './AuthPanel.vue'
 import CartPanel from './CartPanel.vue'
 import ProductCatalog from './ProductCatalog.vue'
 import ProductForm from './ProductForm.vue'
+import ProductReviews from './ProductReviews.vue'
 
 const auth = useAuthStore()
 const toast = useToast()
 
 const products = ref([])
+const reviewProduct = ref(null)
 const loadStatus = ref('loading')
 const quantities = reactive({})
 const form = reactive({ memberId: auth.email, payStatus: 'PENDING' })

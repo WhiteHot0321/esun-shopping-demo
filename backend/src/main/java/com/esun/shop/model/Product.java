@@ -7,6 +7,9 @@ public class Product {
     private String productName;
     private BigDecimal price;
     private Integer quantity;
+    private String creatorId;
+    private BigDecimal averageRating = BigDecimal.ZERO.setScale(2);
+    private Long reviewCount = 0L;
 
     public String getProductId() {
         return productId;
@@ -39,4 +42,17 @@ public class Product {
     public void setQuantity(Integer quantity) {
         this.quantity = quantity;
     }
+
+    public String getCreatorId() {
+        return creatorId;
+    }
+
+    public void setCreatorId(String creatorId) {
+        this.creatorId = creatorId;
+    }
+
+    public BigDecimal getAverageRating() { return averageRating; }
+    public void setAverageRating(BigDecimal averageRating) { this.averageRating = averageRating; }
+    public Long getReviewCount() { return reviewCount; }
+    public void setReviewCount(Long reviewCount) { this.reviewCount = reviewCount; }
 }
