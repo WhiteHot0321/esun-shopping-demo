@@ -5,8 +5,8 @@ Baseline: advanced-v2, merge commit 6bd4c13 (merges codex/phase21-acceptance), c
 
 ## Current acceptance status (supersedes historical entries below)
 
-- **Phase 3.1 #8 — 購物車持久化 [Buyer], implemented, independently reviewed and full
-  regression passed — 2026-09-20, Codex, not committed.** Added a MySQL-backed member cart with
+- **Phase 3.1 #8 — 購物車持久化 [Buyer], implemented, independently reviewed, full
+  regression passed and merged — 2026-09-20, Codex.** Added a MySQL-backed member cart with
   positive-quantity and member/product uniqueness constraints; JWT-owned list/add/update/delete/clear
   APIs; server-authoritative frontend restore and write synchronization; and transactional checkout
   that atomically consumes one member cart while preserving it on failure. Cross-member item access
@@ -16,7 +16,8 @@ Baseline: advanced-v2, merge commit 6bd4c13 (merges codex/phase21-acceptance), c
   `mvn clean test` **100/100**, 0 failures/errors/skipped with JaCoCo gate PASS; frontend checkout
   tests **3/3**, Vitest **24/24**, production build PASS (101 modules), and `git diff --check` PASS.
   Terra read-only independent review: **PASS** after six explicitly bounded repair rounds. Details:
-  `docs/tasks/027-cart-persistence.md`. No commit/push/merge. Engineering note: persistence alone is
+  `docs/tasks/027-cart-persistence.md`. Feature commit `6c79815`; merge commit `10c642c` was pushed
+  to `origin/advanced-v2`. Engineering note: persistence alone is
   insufficient for a cart—transactional consumption and client/server operation ordering are part of
   the data-consistency contract.
 - **Phase 3.1 #7 — 收件地址簿 [Buyer], implemented and full regression passed —

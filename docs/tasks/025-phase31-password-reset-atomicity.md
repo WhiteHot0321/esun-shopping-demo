@@ -1,10 +1,10 @@
 # Task 025 — Phase 3.1 #5 password-reset atomicity correction
 
-Updated: 2026-09-19 Asia/Taipei  
-Mode: IMPLEMENT  
-Baseline: `8fa3096506f7a7566b01eccb0b0e894a4c168514` on `feature/frontend-ux-revamp`  
-Risk: security / transaction / concurrency  
-Implementer: Codex  
+Updated: 2026-09-19 Asia/Taipei
+Mode: IMPLEMENT
+Baseline: `8fa3096506f7a7566b01eccb0b0e894a4c168514` on `feature/frontend-ux-revamp`
+Risk: security / transaction / concurrency
+Implementer: Codex
 Independent reviewer: Terra (`password_reset_review`)
 Correction commit: `50ce7f9`
 

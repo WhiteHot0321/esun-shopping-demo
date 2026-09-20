@@ -160,3 +160,11 @@ PARENT_TASK_ID: 027
 - 修復輪：6；有效審查缺陷：5 組競態／一致性 blocker。
 - 使用者介入：1 次範圍擴充核准，以及第三至第六輪共 4 次修復核准。
 - elapsed time、model/token cost、五小時額度變化：unknown。
+
+## Integration closure（2026-09-20 Asia/Taipei）
+
+- Feature commit：`6c79815`（`codex/phase31-buyer-persistence`），已 push。
+- Merge commit：`10c642c`，已合併並 push 至 `origin/advanced-v2`。
+- 合併樹與已驗證 feature tree 完全一致；未修改或合併 `main`。
+- 主工作樹中既有的 `.claude/launch.json`、`AGENTS.md`、舊分析／任務文件與根目錄
+  `package-lock.json` 均未納入提交，並原樣保留。
