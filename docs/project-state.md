@@ -1,10 +1,67 @@
 # Verified project state
 
-Updated: 2026-09-16 17:12 Asia/Taipei (Phase 2.1 acceptance closed; other Phase results preserved below)
+Updated: 2026-09-20 16:49 Asia/Taipei (Phase 3.1 #8 acceptance completed; other Phase results preserved below)
 Baseline: advanced-v2, merge commit 6bd4c13 (merges codex/phase21-acceptance), committed and pushed by this Claude Code session.
 
 ## Current acceptance status (supersedes historical entries below)
 
+- **Phase 3.1 #8 — 購物車持久化 [Buyer], implemented, independently reviewed and full
+  regression passed — 2026-09-20, Codex, not committed.** Added a MySQL-backed member cart with
+  positive-quantity and member/product uniqueness constraints; JWT-owned list/add/update/delete/clear
+  APIs; server-authoritative frontend restore and write synchronization; and transactional checkout
+  that atomically consumes one member cart while preserving it on failure. Cross-member item access
+  returns 404. Client ordering guards cover stale GET vs PUT, delayed add vs clear, clear vs checkout,
+  and ambiguous retry vs clear; backend member locking prevents two distinct request IDs from consuming
+  the same cart twice. Verification: real-MySQL `CartIntegrationTest` **4/4**, final backend
+  `mvn clean test` **100/100**, 0 failures/errors/skipped with JaCoCo gate PASS; frontend checkout
+  tests **3/3**, Vitest **24/24**, production build PASS (101 modules), and `git diff --check` PASS.
+  Terra read-only independent review: **PASS** after six explicitly bounded repair rounds. Details:
+  `docs/tasks/027-cart-persistence.md`. No commit/push/merge. Engineering note: persistence alone is
+  insufficient for a cart—transactional consumption and client/server operation ordering are part of
+  the data-consistency contract.
+- **Phase 3.1 #7 — 收件地址簿 [Buyer], implemented and full regression passed —
+  2026-09-20, Codex, branch `feature/frontend-ux-revamp`
+  @ `ab1ff81`, not committed.** Added member-owned multi-address CRUD, DB-enforced single
+  default, order/address foreign-key persistence, referenced-address deletion protection, JWT
+  ownership enforcement, default-address fallback, and checkout address selection/quick-add UI.
+  Backend production and test sources compile. After Docker 28.4.0 became available, two bounded
+  corrections fixed six stale `OrderServiceTest` Mockito signatures and the missing MockMvc web
+  test environment. `ShippingAddressIntegrationTest` then executed both cases: **1 passed, 1 failed**
+  because the backend emitted `isDefault` while its integration assertion and frontend consumed
+  `default`; the real frontend would not have recognized the default address. The user explicitly
+  authorized a third repair, the contract was unified on `isDefault`, and final targeted verification
+  passed: real-MySQL `ShippingAddressIntegrationTest` **2/2**, 0 failures/errors/skipped with JaCoCo
+  gate passing; frontend checkout tests 3/3, Vitest 19/19 and production build passed. One repair round fixed URL-specific
+  GET mocking after the new address load exposed an ordering assumption in an existing test. Task
+  details: `docs/tasks/026-shipping-address-book.md`. Independent authorization review completed;
+  no commit/push/merge. User interventions: two scope-limit approvals; elapsed/token/cost/five-hour
+  usage delta unavailable. Independent authorization review found one valid blocker: DTO validation
+  still required caller `memberId` before the controller could replace it with JWT identity. The
+  requirement was removed and the pending integration case now omits the body field (repair round
+  2); the user-authorized JSON contract correction was repair round 3. Final closure found and fixed
+  legacy order fixtures without addresses, nullable address-ID auto-unboxing, and an address SELECT
+  establishing a repeatable-read snapshot before the idempotency claim. Final `mvn clean test`:
+  **96/96**, 0 failures/errors/skipped, JaCoCo gate PASS; the final transaction-order and fixture
+  changes passed an independent read-only review. No commit/push/merge. Engineering note:
+  ownership must come from the verified principal, and
+  a unique database invariant must back application-level default-address switching.
+- **Phase 3.1 #6 — 個人資料編輯 [Buyer], implemented and targeted verification passed,
+  not yet committed — 2026-09-19, Codex, branch `feature/frontend-ux-revamp` @ `8fa3096`.**
+  Added nullable `member.display_name` / `member.phone` columns to the fresh schema and an
+  idempotent `06_member_profile.sql` migration. Authenticated buyers can read and replace only
+  their own profile through `GET/PUT /api/member/profile`; the target identity comes exclusively
+  from the verified JWT email, while email is read-only and request-body identity fields are
+  ignored. Optional blank values normalize to SQL `NULL`; display name and phone length/format
+  are validated. The new frontend profile panel loads existing values, prevents email editing,
+  validates phone input and persists profile changes. Verification: real-MySQL
+  `MemberProfileIntegrationTest` **2/2 PASS** with JaCoCo gate passing; frontend Vitest
+  **18/18 PASS**; production build PASS; `git diff --check` PASS. One repair round corrected an
+  unsupported MySQL `ADD COLUMN IF NOT EXISTS` form to an `information_schema`-guarded migration.
+  The focused suite proves fresh initialization and the already-current no-op migration path;
+  a separate populated legacy-DB migration drill and full repository regression were not run.
+  User interventions: one explicit scope expansion approval; elapsed/model cost/five-hour usage
+  delta unavailable. Engineering note: derive record ownership from authenticated server context,
+  never from an editable identifier in the request payload.
 - **Phase 3.1 #5 — 忘記密碼 & 修改密碼 [Buyer], implemented, corrected and verified —
   2026-09-18–19, Claude Code + Codex, branch `feature/frontend-ux-revamp`; original implementation
   commit `03249a0`.** Per the P0

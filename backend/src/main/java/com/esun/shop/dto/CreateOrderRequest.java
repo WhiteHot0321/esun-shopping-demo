@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 import java.util.List;
@@ -15,12 +16,14 @@ public class CreateOrderRequest {
     @Pattern(regexp = "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
     private String requestId;
 
-    @NotBlank
     @Size(max = 100)
     private String memberId;
 
     @NotNull
     private PayStatus payStatus;
+
+    @Positive(message = "收件地址編號必須大於 0")
+    private Long shippingAddressId;
 
     @Valid
     @NotEmpty
@@ -48,6 +51,14 @@ public class CreateOrderRequest {
 
     public void setPayStatus(PayStatus payStatus) {
         this.payStatus = payStatus;
+    }
+
+    public Long getShippingAddressId() {
+        return shippingAddressId;
+    }
+
+    public void setShippingAddressId(Long shippingAddressId) {
+        this.shippingAddressId = shippingAddressId;
     }
 
     public List<OrderItemRequest> getItems() {

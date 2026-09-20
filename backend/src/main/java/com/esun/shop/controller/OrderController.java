@@ -4,6 +4,7 @@ import com.esun.shop.dto.ApiResponse;
 import com.esun.shop.dto.CreateOrderRequest;
 import com.esun.shop.service.OrderService;
 import jakarta.validation.Valid;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -21,7 +22,11 @@ public class OrderController {
     }
 
     @PostMapping
-    public ApiResponse<Map<String, String>> createOrder(@Valid @RequestBody CreateOrderRequest request) {
+    public ApiResponse<Map<String, String>> createOrder(@Valid @RequestBody CreateOrderRequest request,
+            HttpServletRequest httpRequest) {
+        // The authenticated principal owns the order and its address. Never trust a caller-provided
+        // memberId for this authorization boundary; retain the field only for API compatibility.
+        request.setMemberId((String) httpRequest.getAttribute("authenticatedEmail"));
         String orderId = orderService.createOrder(request);
         return ApiResponse.ok(Map.of("orderId", orderId));
     }
