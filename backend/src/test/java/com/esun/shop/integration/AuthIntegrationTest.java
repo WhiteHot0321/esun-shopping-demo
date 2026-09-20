@@ -38,6 +38,7 @@ class AuthIntegrationTest extends AbstractMySqlIntegrationTest {
         String credentials = mapper.writeValueAsString(Map.of("email", email, "password", "password123"));
         String registered = mvc.perform(post("/api/auth/register").contentType("application/json").content(credentials))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.token").isNotEmpty())
+                .andExpect(jsonPath("$.data.role").value("BUYER"))
                 .andReturn().getResponse().getContentAsString();
         String token = mapper.readTree(registered).path("data").path("token").asText();
         String hash = jdbc.queryForObject("SELECT password_hash FROM member WHERE email = ?", String.class, email);
@@ -50,12 +51,21 @@ class AuthIntegrationTest extends AbstractMySqlIntegrationTest {
         mvc.perform(post("/api/auth/login").contentType("application/json").content(
                 mapper.writeValueAsString(Map.of("email", email, "password", "wrong-password"))))
                 .andExpect(status().isUnauthorized());
-        String product = mapper.writeValueAsString(Map.of("productId", "AUTH-P2", "productName", "Auth product", "price", 10, "quantity", 2));
+        String productId = "AUTH-" + UUID.randomUUID().toString().substring(0, 8);
+        String product = mapper.writeValueAsString(Map.of("productId", productId, "productName", "Auth product", "price", 10, "quantity", 2));
         mvc.perform(post("/api/products").contentType("application/json").content(product))
                 .andExpect(status().isUnauthorized());
         mvc.perform(post("/api/products").header("Authorization", "Bearer " + token).contentType("application/json").content(product))
+                .andExpect(status().isForbidden());
+        jdbc.update("UPDATE member SET role = 'SELLER' WHERE email = ?", email);
+        String sellerLogin = mvc.perform(post("/api/auth/login").contentType("application/json").content(credentials))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.role").value("SELLER"))
+                .andReturn().getResponse().getContentAsString();
+        String sellerToken = mapper.readTree(sellerLogin).path("data").path("token").asText();
+        mvc.perform(post("/api/products").header("Authorization", "Bearer " + sellerToken).contentType("application/json").content(product))
                 .andExpect(status().isOk());
-        assertThat(jdbc.queryForObject("SELECT quantity FROM product WHERE product_id = 'AUTH-P2'", Integer.class)).isEqualTo(2);
+        assertThat(jdbc.queryForObject("SELECT quantity FROM product WHERE product_id = ?", Integer.class, productId)).isEqualTo(2);
+        assertThat(jdbc.queryForObject("SELECT creator_id FROM product WHERE product_id = ?", String.class, productId)).isEqualTo(email);
         mvc.perform(get("/api/auth/login")).andExpect(status().isUnauthorized());
         mvc.perform(post("/api/auth/other")).andExpect(status().isUnauthorized());
         mvc.perform(get("/api/products/available")).andExpect(status().isOk());

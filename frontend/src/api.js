@@ -23,6 +23,7 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem('accessToken')
       localStorage.removeItem('authenticatedEmail')
+      localStorage.removeItem('authenticatedRole')
       window.dispatchEvent(new Event('auth-expired'))
     }
     return Promise.reject(error)

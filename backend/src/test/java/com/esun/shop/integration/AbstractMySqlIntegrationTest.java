@@ -15,7 +15,7 @@ import org.testcontainers.utility.MountableFile;
  *
  * Loads the actual backend/DB/01_schema.sql -> 02_data.sql -> 03_stored_procedures.sql ->
  * 04_faq.sql -> 04_member.sql -> 05_password_reset_token.sql -> 06_member_profile.sql ->
- * 07_shipping_address.sql -> 08_shopping_cart.sql scripts (the same files
+ * 07_shipping_address.sql -> 08_shopping_cart.sql -> 09_product_review.sql scripts (the same files
  * docker-compose.yml mounts into /docker-entrypoint-initdb.d)
  * via withCopyFileToContainer, relying on the official mysql image running everything
  * under /docker-entrypoint-initdb.d in alphabetical (01/02/03) order - no hand-rolled
@@ -72,7 +72,10 @@ abstract class AbstractMySqlIntegrationTest {
                     "/docker-entrypoint-initdb.d/07_shipping_address.sql")
             .withCopyFileToContainer(
                     MountableFile.forHostPath("DB/08_shopping_cart.sql"),
-                    "/docker-entrypoint-initdb.d/08_shopping_cart.sql");
+                    "/docker-entrypoint-initdb.d/08_shopping_cart.sql")
+            .withCopyFileToContainer(
+                    MountableFile.forHostPath("DB/09_product_review.sql"),
+                    "/docker-entrypoint-initdb.d/09_product_review.sql");
 
     static {
         MYSQL.start();

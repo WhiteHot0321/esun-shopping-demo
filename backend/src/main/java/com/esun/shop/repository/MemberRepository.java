@@ -20,6 +20,7 @@ public class MemberRepository {
         m.setId(rs.getLong("id"));
         m.setEmail(rs.getString("email"));
         m.setPasswordHash(rs.getString("password_hash"));
+        m.setRole(Member.Role.valueOf(rs.getString("role")));
         m.setCreatedAt(rs.getTimestamp("created_at").toLocalDateTime());
         return m;
     };
@@ -31,7 +32,7 @@ public class MemberRepository {
     }
 
     public Member findByEmail(String email) {
-        String sql = "SELECT id, email, password_hash, created_at FROM member WHERE email = ?";
+        String sql = "SELECT id, email, password_hash, role, created_at FROM member WHERE email = ?";
         List<Member> list = jdbcTemplate.query(sql, MEMBER_ROW_MAPPER, email);
         return list.isEmpty() ? null : list.get(0);
     }
@@ -50,6 +51,7 @@ public class MemberRepository {
         member.setId(keyHolder.getKey().longValue());
         member.setEmail(email);
         member.setPasswordHash(passwordHash);
+        member.setRole(Member.Role.BUYER);
         return member;
     }
 

@@ -68,12 +68,13 @@ class AuthServiceTest {
         saved.setId(1L);
         saved.setEmail("user@example.com");
         when(memberRepository.insert(eq("user@example.com"), anyString())).thenReturn(saved);
-        when(jwtService.generateToken("user@example.com")).thenReturn("jwt-token");
+        when(jwtService.generateToken("user@example.com", Member.Role.BUYER)).thenReturn("jwt-token");
 
         AuthResponse response = authService.register(request);
 
         assertThat(response.getToken()).isEqualTo("jwt-token");
         assertThat(response.getEmail()).isEqualTo("user@example.com");
+        assertThat(response.getRole()).isEqualTo(Member.Role.BUYER);
 
         ArgumentCaptor<String> hashCaptor = ArgumentCaptor.forClass(String.class);
         verify(memberRepository).insert(eq("user@example.com"), hashCaptor.capture());
@@ -109,12 +110,13 @@ class AuthServiceTest {
         member.setEmail("user@example.com");
         member.setPasswordHash(BCrypt.hashpw("correct-pw", BCrypt.gensalt()));
         when(memberRepository.findByEmail("user@example.com")).thenReturn(member);
-        when(jwtService.generateToken("user@example.com")).thenReturn("jwt-token");
+        when(jwtService.generateToken("user@example.com", Member.Role.BUYER)).thenReturn("jwt-token");
 
         AuthResponse response = authService.login(request);
 
         assertThat(response.getToken()).isEqualTo("jwt-token");
         assertThat(response.getEmail()).isEqualTo("user@example.com");
+        assertThat(response.getRole()).isEqualTo(Member.Role.BUYER);
     }
 
     @Test

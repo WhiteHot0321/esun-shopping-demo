@@ -1,5 +1,6 @@
 package com.esun.shop.security;
 
+import com.esun.shop.model.Member;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
@@ -32,13 +33,21 @@ public class JwtService {
     }
 
     public String generateToken(String email) {
+        return generateToken(email, Member.Role.BUYER);
+    }
+
+    public String generateToken(String email, Member.Role role) {
         if (email == null || email.isBlank()) {
             throw new IllegalArgumentException("JWT subject must not be blank");
+        }
+        if (role == null) {
+            throw new IllegalArgumentException("JWT role must not be null");
         }
         Date now = new Date();
         Date expiry = new Date(now.getTime() + expirationMs);
         return Jwts.builder()
                 .subject(email)
+                .claim("role", role.name())
                 .issuedAt(now)
                 .expiration(expiry)
                 .signWith(signingKey)
@@ -50,6 +59,10 @@ public class JwtService {
      * @throws JwtException if the token is missing, malformed, expired, or has an invalid signature.
      */
     public String extractEmail(String token) {
+        return extractIdentity(token).email();
+    }
+
+    public JwtIdentity extractIdentity(String token) {
         Claims claims = Jwts.parser()
                 .verifyWith(signingKey)
                 .build()
@@ -59,6 +72,13 @@ public class JwtService {
         if (email == null || email.isBlank()) {
             throw new JwtException("JWT subject is missing") { };
         }
-        return email;
+        String roleClaim = claims.get("role", String.class);
+        try {
+            return new JwtIdentity(email, Member.Role.valueOf(roleClaim));
+        } catch (IllegalArgumentException | NullPointerException ex) {
+            throw new JwtException("JWT role is missing or invalid", ex) { };
+        }
     }
+
+    public record JwtIdentity(String email, Member.Role role) { }
 }

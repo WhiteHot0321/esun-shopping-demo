@@ -16,11 +16,12 @@ const products = [
 ]
 const addresses = [{ id: 7, label: '住家', receiverName: '王小明', phone: '0912-345-678', postalCode: '100', address: '台北市測試路 1 號', isDefault: true }]
 let serverCart
-const mountApp = async ({ signedIn = false, storedCart = null } = {}) => {
+const mountApp = async ({ signedIn = false, storedCart = null, role = 'BUYER' } = {}) => {
   localStorage.clear()
   if (signedIn) {
     localStorage.setItem('accessToken', 'jwt')
     localStorage.setItem('authenticatedEmail', 'member@example.com')
+    localStorage.setItem('authenticatedRole', role)
     if (storedCart) localStorage.setItem('esunShop.cart.v1:member%40example.com', JSON.stringify(storedCart))
   }
   wrapper = mount(App, { attachTo: document.body, global: { plugins: [createPinia()] } })
@@ -300,7 +301,7 @@ describe('checkout', () => {
 })
 
 describe('product form', () => {
-  beforeEach(() => mountApp({ signedIn: true }))
+  beforeEach(() => mountApp({ signedIn: true, role: 'SELLER' }))
 
   it('validates, creates a product and refreshes listing', async () => {
     await wrapper.get('.product-form form').trigger('submit')
@@ -437,6 +438,50 @@ describe('product form', () => {
     await clearing
     await flushPromises()
     expect(api.delete.mock.calls.filter(([url]) => url === '/cart')).toHaveLength(1)
+  })
+})
+
+describe('product reviews', () => {
+  it('shows aggregate ratings and lets a verified buyer submit a review', async () => {
+    api.get.mockImplementation((url) => {
+      if (url === '/products/available') return Promise.resolve({ data: { data: [{ ...products[0], averageRating: 4.5, reviewCount: 2 }] } })
+      if (url.startsWith('/products/P001/reviews')) return Promise.resolve({ data: { data: {
+        reviews: [{ id: 1, reviewerName: '已購買買家', rating: 5, content: '很好', visibility: 'VISIBLE' }],
+        averageRating: 5, reviewCount: 1
+      } } })
+      if (url === '/reviews/mine/P001') return Promise.resolve({ data: { data: null } })
+      if (url === '/member/addresses') return Promise.resolve({ data: { data: addresses } })
+      if (url === '/cart') return Promise.resolve({ data: { data: [] } })
+      return Promise.resolve({ data: { data: [] } })
+    })
+    await mountApp({ signedIn: true })
+    expect(wrapper.text()).toContain('★ 4.5（2 則）')
+    await wrapper.findAll('button').find(b => b.text() === '查看評論').trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('很好')
+    await wrapper.get('#review-content').setValue('我的評論')
+    await wrapper.get('section[aria-labelledby="reviews-title"] form').trigger('submit')
+    await flushPromises()
+    expect(api.post).toHaveBeenCalledWith('/products/P001/reviews', { rating: 5, content: '我的評論' })
+  })
+
+  it('lets a seller hide a review but does not show the buyer authoring form', async () => {
+    const review = { id: 7, reviewerName: '已購買買家', rating: 2, content: '待審核', visibility: 'VISIBLE' }
+    api.get.mockImplementation((url) => {
+      if (url === '/products/available') return Promise.resolve({ data: { data: [products[0]] } })
+      if (url.startsWith('/products/P001/reviews')) return Promise.resolve({ data: { data: { reviews: [review], averageRating: 2, reviewCount: 1 } } })
+      if (url === '/seller/reviews') return Promise.resolve({ data: { data: [review] } })
+      if (url === '/member/addresses') return Promise.resolve({ data: { data: addresses } })
+      if (url === '/cart') return Promise.resolve({ data: { data: [] } })
+      return Promise.resolve({ data: { data: [] } })
+    })
+    await mountApp({ signedIn: true, role: 'SELLER' })
+    await wrapper.findAll('button').find(b => b.text() === '查看評論').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('#review-content').exists()).toBe(false)
+    await wrapper.findAll('button').find(b => b.text() === '隱藏').trigger('click')
+    await flushPromises()
+    expect(api.post).toHaveBeenCalledWith('/seller/reviews/7/hide')
   })
 })
 

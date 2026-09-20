@@ -1,9 +1,11 @@
 # Verified project state
 
-Updated: 2026-09-20 16:49 Asia/Taipei (Phase 3.1 #8 acceptance completed; other Phase results preserved below)
+Updated: 2026-09-20 17:45 Asia/Taipei (Phase 3.1 #9 acceptance completed; other Phase results preserved below)
 Baseline: advanced-v2, merge commit 6bd4c13 (merges codex/phase21-acceptance), committed and pushed by this Claude Code session.
 
 ## Current acceptance status (supersedes historical entries below)
+
+- **Phase 3.1 #9 — 商品評論系統 [Buyer + Seller], implemented, fully verified and independently reviewed — 2026-09-20, Codex; isolated worktree, not committed.** Added public visible-review paging/stable sorting and visible-only average/count; verified-purchase buyer create, author-only update/delete, DB-backed one-review-per-member/product concurrency enforcement; and seller-owned/admin hide/restore moderation without buyer-content editing. Integrated the missing role-bearing JWT and product creator ownership prerequisites. Frontend exposes rating/count, buyer authoring, and seller/admin moderation. Verification: product-review real-MySQL integration 3/3, targeted RBAC compatibility PASS, final backend `mvn -q clean test` **104/104** with 0 failures/errors/skips and JaCoCo PASS; frontend checkout 3/3 and Vitest **26/26**, Vite production build PASS (102 modules), `git diff --check` PASS. Two separate Claude Code read-only audits (prerequisite authorization and product-review contract) both returned **PASS**. Details: `docs/tasks/028-product-reviews-system.md`, audits 029/030. No commit, push or merge. Engineering note: review authorization needs both server-derived identity and database invariants; UI role hiding is only presentation, while backend ownership checks remain authoritative.
 
 - **Phase 3.1 #8 — 購物車持久化 [Buyer], implemented, independently reviewed, full
   regression passed and merged — 2026-09-20, Codex.** Added a MySQL-backed member cart with

@@ -4,6 +4,7 @@ import com.esun.shop.controller.OrderController;
 import com.esun.shop.controller.ProductController;
 import com.esun.shop.controller.SupportController;
 import com.esun.shop.dto.SupportAnswer;
+import com.esun.shop.model.Member;
 import com.esun.shop.model.Product;
 import com.esun.shop.service.OrderService;
 import com.esun.shop.service.ProductService;
@@ -22,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -71,6 +73,10 @@ class JwtAuthFilterTest {
 
     private String validAuthHeader() {
         return "Bearer " + jwtService.generateToken("user@example.com");
+    }
+
+    private String sellerAuthHeader() {
+        return "Bearer " + jwtService.generateToken("seller@example.com", Member.Role.SELLER);
     }
 
     @Test
@@ -137,7 +143,7 @@ class JwtAuthFilterTest {
     }
 
     @Test
-    void createProduct_withValidToken_succeeds() throws Exception {
+    void createProduct_withBuyerToken_returns403() throws Exception {
         String body = objectMapper.writeValueAsString(Map.of(
                 "productId", "P100",
                 "productName", "new product",
@@ -147,10 +153,26 @@ class JwtAuthFilterTest {
         mockMvc.perform(post("/api/products")
                         .header(AUTHORIZATION, validAuthHeader())
                         .contentType("application/json").content(body))
+                .andExpect(status().isForbidden());
+
+        verify(productService, never()).createProduct(any(), any());
+    }
+
+    @Test
+    void createProduct_withSellerToken_succeeds() throws Exception {
+        String body = objectMapper.writeValueAsString(Map.of(
+                "productId", "P100",
+                "productName", "new product",
+                "price", "9.99",
+                "quantity", 5));
+
+        mockMvc.perform(post("/api/products")
+                        .header(AUTHORIZATION, sellerAuthHeader())
+                        .contentType("application/json").content(body))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
 
-        verify(productService).createProduct(any());
+        verify(productService).createProduct(any(), eq("seller@example.com"));
     }
 
     @Test

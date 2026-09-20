@@ -3,9 +3,16 @@ package com.esun.shop.model;
 import java.time.LocalDateTime;
 
 public class Member {
+    public enum Role {
+        BUYER,
+        SELLER,
+        ADMIN
+    }
+
     private Long id;
     private String email;
     private String passwordHash;
+    private Role role = Role.BUYER;
     private LocalDateTime createdAt;
 
     public Long getId() {
@@ -30,6 +37,14 @@ public class Member {
 
     public void setPasswordHash(String passwordHash) {
         this.passwordHash = passwordHash;
+    }
+
+    public Role getRole() {
+        return role;
+    }
+
+    public void setRole(Role role) {
+        this.role = role;
     }
 
     public LocalDateTime getCreatedAt() {

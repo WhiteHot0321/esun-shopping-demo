@@ -59,8 +59,8 @@ public class AuthService {
         String passwordHash = passwordEncoder.encode(request.getPassword());
         Member member = memberRepository.insert(email, passwordHash);
 
-        String token = jwtService.generateToken(member.getEmail());
-        return new AuthResponse(token, member.getEmail());
+        String token = jwtService.generateToken(member.getEmail(), member.getRole());
+        return new AuthResponse(token, member.getEmail(), member.getRole());
     }
 
     public AuthResponse login(LoginRequest request) {
@@ -72,8 +72,8 @@ public class AuthService {
             throw new BusinessException("帳號或密碼錯誤", HttpStatus.UNAUTHORIZED);
         }
 
-        String token = jwtService.generateToken(member.getEmail());
-        return new AuthResponse(token, member.getEmail());
+        String token = jwtService.generateToken(member.getEmail(), member.getRole());
+        return new AuthResponse(token, member.getEmail(), member.getRole());
     }
 
     public void forgotPassword(ForgotPasswordRequest request) {
