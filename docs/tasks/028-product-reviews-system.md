@@ -24,7 +24,7 @@
 
 ## Result
 
-Status: **implemented, fully verified, independently reviewed; not committed or merged**.
+Status: **implemented, fully verified, independently reviewed, committed and merged**.
 
 ### Delivered
 
@@ -60,9 +60,9 @@ Status: **implemented, fully verified, independently reviewed; not committed or 
 
 ### Delivery state
 
-- No commit, push or merge was performed.
-- Main checkout user changes were preserved; implementation remains isolated in the worktree above.
+- Feature commit: `7c24669` (`codex/phase31-product-reviews`), pushed to `origin`.
+- Merge commit: `8876fa4`, integrated into `advanced-v2`; final documentation commit records the merge evidence.
+- Main checkout user changes were preserved; integration used a separate clean worktree.
 - Elapsed time, token/model cost and five-hour usage delta: unavailable/unknown.
 - User interventions: 2 scope-expansion approvals.
 - Valid independent-review defects: 0.
-
