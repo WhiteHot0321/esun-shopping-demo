@@ -66,6 +66,13 @@ class RedisLiveOutageIntegrationTest extends AbstractMySqlIntegrationTest {
         assertThat(auth.getStatusCode().value()).isEqualTo(200);
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(auth.getBody().path("data").path("token").asText());
+        Long memberId = db.queryForObject("SELECT id FROM member WHERE email = ?", Long.class,
+                product + "@example.com");
+        db.update("""
+                INSERT INTO shipping_address
+                    (member_id, label, receiver_name, phone, postal_code, address, is_default)
+                VALUES (?, 'Test', 'Outage Test', '0900000000', '100', 'Test Address', TRUE)
+                """, memberId);
         long initialOrders = db.queryForObject("SELECT COUNT(*) FROM shop_order", Long.class);
         place(request(product), headers);
         assertThat(redis.opsForValue().get("stock:" + product)).isEqualTo("99");

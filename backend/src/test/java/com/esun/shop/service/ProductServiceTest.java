@@ -2,6 +2,7 @@ package com.esun.shop.service;
 
 import com.esun.shop.dto.CreateProductRequest;
 import com.esun.shop.exception.BusinessException;
+import com.esun.shop.llm.EmbeddingIndexService;
 import com.esun.shop.model.Product;
 import com.esun.shop.repository.ProductRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -24,9 +25,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Unit tests for {@link ProductService}. ProductRepository is mocked so these
- * exercise only the service's own logic (duplicate-id check, HTML escaping),
- * not the stored procedures behind the repository.
+ * Unit tests for {@link ProductService}. ProductRepository and EmbeddingIndexService are mocked so
+ * these exercise only the service's own logic (duplicate-id check, HTML escaping, re-index trigger),
+ * not the stored procedures behind the repository or the real embedding/LLM call.
  */
 @ExtendWith(MockitoExtension.class)
 class ProductServiceTest {
@@ -34,11 +35,14 @@ class ProductServiceTest {
     @Mock
     private ProductRepository productRepository;
 
+    @Mock
+    private EmbeddingIndexService embeddingIndexService;
+
     private ProductService productService;
 
     @BeforeEach
     void setUp() {
-        productService = new ProductService(productRepository);
+        productService = new ProductService(productRepository, embeddingIndexService);
     }
 
     @Test
@@ -61,6 +65,8 @@ class ProductServiceTest {
         assertThat(saved.getProductName()).isEqualTo("&lt;script&gt;alert(&#39;x&#39;)&lt;/script&gt;");
         assertThat(saved.getPrice()).isEqualByComparingTo("199.00");
         assertThat(saved.getQuantity()).isEqualTo(10);
+
+        verify(embeddingIndexService).indexProduct("P100");
     }
 
     @Test
@@ -80,6 +86,7 @@ class ProductServiceTest {
                 .satisfies(ex -> assertThat(((BusinessException) ex).getStatus()).isEqualTo(HttpStatus.CONFLICT));
 
         verify(productRepository, never()).addProduct(any());
+        verify(embeddingIndexService, never()).indexProduct(anyString());
     }
 
     @Test
@@ -99,6 +106,7 @@ class ProductServiceTest {
         verify(productRepository).addProduct(captor.capture());
         assertThat(captor.getValue().getProductId()).isEqualTo("P200");
         assertThat(captor.getValue().getProductName()).isEqualTo("new product");
+        verify(embeddingIndexService).indexProduct("P200");
     }
 
     @Test

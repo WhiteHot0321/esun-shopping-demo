@@ -8,6 +8,8 @@ import org.springframework.jdbc.core.simple.SimpleJdbcCall;
 import org.springframework.stereotype.Repository;
 
 import javax.sql.DataSource;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -79,12 +81,30 @@ public class ProductRepository {
     }
 
     public List<IndexableDoc> findAllForIndexing() {
-        String sql = "SELECT product_id, product_name, updated_at FROM product";
-        return jdbcTemplate.query(sql, (rs, rowNum) -> new IndexableDoc(
+        String sql = "SELECT product_id, product_name, price, quantity, updated_at FROM product";
+        return jdbcTemplate.query(sql, (rs, rowNum) -> toIndexableDoc(rs));
+    }
+
+    /**
+     * 撈單一商品供索引用，供新增/異動商品後即時 upsert 該筆 embedding，
+     * 不必等下次應用程式啟動才重新索引。
+     */
+    public IndexableDoc findByIdForIndexing(String productId) {
+        String sql = "SELECT product_id, product_name, price, quantity, updated_at FROM product WHERE product_id = ?";
+        List<IndexableDoc> list = jdbcTemplate.query(sql, (rs, rowNum) -> toIndexableDoc(rs), productId);
+        return list.isEmpty() ? null : list.get(0);
+    }
+
+    private IndexableDoc toIndexableDoc(ResultSet rs) throws SQLException {
+        String content = "商品名稱：%s；價格：NT$%s；庫存：%d 件".formatted(
+                rs.getString("product_name"),
+                rs.getBigDecimal("price").toPlainString(),
+                rs.getInt("quantity"));
+        return new IndexableDoc(
                 "product",
                 rs.getString("product_id"),
-                rs.getString("product_name"),
-                rs.getTimestamp("updated_at").toLocalDateTime()));
+                content,
+                rs.getTimestamp("updated_at").toLocalDateTime());
     }
 
     public void decreaseStock(String productId, Integer quantity) {

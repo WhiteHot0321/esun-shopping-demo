@@ -30,6 +30,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -93,7 +94,7 @@ class OrderServiceTest {
         assertThat(orderId).isNotBlank();
 
         ArgumentCaptor<ShopOrder> orderCaptor = ArgumentCaptor.forClass(ShopOrder.class);
-        verify(orderRepository).insertOrder(orderCaptor.capture());
+        verify(orderRepository).insertOrder(orderCaptor.capture(), isNull());
         assertThat(orderCaptor.getValue().getPrice()).isEqualByComparingTo("300.00");
         assertThat(orderCaptor.getValue().getMemberId()).isEqualTo("M001");
         assertThat(orderCaptor.getValue().getPayStatus()).isEqualTo(PayStatus.PENDING.ordinal());
@@ -113,7 +114,7 @@ class OrderServiceTest {
 
         // 2*100.00 + 4*50.50 = 200.00 + 202.00 = 402.00
         ArgumentCaptor<ShopOrder> orderCaptor = ArgumentCaptor.forClass(ShopOrder.class);
-        verify(orderRepository).insertOrder(orderCaptor.capture());
+        verify(orderRepository).insertOrder(orderCaptor.capture(), isNull());
         assertThat(orderCaptor.getValue().getPrice()).isEqualByComparingTo("402.00");
     }
 
@@ -127,7 +128,7 @@ class OrderServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .satisfies(ex -> assertThat(((BusinessException) ex).getStatus()).isEqualTo(HttpStatus.NOT_FOUND));
 
-        verify(orderRepository, never()).insertOrder(any());
+        verify(orderRepository, never()).insertOrder(any(), any());
         verify(orderRepository, never()).insertOrderDetail(any());
         verify(productRepository, never()).decreaseStock(anyString(), anyInt());
     }
@@ -142,7 +143,7 @@ class OrderServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .satisfies(ex -> assertThat(((BusinessException) ex).getStatus()).isEqualTo(HttpStatus.CONFLICT));
 
-        verify(orderRepository, never()).insertOrder(any());
+        verify(orderRepository, never()).insertOrder(any(), any());
         verify(orderRepository, never()).insertOrderDetail(any());
         verify(productRepository, never()).decreaseStock(anyString(), anyInt());
     }
@@ -160,7 +161,7 @@ class OrderServiceTest {
         assertThatThrownBy(() -> orderService.createOrder(req))
                 .isInstanceOf(BusinessException.class);
 
-        verify(orderRepository, never()).insertOrder(any());
+        verify(orderRepository, never()).insertOrder(any(), any());
         verify(productRepository, never()).decreaseStock(anyString(), anyInt());
     }
 
@@ -249,7 +250,7 @@ class OrderServiceTest {
 
         verify(productRepository, never()).findByIds(any());
         verify(productRepository, never()).decreaseStock(anyString(), anyInt());
-        verify(orderRepository, never()).insertOrder(any());
+        verify(orderRepository, never()).insertOrder(any(), any());
     }
 
     @Test

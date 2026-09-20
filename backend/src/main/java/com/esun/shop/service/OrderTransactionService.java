@@ -12,6 +12,7 @@ import com.esun.shop.repository.ProductRepository;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -30,10 +31,21 @@ public class OrderTransactionService {
     private static final SecureRandom RANDOM = new SecureRandom();
     private final ProductRepository productRepository;
     private final OrderRepository orderRepository;
+    private final ShippingAddressService shippingAddressService;
 
+    @Autowired
+    public OrderTransactionService(ProductRepository productRepository, OrderRepository orderRepository,
+            ShippingAddressService shippingAddressService) {
+        this.productRepository = productRepository;
+        this.orderRepository = orderRepository;
+        this.shippingAddressService = shippingAddressService;
+    }
+
+    /** Compatibility constructor for isolated unit tests that do not load the address schema. */
     public OrderTransactionService(ProductRepository productRepository, OrderRepository orderRepository) {
         this.productRepository = productRepository;
         this.orderRepository = orderRepository;
+        this.shippingAddressService = null;
     }
 
     @Transactional
@@ -64,6 +76,13 @@ public class OrderTransactionService {
             return new OrderCreationResult(original.getOrderId(), false);
         }
 
+        Long shippingAddressId;
+        if (shippingAddressService == null) {
+            shippingAddressId = request.getShippingAddressId();
+        } else {
+            shippingAddressId = shippingAddressService.resolveForOrder(request.getShippingAddressId(), memberId).id();
+        }
+
         // Claim ownership before reserving Redis: concurrent replays wait here and
         // return the committed original without reserving any stock a second time.
         reserveStock.run();
@@ -83,7 +102,7 @@ public class OrderTransactionService {
         order.setMemberId(memberId);
         order.setPrice(totalPrice);
         order.setPayStatus(request.getPayStatus().ordinal());
-        orderRepository.insertOrder(order);
+        orderRepository.insertOrder(order, shippingAddressId);
         for (OrderItemRequest item : request.getItems().stream().sorted(Comparator.comparing(OrderItemRequest::getProductId)).toList()) {
             Product product = productMap.get(item.getProductId());
             productRepository.decreaseStock(item.getProductId(), item.getQuantity());

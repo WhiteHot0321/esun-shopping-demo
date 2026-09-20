@@ -36,12 +36,38 @@
       <strong data-testid="cart-total">{{ formatPrice(total) }}</strong>
     </div>
 
-    <form class="checkout" novalidate @submit.prevent="$emit('checkout')">
+    <form class="checkout" novalidate @submit.prevent="submitCheckout">
       <template v-if="authenticated">
         <div class="field">
           <label for="member-id">會員編號</label>
           <input id="member-id" v-model.trim="form.memberId" autocomplete="off" :disabled="busy" />
           <p class="field__hint">預設為登入 Email，可視需要修改</p>
+        </div>
+
+        <div class="field address-book">
+          <label for="shipping-address">收件地址</label>
+          <select id="shipping-address" v-model="form.shippingAddressId" :disabled="busy || addressBusy">
+            <option :value="null" disabled>{{ addressBusy ? '地址載入中…' : '請選擇收件地址' }}</option>
+            <option v-for="entry in addresses" :key="entry.id" :value="entry.id">
+              {{ entry.isDefault ? '★ ' : '' }}{{ entry.label }} — {{ entry.receiverName }}，{{ entry.address }}
+            </option>
+          </select>
+          <button type="button" class="link-button" :disabled="busy" @click="showAddressForm = !showAddressForm">
+            {{ showAddressForm ? '取消新增' : '新增收件地址' }}
+          </button>
+          <p v-if="addressError" class="field__error" role="alert">{{ addressError }}</p>
+        </div>
+
+        <div v-if="showAddressForm" class="notice" data-testid="new-address-form">
+          <div class="field"><label for="address-label">標籤</label><input id="address-label" v-model.trim="newAddress.label" maxlength="50" placeholder="住家 / 公司" /></div>
+          <div class="field"><label for="receiver-name">收件人</label><input id="receiver-name" v-model.trim="newAddress.receiverName" maxlength="100" autocomplete="name" /></div>
+          <div class="field"><label for="address-phone">電話</label><input id="address-phone" v-model.trim="newAddress.phone" maxlength="30" autocomplete="tel" /></div>
+          <div class="field"><label for="postal-code">郵遞區號</label><input id="postal-code" v-model.trim="newAddress.postalCode" maxlength="10" autocomplete="postal-code" /></div>
+          <div class="field"><label for="street-address">地址</label><input id="street-address" v-model.trim="newAddress.address" maxlength="255" autocomplete="street-address" /></div>
+          <label><input v-model="newAddress.isDefault" type="checkbox" /> 設為預設地址</label>
+          <button type="button" class="btn btn--secondary btn--block" :disabled="addressBusy" @click="createAddress">
+            {{ addressBusy ? '儲存中…' : '儲存地址' }}
+          </button>
         </div>
 
         <fieldset class="field">
@@ -56,18 +82,20 @@
       </template>
 
       <button type="submit" class="btn btn--primary btn--block btn--lg"
-        :disabled="busy || !authenticated || Boolean(pendingAttempt) || !items.length">
+        :disabled="busy || !authenticated || Boolean(pendingAttempt) || !items.length || !form.shippingAddressId">
         <span v-if="busy && !pendingAttempt" class="spinner" aria-hidden="true"></span>
         {{ busy && !pendingAttempt ? '訂單送出中…' : '建立訂單' }}
       </button>
       <p v-if="!authenticated" class="field__hint center">請先登入會員才能建立訂單</p>
       <p v-else-if="!items.length && !pendingAttempt" class="field__hint center">選擇商品後即可建立訂單</p>
+      <p v-else-if="!form.shippingAddressId" class="field__hint center">請先選擇或新增收件地址</p>
     </form>
   </section>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
+import api from '../api'
 import QuantityStepper from './QuantityStepper.vue'
 import { formatPrice } from '../format'
 
@@ -79,10 +107,69 @@ const props = defineProps({
   busy: Boolean,
   pendingAttempt: { type: Object, default: null }
 })
-defineEmits(['set-quantity', 'clear', 'checkout', 'retry'])
+const emit = defineEmits(['set-quantity', 'clear', 'checkout', 'retry'])
 
 const payOptions = [{ value: 'PENDING', label: '未付款' }, { value: 'PAID', label: '已付款' }]
 const count = computed(() => props.items.reduce((sum, item) => sum + item.quantity, 0))
+const addresses = ref([])
+const addressBusy = ref(false)
+const addressError = ref('')
+const showAddressForm = ref(false)
+const newAddress = reactive({ label: '', receiverName: '', phone: '', postalCode: '', address: '', isDefault: false })
+
+const loadAddresses = async () => {
+  if (!props.authenticated) {
+    addresses.value = []
+    props.form.shippingAddressId = null
+    return
+  }
+  addressBusy.value = true
+  addressError.value = ''
+  try {
+    const { data } = await api.get('/member/addresses')
+    addresses.value = Array.isArray(data.data) ? data.data : []
+    const selectedStillExists = addresses.value.some(entry => entry.id === props.form.shippingAddressId)
+    if (!selectedStillExists) {
+      props.form.shippingAddressId = addresses.value.find(entry => entry.isDefault)?.id || addresses.value[0]?.id || null
+    }
+  } catch {
+    addressError.value = '收件地址載入失敗，請稍後再試'
+  } finally {
+    addressBusy.value = false
+  }
+}
+
+const createAddress = async () => {
+  addressError.value = ''
+  if (!newAddress.label || !newAddress.receiverName || !newAddress.phone || !newAddress.address) {
+    addressError.value = '請填寫標籤、收件人、電話與地址'
+    return
+  }
+  addressBusy.value = true
+  try {
+    const payload = { ...newAddress }
+    const { data } = await api.post('/member/addresses', payload)
+    addresses.value = [...addresses.value.map(entry => ({ ...entry, isDefault: data.data.isDefault ? false : entry.isDefault })), data.data]
+      .sort((a, b) => Number(b.isDefault) - Number(a.isDefault) || a.id - b.id)
+    props.form.shippingAddressId = data.data.id
+    Object.assign(newAddress, { label: '', receiverName: '', phone: '', postalCode: '', address: '', isDefault: false })
+    showAddressForm.value = false
+  } catch (error) {
+    addressError.value = error.response?.data?.message || '地址儲存失敗，請稍後再試'
+  } finally {
+    addressBusy.value = false
+  }
+}
+
+const submitCheckout = () => {
+  if (!props.form.shippingAddressId) {
+    addressError.value = '請先選擇或新增收件地址'
+    return
+  }
+  emit('checkout')
+}
+
+watch(() => props.authenticated, loadAddresses, { immediate: true })
 const pendingSummary = computed(() => {
   const lines = props.pendingAttempt?.payload?.items || []
   const units = lines.reduce((sum, line) => sum + line.quantity, 0)

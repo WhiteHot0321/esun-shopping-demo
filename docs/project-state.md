@@ -1,13 +1,144 @@
 # Verified project state
 
-Updated: 2026-09-16 17:12 Asia/Taipei (Phase 2.1 acceptance closed; other Phase results preserved below)
+Updated: 2026-09-20 16:49 Asia/Taipei (Phase 3.1 #8 acceptance completed; other Phase results preserved below)
 Baseline: advanced-v2, merge commit 6bd4c13 (merges codex/phase21-acceptance), committed and pushed by this Claude Code session.
 
 ## Current acceptance status (supersedes historical entries below)
 
+- **Phase 3.1 #8 — 購物車持久化 [Buyer], implemented, independently reviewed and full
+  regression passed — 2026-09-20, Codex, not committed.** Added a MySQL-backed member cart with
+  positive-quantity and member/product uniqueness constraints; JWT-owned list/add/update/delete/clear
+  APIs; server-authoritative frontend restore and write synchronization; and transactional checkout
+  that atomically consumes one member cart while preserving it on failure. Cross-member item access
+  returns 404. Client ordering guards cover stale GET vs PUT, delayed add vs clear, clear vs checkout,
+  and ambiguous retry vs clear; backend member locking prevents two distinct request IDs from consuming
+  the same cart twice. Verification: real-MySQL `CartIntegrationTest` **4/4**, final backend
+  `mvn clean test` **100/100**, 0 failures/errors/skipped with JaCoCo gate PASS; frontend checkout
+  tests **3/3**, Vitest **24/24**, production build PASS (101 modules), and `git diff --check` PASS.
+  Terra read-only independent review: **PASS** after six explicitly bounded repair rounds. Details:
+  `docs/tasks/027-cart-persistence.md`. No commit/push/merge. Engineering note: persistence alone is
+  insufficient for a cart—transactional consumption and client/server operation ordering are part of
+  the data-consistency contract.
+- **Phase 3.1 #7 — 收件地址簿 [Buyer], implemented and full regression passed —
+  2026-09-20, Codex, branch `feature/frontend-ux-revamp`
+  @ `ab1ff81`, not committed.** Added member-owned multi-address CRUD, DB-enforced single
+  default, order/address foreign-key persistence, referenced-address deletion protection, JWT
+  ownership enforcement, default-address fallback, and checkout address selection/quick-add UI.
+  Backend production and test sources compile. After Docker 28.4.0 became available, two bounded
+  corrections fixed six stale `OrderServiceTest` Mockito signatures and the missing MockMvc web
+  test environment. `ShippingAddressIntegrationTest` then executed both cases: **1 passed, 1 failed**
+  because the backend emitted `isDefault` while its integration assertion and frontend consumed
+  `default`; the real frontend would not have recognized the default address. The user explicitly
+  authorized a third repair, the contract was unified on `isDefault`, and final targeted verification
+  passed: real-MySQL `ShippingAddressIntegrationTest` **2/2**, 0 failures/errors/skipped with JaCoCo
+  gate passing; frontend checkout tests 3/3, Vitest 19/19 and production build passed. One repair round fixed URL-specific
+  GET mocking after the new address load exposed an ordering assumption in an existing test. Task
+  details: `docs/tasks/026-shipping-address-book.md`. Independent authorization review completed;
+  no commit/push/merge. User interventions: two scope-limit approvals; elapsed/token/cost/five-hour
+  usage delta unavailable. Independent authorization review found one valid blocker: DTO validation
+  still required caller `memberId` before the controller could replace it with JWT identity. The
+  requirement was removed and the pending integration case now omits the body field (repair round
+  2); the user-authorized JSON contract correction was repair round 3. Final closure found and fixed
+  legacy order fixtures without addresses, nullable address-ID auto-unboxing, and an address SELECT
+  establishing a repeatable-read snapshot before the idempotency claim. Final `mvn clean test`:
+  **96/96**, 0 failures/errors/skipped, JaCoCo gate PASS; the final transaction-order and fixture
+  changes passed an independent read-only review. No commit/push/merge. Engineering note:
+  ownership must come from the verified principal, and
+  a unique database invariant must back application-level default-address switching.
+- **Phase 3.1 #6 — 個人資料編輯 [Buyer], implemented and targeted verification passed,
+  not yet committed — 2026-09-19, Codex, branch `feature/frontend-ux-revamp` @ `8fa3096`.**
+  Added nullable `member.display_name` / `member.phone` columns to the fresh schema and an
+  idempotent `06_member_profile.sql` migration. Authenticated buyers can read and replace only
+  their own profile through `GET/PUT /api/member/profile`; the target identity comes exclusively
+  from the verified JWT email, while email is read-only and request-body identity fields are
+  ignored. Optional blank values normalize to SQL `NULL`; display name and phone length/format
+  are validated. The new frontend profile panel loads existing values, prevents email editing,
+  validates phone input and persists profile changes. Verification: real-MySQL
+  `MemberProfileIntegrationTest` **2/2 PASS** with JaCoCo gate passing; frontend Vitest
+  **18/18 PASS**; production build PASS; `git diff --check` PASS. One repair round corrected an
+  unsupported MySQL `ADD COLUMN IF NOT EXISTS` form to an `information_schema`-guarded migration.
+  The focused suite proves fresh initialization and the already-current no-op migration path;
+  a separate populated legacy-DB migration drill and full repository regression were not run.
+  User interventions: one explicit scope expansion approval; elapsed/model cost/five-hour usage
+  delta unavailable. Engineering note: derive record ownership from authenticated server context,
+  never from an editable identifier in the request payload.
+- **Phase 3.1 #5 — 忘記密碼 & 修改密碼 [Buyer], implemented, corrected and verified —
+  2026-09-18–19, Claude Code + Codex, branch `feature/frontend-ux-revamp`; original implementation
+  commit `03249a0`.** Per the P0
+  scope in `docs/tasks/017-buyer-feature-list.md` §1.4: `POST /api/auth/forgot-password`
+  (public), `POST /api/auth/reset-password` (public, one-time token) and
+  `POST /api/auth/change-password` (JWT-protected) added to `AuthController`/`AuthService`.
+  Since no SMTP/mail infrastructure exists yet, this is deliberately the task's own described
+  "minimal token-only version": a 256-bit random token is generated, its SHA-256 hash (never the
+  raw token) is stored in a new `password_reset_token` table
+  (`backend/DB/05_password_reset_token.sql`, 30-minute expiry, one-time use enforced via
+  `used_at`, superseding any earlier unused token for the same member), and the raw token is
+  logged server-side instead of emailed — wiring a real mail sender is an explicit follow-up, not
+  part of this pass. `forgot-password` always returns 200 regardless of whether the email is
+  registered (same account-enumeration defense as `login`'s unified error message).
+  **Bug found and fixed during manual browser verification**: `change-password` initially reused
+  HTTP 401 for "wrong current password," but the frontend's global axios response interceptor
+  (`frontend/src/api.js`) treats *any* 401 as session expiry and force-logs-out the caller — so a
+  simple typo in the current-password field would silently end the user's session instead of
+  showing a field error. Fixed by using 400 for that case (the JWT itself is still valid; only
+  the submitted field is wrong), verified both via the corrected unit/integration tests and live
+  in the browser (error toast shown, session preserved). Frontend: `AuthPanel.vue` gained a
+  "忘記密碼？" link and a forgot-password mode; new `ChangePasswordPanel.vue` (toggled from the
+  topbar "修改密碼" button) and `ResetPasswordView.vue` (new `/reset-password?token=...` route in
+  `router.js`, which was already real infrastructure — not a placeholder as earlier docs assumed)
+  handle the other two flows. Full backend `mvn clean test`: **89/89, 0 failures/errors/skipped**
+  (81 baseline + 8 new), run against real MySQL via Testcontainers (the new DB file added to
+  `AbstractMySqlIntegrationTest`'s init list). Frontend `npm test` (3+16/16) and `npm run build`
+  both clean. Manual browser E2E against the user's live dev containers (`esun-mysql` on host
+  port 3310; the new table was applied there by hand since the long-running container predates
+  this migration file) with a fresh Spring Boot instance and the Vite dev server: register →
+  change-password (wrong password rejected without logout, correct password accepted, re-login
+  with the new password succeeds) → forgot-password (identical success message queried for both a
+  registered and an unregistered email) → reset-password via the logged token (real page renders,
+  password reset, login with the new password succeeds, and replaying the same token via curl is
+  correctly rejected with 400 — one-time use confirmed). Also fixed an unrelated pre-existing bug
+  found while starting the preview: `.claude/launch.json`'s `frontend-dev` entry was missing
+  `cwd: "frontend"`, so `preview_start` tried to run `npm run dev` from the repo root and failed;
+  added the missing field (`frontend-mock-ui`/`backend` already had it). Test account created
+  during verification was deleted from the live `esun-mysql` container afterward. Not done: an
+  actual email-sending integration (explicitly deferred per the task's own scope), rate-limiting
+  repeated forgot-password requests, and an automated frontend component test for the three new
+  Vue components (covered by manual E2E only, matching this branch's existing pattern for its
+  other UI-only additions). Changes are implemented and verified but **not committed** — this
+  branch already carries other uncommitted, unrelated work from before this session
+  (`docs/analysis/`, `docs/tasks/016-020`, `package-lock.json`, `AGENTS.md`), so committing was
+  left for an explicit user decision on scope rather than bundled automatically. **Independent
+  Codex correction, 2026-09-19:** the original query → password update → `markUsed` sequence was
+  not atomic under concurrent replay. Task 025 now locks the token row with `SELECT ... FOR UPDATE`,
+  conditionally consumes it and updates the password in one `@Transactional` boundary. The first
+  real-MySQL run also found and fixed an application/MySQL timezone mismatch by standardizing token
+  expiry on UTC. Final targeted Testcontainers verification: `AuthIntegrationTest` 5/5 plus
+  `AuthServiceTest` 12/12, **17/17 PASS**; independent Terra static security review PASS. Detailed
+  evidence: `docs/tasks/025-phase31-password-reset-atomicity.md`; correction commit `50ce7f9`.
+- **Product embedding re-index + member_id widening, committed — 2026-09-18, Claude Code
+  (MODE: IMPLEMENT), commits `224c348` and `3f2ab48` on `advanced-v2` (rebased from
+  `feature/frontend-ux-revamp` after PR #6 merged).** Two independent fixes picked up from
+  pre-existing uncommitted work: (1) `EmbeddingIndexService` extracts the per-doc embed+upsert
+  logic out of `EmbeddingIndexRunner` and adds `indexProduct(productId)`, which
+  `ProductService.createProduct` now calls right after the write so a newly created product is
+  immediately searchable by the AI customer service instead of only after the next app restart;
+  indexed content now also includes price/quantity, not just the name. (2) `shop_order.member_id`
+  and `order_request.member_id` widened from `VARCHAR(20)` to `VARCHAR(100)` in `01_schema.sql`/
+  `04_add_order_request.sql`, plus a matching `@Size(max = 100)` on `CreateOrderRequest`, because
+  member ids are email addresses (JWT auth uses email as the identifier) and were being silently
+  truncated past 20 characters. Full backend `mvn clean test`: **81/81, 0 failures/errors/skipped**,
+  JaCoCo gate passing, both changes present together. **Schema drift discovered while verifying
+  whether the live `esun-mysql` container needed a matching `ALTER TABLE`**: it did not — both
+  columns on the running container are already `VARCHAR(255)` (confirmed via `SHOW CREATE TABLE`),
+  wider than both the old committed `VARCHAR(20)` and the new `VARCHAR(100)`. The tracked
+  `01_schema.sql` has therefore not matched what the long-running dev container actually executes
+  for some time; nothing was altered on the container since it already satisfies the new, stricter
+  application-level `@Size(max = 100)` bound. `payStatus` analysis docs (`docs/analysis/`) and the
+  Phase 3 RBAC/role-based planning docs (`docs/tasks/016`–`020`) from the same uncommitted batch are
+  deliberately left uncommitted for a later session, per the user's stated priority order.
 - **Phase 3.0 #4 — 備份與恢復演練 (Medium), executed and closed — 2026-09-18, Claude Code
-  (MODE: IMPLEMENT), branch `feature/frontend-ux-revamp`, uncommitted pending user decision on
-  commit/push.** `scripts/mysql-backup-restore.ps1` (authored by Codex) had never actually been run
+  (MODE: IMPLEMENT), branch `feature/frontend-ux-revamp`, merged into `advanced-v2` via PR #6
+  (commit `8a97dfd`).** `scripts/mysql-backup-restore.ps1` (authored by Codex) had never actually been run
   end-to-end before this session — its own result doc's acceptance checkboxes were pre-checked from
   static review only. Running it for real against the live `esun-mysql` container surfaced and fixed
   four real defects: (1) MySQL SQL-identifier backticks misapplied to `mysqldump`/`mysql` shell

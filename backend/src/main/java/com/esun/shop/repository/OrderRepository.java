@@ -16,9 +16,10 @@ public class OrderRepository {
         this.jdbcTemplate = jdbcTemplate;
     }
 
-    public void insertOrder(ShopOrder order) {
-        String sql = "INSERT INTO shop_order(order_id, member_id, price, pay_status) VALUES (?, ?, ?, ?)";
-        jdbcTemplate.update(sql, order.getOrderId(), order.getMemberId(), order.getPrice(), order.getPayStatus());
+    public void insertOrder(ShopOrder order, Long shippingAddressId) {
+        String sql = "INSERT INTO shop_order(order_id, member_id, shipping_address_id, price, pay_status) VALUES (?, ?, ?, ?, ?)";
+        jdbcTemplate.update(sql, order.getOrderId(), order.getMemberId(), shippingAddressId,
+                order.getPrice(), order.getPayStatus());
     }
 
     public void claimRequest(String requestId, String orderId, String memberId) {

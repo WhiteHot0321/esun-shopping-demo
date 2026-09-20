@@ -13,6 +13,8 @@ import java.util.List;
 
 @Repository
 public class MemberRepository {
+    public record Profile(String email, String displayName, String phone) {}
+
     private static final RowMapper<Member> MEMBER_ROW_MAPPER = (rs, rowNum) -> {
         Member m = new Member();
         m.setId(rs.getLong("id"));
@@ -49,5 +51,22 @@ public class MemberRepository {
         member.setEmail(email);
         member.setPasswordHash(passwordHash);
         return member;
+    }
+
+    public void updatePasswordHash(Long memberId, String passwordHash) {
+        jdbcTemplate.update("UPDATE member SET password_hash = ? WHERE id = ?", passwordHash, memberId);
+    }
+
+    public Profile findProfileByEmail(String email) {
+        String sql = "SELECT email, display_name, phone FROM member WHERE email = ?";
+        List<Profile> profiles = jdbcTemplate.query(sql, (rs, rowNum) -> new Profile(
+                rs.getString("email"), rs.getString("display_name"), rs.getString("phone")), email);
+        return profiles.isEmpty() ? null : profiles.get(0);
+    }
+
+    public int updateProfile(String email, String displayName, String phone) {
+        return jdbcTemplate.update(
+                "UPDATE member SET display_name = ?, phone = ? WHERE email = ?",
+                displayName, phone, email);
     }
 }

@@ -17,7 +17,7 @@ CREATE TABLE product (
 
 CREATE TABLE shop_order (
     order_id     VARCHAR(30) PRIMARY KEY,
-    member_id    VARCHAR(20) NOT NULL,
+    member_id    VARCHAR(100) NOT NULL,
     price        DECIMAL(12,2) NOT NULL CHECK (price >= 0),
     pay_status   TINYINT NOT NULL DEFAULT 0,
     created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -26,7 +26,7 @@ CREATE TABLE shop_order (
 CREATE TABLE order_request (
     request_id VARCHAR(64) PRIMARY KEY,
     order_id   VARCHAR(32) NOT NULL,
-    member_id  VARCHAR(20) NOT NULL,
+    member_id  VARCHAR(100) NOT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
