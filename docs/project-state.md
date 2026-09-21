@@ -1,7 +1,9 @@
 # Verified project state
 
-Updated: 2026-09-20 17:52 Asia/Taipei (Phase 3.1 #9 merged and pushed; other Phase results preserved below)
-Baseline: advanced-v2, merge commit 6bd4c13 (merges codex/phase21-acceptance), committed and pushed by this Claude Code session.
+Updated: 2026-09-21 (Strategy pivot: stop commodity features, focus engineering depth)
+Baseline: advanced-v2, latest merge
+
+**⚠️ STRATEGY CHANGE (2026-09-21)**: Phase 3 (final iteration) pivots away from buyer/seller/maintainer feature iteration toward **deep engineering foundation: Transaction/Deadlock/Idempotency/Redis Lua atomicity/Testcontainers/k6 load tests/CI/CD** as one coherent line of work. Interview value: "Can you handle 10-item concurrent purchase without overselling? How do you test it at load? How do you deploy it?" matters more than "Did you build 10 more CRUD endpoints?" After Phase 3 closes, secondary priorities: observability (logging/metrics/tracing), deployment (Docker/k8s on real platform), SQL performance/indexing, API documentation (Swagger/OpenAPI).
 
 ## Current acceptance status (supersedes historical entries below)
 
@@ -252,27 +254,21 @@ Baseline: advanced-v2, merge commit 6bd4c13 (merges codex/phase21-acceptance), c
 - Notion: Phase 1.5 page, 進度追蹤 page and the 9/13 schedule page were synced for the Phase 1.5 results (commit 8bb95be) as of 09:20. **Resolved 09:35**: the Phase 2.5 acceptance run (6b1e690) and the login/JDBC fix (c9601bf) are now synced too — 進度追蹤 (new dated section) and the dedicated Phase 2.5 page (checklist items updated, gaps annotated: 3-round repetition, `Phase25K6DeadlockAcceptance` HTTP pairing, and the Redis outage/recovery drill remain unchecked and are recorded as optional follow-ups, not silently dropped). The 9/13 schedule page already carried a one-line summary of both from an earlier sync. All writes were read back and confirmed.
 - Metrics: elapsed/token/cost unknown; one user request to reconcile the two concurrent sessions' statuses into one canonical block (this update); application repair rounds 0 this round (the JDBC fix was a genuine bug fix, tracked separately in docs/tasks/009); one static App.vue defect found (not an independent review).
 
-## Phase 2 backlog (candidates, not yet scheduled)
+## Phase 3 (final, engineering depth focus)
 
-- **Order history view — recorded 2026-09-17.** No way for a user to look up a past
-  order today: `OrderController` only exposes `POST /api/orders`, and `OrderRepository`
-  has no read/list methods despite `shop_order` storing `member_id`. Frontend shows the
-  new order id in a one-shot toast only. Full gap description and proposed scope:
-  `docs/tasks/015-order-history-candidate.md`. Not implemented; not scheduled ahead of
-  other Phase 2 work.
-- **Role-based Phase 3 feature lists — recorded 2026-09-17.** Three code-verified gap
-  analyses covering seller (`docs/tasks/016-feature-gap-analysis.md`), buyer
-  (`docs/tasks/017-buyer-feature-list.md`) and maintainer/ops
-  (`docs/tasks/018-maintainer-feature-list.md`) perspectives, plus a cross-list
-  split/implementation strategy (`docs/tasks/019-phase3-role-based-split-plan.md`).
-  Notable verified findings: `shop_order` has no `order_status` column (016 had
-  mis-described it as present-but-unwired), `member` has no role column and
-  `ProductController`'s `POST /api/products` has no role check today (any authenticated
-  buyer can create products), and the cart has no persistence (no `localStorage`, no
-  server-side cart). 019 recommends RBAC + the buyer schema additions
-  (`order_status`/shipping address) as the highest-priority Phase 3.0 foundation before
-  any role-dependent feature in 016/017/018. Not implemented; not scheduled ahead of
-  other Phase 2 work.
+**Goal**: Close after establishing the engineering foundation, not by adding 10 more CRUD features. Priorities:
+
+1. **Transaction/Deadlock/Idempotency deep-dive** — Verify concurrent inventory deduction is deadlock-free (fixed lock order by `productId`). Idempotency pattern for order retry (idempotency key in `order_request`). Root-cause any MySQL 1213 vs. application 409 boundary.
+2. **Redis Lua script + Testcontainers** — Implement atomic stock reservation in Redis (Lua script: single-roundtrip `INCR` + comparison, not multi-step). Testcontainers for both MySQL and Redis in integration tests. Verify cache/DB reconciliation.
+3. **k6 load tests** — Quantify performance under load (p95/p99 latency, throughput, error rate). Three standard workloads: normal purchase, deadlock stress, sold-out scenario. Baseline and regression tracking.
+4. **CI/CD pipeline** — GitHub Actions: test suite → Docker image → registry. Status-badge-driven.
+
+**Not Phase 3**: no new buyer/seller/maintainer CRUD features. The Phase 3.1 feature items below (order history, product review, cart persistence, address book, profile, password reset, seller product management) were exploratory work to establish buyer/seller foundations; they are **not the focus** going forward. Archive their branches, don't expand them.
+
+## Historical Phase 3.1 feature work (archived, not active)
+
+- **Order history view** — `docs/tasks/015-order-history-candidate.md`. Deferred in favor of Phase 3 engineering depth.
+- **Role-based feature lists** — `docs/tasks/016–020` (seller/buyer/maintainer/RBAC/audit). Analyzed but not scheduled ahead of engineering work.
 
 ## Historical records below
 
@@ -284,7 +280,17 @@ Baseline: advanced-v2, merge commit 6bd4c13 (merges codex/phase21-acceptance), c
 - Pilot: docs/tasks/001-order-concurrency-audit.md. Scope is a static coverage audit; runtime test status must be recorded separately.
 
 ## Next
-Read-only pilot completed; the next proposed task is docs/tasks/002-deterministic-rollback-test.md (not yet implemented). Do not infer that every Phase 1 item is complete from this summary.
+
+Phase 3 (engineering depth) execution order:
+1. **Deadlock analysis & fix validation** — verify fixed lock order (productId) prevents 1213, quantify latency cost.
+2. **Idempotency pattern integration** — order retry with idempotency key, test replay scenario.
+3. **Redis Lua + Testcontainers** — atomic stock reserve in Lua, real-MySQL + real-Redis integration tests.
+4. **k6 load/stress suite** — three workloads (normal, deadlock stress, sold-out), baseline metrics.
+5. **GitHub Actions CI/CD** — test → Docker build → registry, branch protection, status badges.
+6. **Observability** (post-Phase-3) — SLF4J structure + Prometheus/Micrometer, optional Jaeger tracing.
+7. **Deployment** (post-Phase-3) — k8s manifest or cloud platform (GCP Cloud Run, AWS Lambda), health checks, graceful shutdown.
+8. **SQL performance** (post-Phase-3) — EXPLAIN analysis, indexing strategy for hot queries, metrics.
+9. **API documentation** (post-Phase-3) — Swagger/OpenAPI, auto-generated from Spring annotations.
 
 ## Pilot verification result
 - Codex ran mvn test on 2026-09-14: 24 passed, 0 failed/errors/skipped, real MySQL Testcontainers, Java 21 host runtime.
