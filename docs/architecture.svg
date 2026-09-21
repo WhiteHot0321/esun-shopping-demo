@@ -1,0 +1,64 @@
+<svg viewBox="0 0 860 470" xmlns="http://www.w3.org/2000/svg" role="img">
+  <title>esun-shopping 系統架構</title>
+  <desc>Vue 3 前端透過 REST 與 JWT 呼叫 Spring Boot 後端，後端下接 MySQL 交易資料庫、Redis 庫存預扣與 Ollama 向量檢索三個服務。</desc>
+  <style>
+    .card { fill: #fff; stroke: #d8d5cf; stroke-width: 1.5; }
+    .accent { fill: #f5f4f0; stroke: #6b7c8f; stroke-width: 2; }
+    .h { font: 600 16px ui-sans-serif, system-ui, sans-serif; fill: #1a1915; }
+    .s { font: 400 12px ui-sans-serif, system-ui, sans-serif; fill: #6b6862; }
+    .k { font: 500 12.5px ui-sans-serif, system-ui, sans-serif; fill: #3d3a35; }
+    .e { font: 400 11.5px ui-sans-serif, system-ui, sans-serif; fill: #8f8b84; }
+    .ln { stroke: #c9c6c0; stroke-width: 1.5; fill: none; }
+  </style>
+  <defs>
+    <marker id="a" markerWidth="8" markerHeight="8" refX="6.5" refY="3" orient="auto">
+      <path d="M0,0 L7,3 L0,6" fill="none" stroke="#c9c6c0" stroke-width="1.5"/>
+    </marker>
+  </defs>
+
+  <!-- Frontend -->
+  <rect x="300" y="24" width="260" height="58" rx="8" class="card"/>
+  <text x="430" y="49" text-anchor="middle" class="h">Vue 3 SPA</text>
+  <text x="430" y="68" text-anchor="middle" class="s">商品 · 購物車 · 結帳 · 客服</text>
+
+  <path d="M430,82 L430,128" class="ln" marker-end="url(#a)"/>
+  <text x="442" y="109" class="e">REST + JWT</text>
+
+  <!-- Backend -->
+  <rect x="150" y="130" width="560" height="112" rx="8" class="accent"/>
+  <text x="430" y="158" text-anchor="middle" class="h">Spring Boot 3.x</text>
+  <text x="430" y="177" text-anchor="middle" class="s">Controller / Service / Repository</text>
+  <line x1="182" y1="192" x2="678" y2="192" class="ln"/>
+  <text x="240" y="215" text-anchor="middle" class="k">RBAC 三角色</text>
+  <text x="240" y="231" text-anchor="middle" class="e">買家 / 賣家 / 管理者</text>
+  <text x="430" y="215" text-anchor="middle" class="k">訂單冪等</text>
+  <text x="430" y="231" text-anchor="middle" class="e">requestId 防重送</text>
+  <text x="620" y="215" text-anchor="middle" class="k">死鎖重試</text>
+  <text x="620" y="231" text-anchor="middle" class="e">固定加鎖順序</text>
+
+  <path d="M250,242 L250,286" class="ln" marker-end="url(#a)"/>
+  <path d="M430,242 L430,286" class="ln" marker-end="url(#a)"/>
+  <path d="M610,242 L610,286" class="ln" marker-end="url(#a)"/>
+
+  <!-- Data layer -->
+  <rect x="150" y="288" width="200" height="76" rx="8" class="card"/>
+  <text x="250" y="315" text-anchor="middle" class="h">MySQL</text>
+  <text x="250" y="335" text-anchor="middle" class="s">交易與庫存扣減</text>
+  <text x="250" y="352" text-anchor="middle" class="e">Stored Procedure</text>
+
+  <rect x="368" y="288" width="124" height="76" rx="8" class="card"/>
+  <text x="430" y="315" text-anchor="middle" class="h">Redis</text>
+  <text x="430" y="335" text-anchor="middle" class="s">庫存預扣</text>
+  <text x="430" y="352" text-anchor="middle" class="e">故障可降級</text>
+
+  <rect x="510" y="288" width="200" height="76" rx="8" class="card"/>
+  <text x="610" y="315" text-anchor="middle" class="h">Ollama</text>
+  <text x="610" y="335" text-anchor="middle" class="s">RAG 客服問答</text>
+  <text x="610" y="352" text-anchor="middle" class="e">向量檢索 + 生成</text>
+
+  <!-- Footer strip -->
+  <line x1="150" y1="404" x2="710" y2="404" class="ln"/>
+  <text x="150" y="428" class="e">Docker Compose 一鍵啟動</text>
+  <text x="352" y="428" class="e">GitHub Actions CI</text>
+  <text x="510" y="428" class="e">後端 112 · 前端 28 組測試</text>
+</svg>

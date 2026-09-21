@@ -68,6 +68,35 @@ Build Tool
 - 扣減庫存
 - Transaction 保證一致性
 
+### 會員與認證
+- JWT 認證（BCrypt 密碼雜湊）
+- 忘記密碼與密碼重設
+- BUYER / SELLER / ADMIN 三角色權限控制
+- 收件地址簿與個人資料編輯
+
+### 購物車與結帳
+- 購物車持久化（MySQL 後端存儲）
+- 訂單冪等性（requestId 防重送）
+- 死鎖重試（固定加鎖順序）
+- Redis 庫存預扣（故障時自動降級為 DB only）
+
+### 商品評論
+- 買家評論與評分
+- 資料庫層保證一人一評
+- 賣家與管理者審核功能
+
+---
+
+## 系統架構
+
+![esun-shopping 系統架構](docs/architecture.svg)
+
+**核心設計**：
+- **Frontend**：Vue 3 SPA，透過 REST + JWT 呼叫後端
+- **Backend**：Spring Boot 3.x 三層式架構，RBAC 角色權限、訂單冪等防重送、死鎖自動重試
+- **Data**：MySQL（交易與庫存）、Redis（庫存預扣 + 故障降級）、Ollama（RAG 客服問答）
+- **CI/CD**：Docker Compose 一鍵啟動、GitHub Actions 自動測試與構建
+
 ---
 
 ## API
