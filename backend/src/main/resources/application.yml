@@ -2,6 +2,10 @@ server:
   port: ${SERVER_PORT:8080}
 
 spring:
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 25MB
   data:
     redis:
       host: ${REDIS_HOST:localhost}
@@ -26,6 +30,10 @@ jwt:
 stock:
   redis:
     enabled: ${STOCK_REDIS_ENABLED:false}
+
+product:
+  images:
+    directory: ${PRODUCT_IMAGE_DIRECTORY:uploads/products}
 
 llm:
   provider: ${LLM_PROVIDER:ollama}

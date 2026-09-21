@@ -27,7 +27,8 @@ import java.io.IOException;
  *
  * Endpoint protection decision (see PR description for the full writeup):
  *  - Public: POST /api/auth/register, POST /api/auth/login, POST /api/auth/forgot-password,
- *    POST /api/auth/reset-password, GET /api/products/available, POST /api/support/ask
+ *    POST /api/auth/reset-password, GET /api/products/available, POST /api/support/ask,
+ *    GET /uploads/products/{uuid}.{jpg|png|webp} (product images shown in the public catalog)
  *    (a shopper must be able to browse, ask product questions, log in, and recover a
  *    forgotten password before they have a token).
  *  - Protected: POST /api/products, POST /api/orders, POST /api/auth/change-password
@@ -87,9 +88,11 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 || path.equals("/api/support/ask"))) {
             return true;
         }
+        // 商品圖片隨公開商品目錄顯示；限定為伺服器產生的「UUID.副檔名」單層檔名，任何含 .. 或子目錄的路徑都不公開。
         return HttpMethod.GET.matches(request.getMethod())
                 && (path.equals("/api/products/available")
-                || path.matches("/api/products/[^/]+/reviews"));
+                || path.matches("/api/products/[^/]+/reviews")
+                || path.matches("/uploads/products/[0-9a-f-]{36}\\.(jpg|png|webp)"));
     }
 
     private void unauthorized(HttpServletResponse response, String message) throws IOException {

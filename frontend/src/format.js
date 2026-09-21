@@ -20,3 +20,11 @@ export const clampQuantity = (value, max) => {
   if (!Number.isFinite(number) || number < 0) return 0
   return Math.min(number, Math.max(0, Number(max) || 0))
 }
+
+// Uploaded product images are served by the backend origin (not the Vite dev server), so a
+// root-relative "/uploads/..." path from the API must be resolved against the API host.
+export const assetUrl = (path) => {
+  if (!path || /^https?:\/\//i.test(path)) return path
+  const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'
+  return apiBase.replace(/\/api\/?$/, '') + path
+}

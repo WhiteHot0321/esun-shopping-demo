@@ -52,6 +52,10 @@ public class DocEmbeddingRepository {
         jdbcTemplate.update(sql, sourceType, sourceId, content, json);
     }
 
+    public void delete(String sourceType, String sourceId) {
+        jdbcTemplate.update("DELETE FROM doc_embedding WHERE source_type = ? AND source_id = ?", sourceType, sourceId);
+    }
+
     private DocEmbedding mapRow(ResultSet rs, int rowNum) throws SQLException {
         DocEmbedding doc = new DocEmbedding();
         doc.setId(rs.getLong("id"));

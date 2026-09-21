@@ -75,7 +75,10 @@ abstract class AbstractMySqlIntegrationTest {
                     "/docker-entrypoint-initdb.d/08_shopping_cart.sql")
             .withCopyFileToContainer(
                     MountableFile.forHostPath("DB/09_product_review.sql"),
-                    "/docker-entrypoint-initdb.d/09_product_review.sql");
+                    "/docker-entrypoint-initdb.d/09_product_review.sql")
+            .withCopyFileToContainer(
+                    MountableFile.forHostPath("DB/10_product_management.sql"),
+                    "/docker-entrypoint-initdb.d/10_product_management.sql");
 
     static {
         MYSQL.start();

@@ -5,17 +5,29 @@ DROP TABLE IF EXISTS order_detail;
 DROP TABLE IF EXISTS order_request;
 DROP TABLE IF EXISTS shop_order;
 DROP TABLE IF EXISTS product_review;
+DROP TABLE IF EXISTS product_image;
 DROP TABLE IF EXISTS product;
 
 CREATE TABLE product (
     product_id   VARCHAR(20) PRIMARY KEY,
     product_name VARCHAR(100) NOT NULL,
-    price        DECIMAL(12,2) NOT NULL CHECK (price >= 0),
+    price        DECIMAL(12,2) NOT NULL CHECK (price >= 0.01),
     quantity     INT NOT NULL CHECK (quantity >= 0),
-    creator_id   VARCHAR(255) NULL,
+    creator_id   VARCHAR(255) NOT NULL DEFAULT 'legacy',
+    deleted_at   DATETIME NULL,
     created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_product_creator (creator_id)
+);
+
+CREATE TABLE product_image (
+    image_id     BIGINT PRIMARY KEY AUTO_INCREMENT,
+    product_id   VARCHAR(20) NOT NULL,
+    image_url    VARCHAR(500) NOT NULL,
+    display_order INT NOT NULL DEFAULT 0,
+    created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_product_image_product FOREIGN KEY (product_id) REFERENCES product(product_id),
+    INDEX idx_product_image_product (product_id, display_order, image_id)
 );
 
 CREATE TABLE shop_order (

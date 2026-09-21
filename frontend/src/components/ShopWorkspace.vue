@@ -1,11 +1,12 @@
 <template>
   <div class="workspace">
     <div class="workspace__main">
+      <ProductManagement v-if="auth.isAuthenticated && ['SELLER', 'ADMIN'].includes(auth.role)"
+        @message="toast.info($event)" @changed="loadProducts" />
       <ProductCatalog :products="products" :quantities="quantities" :status="loadStatus" @reload="loadProducts"
         @set-quantity="setQuantity" @view-reviews="reviewProduct = $event" />
       <ProductReviews v-if="reviewProduct" :product="reviewProduct" :authenticated="auth.isAuthenticated"
         :role="auth.role" @close="reviewProduct = null" @changed="loadProducts" />
-      <ProductForm v-if="auth.isAuthenticated && ['SELLER', 'ADMIN'].includes(auth.role)" @created="loadProducts" />
     </div>
 
     <aside class="workspace__side">
@@ -33,7 +34,7 @@ import { clampQuantity, errorText, formatPrice } from '../format'
 import AuthPanel from './AuthPanel.vue'
 import CartPanel from './CartPanel.vue'
 import ProductCatalog from './ProductCatalog.vue'
-import ProductForm from './ProductForm.vue'
+import ProductManagement from './ProductManagement.vue'
 import ProductReviews from './ProductReviews.vue'
 
 const auth = useAuthStore()
