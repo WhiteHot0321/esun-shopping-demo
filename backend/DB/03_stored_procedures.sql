@@ -20,7 +20,7 @@ CREATE PROCEDURE sp_get_available_products()
 BEGIN
     SELECT product_id, product_name, price, quantity
     FROM product
-    WHERE quantity > 0
+    WHERE quantity > 0 AND deleted_at IS NULL
     ORDER BY product_id;
 END //
 DELIMITER ;
@@ -35,7 +35,8 @@ BEGIN
     UPDATE product
     SET quantity = quantity - p_buy_quantity
     WHERE product_id = p_product_id
-      AND quantity >= p_buy_quantity;
+      AND quantity >= p_buy_quantity
+      AND deleted_at IS NULL;
 
     IF ROW_COUNT() = 0 THEN
         SIGNAL SQLSTATE '45000'

@@ -75,4 +75,13 @@ public class EmbeddingIndexService {
             log.warn("商品 {} 已完成 embedding，但無法重新載入向量快取", productId, ex);
         }
     }
+
+    public void removeProduct(String productId) {
+        try {
+            docEmbeddingRepository.delete("product", productId);
+            vectorSearchService.reload();
+        } catch (DataAccessException ex) {
+            log.warn("商品 {} 已下架，但無法移除其即時索引", productId, ex);
+        }
+    }
 }

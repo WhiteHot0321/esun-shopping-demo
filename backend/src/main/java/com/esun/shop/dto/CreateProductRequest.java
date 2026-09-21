@@ -18,7 +18,7 @@ public class CreateProductRequest {
     private String productName;
 
     @NotNull
-    @DecimalMin("0.0")
+    @DecimalMin("0.01")
     private BigDecimal price;
 
     @NotNull
