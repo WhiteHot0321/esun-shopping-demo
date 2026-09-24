@@ -26,9 +26,10 @@ Baseline: advanced-v2, latest merge
   to `origin/advanced-v2`. Engineering note: persistence alone is
   insufficient for a cart—transactional consumption and client/server operation ordering are part of
   the data-consistency contract.
-- **Phase 3.1 #7 — 收件地址簿 [Buyer], implemented and full regression passed —
-  2026-09-20, Codex, branch `feature/frontend-ux-revamp`
-  @ `ab1ff81`, not committed.** Added member-owned multi-address CRUD, DB-enforced single
+- **Phase 3.1 #7 — 收件地址簿 [Buyer], complete, merged and re-verified —
+  2026-09-24, Codex, `advanced-v2` @ `8e6cd20`.** The implementation commit `6c79815`
+  was merged by `10c642c`; the older `feature/frontend-ux-revamp` @ `ab1ff81`, not-committed
+  status is superseded. Added member-owned multi-address CRUD, DB-enforced single
   default, order/address foreign-key persistence, referenced-address deletion protection, JWT
   ownership enforcement, default-address fallback, and checkout address selection/quick-add UI.
   Backend production and test sources compile. After Docker 28.4.0 became available, two bounded
@@ -49,7 +50,10 @@ Baseline: advanced-v2, latest merge
   legacy order fixtures without addresses, nullable address-ID auto-unboxing, and an address SELECT
   establishing a repeatable-read snapshot before the idempotency claim. Final `mvn clean test`:
   **96/96**, 0 failures/errors/skipped, JaCoCo gate PASS; the final transaction-order and fixture
-  changes passed an independent read-only review. No commit/push/merge. Engineering note:
+  changes passed an independent read-only review. Closure re-verification on the merged tree:
+  real-MySQL `ShippingAddressIntegrationTest` **2/2 PASS** and frontend checkout **3/3** +
+  Vitest **35/35 PASS**. This closure changed documentation only; production/test code was unchanged.
+  Engineering note:
   ownership must come from the verified principal, and
   a unique database invariant must back application-level default-address switching.
 - **Phase 3.1 #6 — 個人資料編輯 [Buyer], implemented and targeted verification passed,
