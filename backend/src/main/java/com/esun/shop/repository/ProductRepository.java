@@ -86,6 +86,31 @@ public class ProductRepository {
         return products;
     }
 
+    /**
+     * Sellable products (not soft-deleted, in stock) for the given ids, with rating summary and images, in no particular
+     * order — the caller owns the ranking. Same visibility rule as the public catalog.
+     */
+    public List<Product> findAvailableByIds(Collection<String> productIds) {
+        if (productIds.isEmpty()) return List.of();
+        String placeholders = String.join(",", Collections.nCopies(productIds.size(), "?"));
+        Object[] args = productIds.toArray();
+        List<Product> products = jdbcTemplate.query(selectProductColumns() + " WHERE product_id IN (" + placeholders
+                + ") AND deleted_at IS NULL AND quantity > 0", PRODUCT_ROW_MAPPER, args);
+        Map<String, Product> byId = new HashMap<>();
+        products.forEach(product -> byId.put(product.getProductId(), product));
+        jdbcTemplate.query("SELECT product_id, ROUND(AVG(rating), 2) average_rating, COUNT(*) review_count "
+                + "FROM product_review WHERE visibility = 'VISIBLE' AND product_id IN (" + placeholders
+                + ") GROUP BY product_id", rs -> {
+            Product product = byId.get(rs.getString("product_id"));
+            if (product != null) {
+                product.setAverageRating(rs.getBigDecimal("average_rating"));
+                product.setReviewCount(rs.getLong("review_count"));
+            }
+        }, args);
+        attachImages(products);
+        return products;
+    }
+
     public Product findById(String productId) {
         String sql = selectProductColumns() + " WHERE product_id = ? AND deleted_at IS NULL";
         List<Product> list = jdbcTemplate.query(sql, PRODUCT_ROW_MAPPER, productId);

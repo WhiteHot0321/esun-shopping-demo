@@ -5,8 +5,12 @@
         @message="toast.info($event)" @changed="loadProducts" />
       <ProductCatalog :products="products" :quantities="quantities" :status="loadStatus" @reload="loadProducts"
         @set-quantity="setQuantity" @view-reviews="reviewProduct = $event" />
+      <RecommendationStrip v-if="auth.isAuthenticated" title="為你推薦" :refresh-key="recommendationKey"
+        @add="addRecommended" />
       <ProductReviews v-if="reviewProduct" :product="reviewProduct" :authenticated="auth.isAuthenticated"
         :role="auth.role" @close="reviewProduct = null" @changed="loadProducts" />
+      <RecommendationStrip v-if="reviewProduct" :product-id="reviewProduct.productId"
+        :title="`買過「${reviewProduct.productName}」的人也買了`" :refresh-key="recommendationKey" @add="addRecommended" />
     </div>
 
     <aside class="workspace__side">
@@ -36,12 +40,15 @@ import CartPanel from './CartPanel.vue'
 import ProductCatalog from './ProductCatalog.vue'
 import ProductManagement from './ProductManagement.vue'
 import ProductReviews from './ProductReviews.vue'
+import RecommendationStrip from './RecommendationStrip.vue'
 
 const auth = useAuthStore()
 const toast = useToast()
 
 const products = ref([])
 const reviewProduct = ref(null)
+// Bumped whenever the catalogue reloads (checkout, stock change) so recommendation lists refetch.
+const recommendationKey = ref(0)
 const loadStatus = ref('loading')
 const quantities = reactive({})
 const form = reactive({ memberId: auth.email, couponCode: '' })
@@ -149,6 +156,8 @@ const setQuantity = (productId, value) => {
   syncCartItem(productId, next)
 }
 
+const addRecommended = (productId) => setQuantity(productId, (quantities[productId] || 0) + 1)
+
 const clearCart = async (persist = true) => {
   if (busy.value || cartClearing.value) return
   cartClearing.value = true
@@ -216,6 +225,7 @@ const loadProducts = async () => {
     products.value.forEach((p) => { if (quantities[p.productId] == null) quantities[p.productId] = 0 })
     if (adjusted.length) toast.info(`庫存已變動，購物車中的 ${adjusted.join('、')} 已自動調整`)
     loadStatus.value = 'ready'
+    recommendationKey.value++
   } catch (error) {
     loadStatus.value = 'error'
     toast.error(errorText(error, '商品載入失敗'))

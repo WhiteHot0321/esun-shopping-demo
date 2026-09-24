@@ -58,7 +58,8 @@ CREATE TABLE order_detail (
     unit_price    DECIMAL(12,2) NOT NULL CHECK (unit_price >= 0),
     item_price    DECIMAL(12,2) NOT NULL CHECK (item_price >= 0),
     CONSTRAINT fk_order_detail_order FOREIGN KEY (order_id) REFERENCES shop_order(order_id),
-    CONSTRAINT fk_order_detail_product FOREIGN KEY (product_id) REFERENCES product(product_id)
+    CONSTRAINT fk_order_detail_product FOREIGN KEY (product_id) REFERENCES product(product_id),
+    INDEX idx_order_detail_product_order (product_id, order_id)
 );
 
 -- Append-only audit trail of every order_status change; also the source of the buyer-facing timeline.
