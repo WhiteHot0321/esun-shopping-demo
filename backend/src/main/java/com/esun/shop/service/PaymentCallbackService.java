@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
+import java.util.Map;
 
 /**
  * The only place an order becomes PAID. A callback is trusted only after its signature verifies; its effect is then
@@ -43,18 +44,19 @@ public class PaymentCallbackService {
         this.transactionTemplate = transactionTemplate;
     }
 
-    public Outcome handle(String merchantTradeNo, BigDecimal amount, PaymentResult result, String providerRef,
-                          String signature) {
+    /** @param parameters the raw provider callback parameters; only the gateway knows how to authenticate them */
+    public Outcome handle(Map<String, String> parameters) {
         if (!gateway.isEnabled()) {
             throw new BusinessException("付款服務未啟用", HttpStatus.SERVICE_UNAVAILABLE);
         }
         // Authenticate before touching the database, so an unauthenticated caller learns nothing about which trade
         // numbers exist.
-        if (!gateway.verify(merchantTradeNo, amount, result, providerRef, signature)) {
-            log.warn("Rejected payment callback with invalid signature, tradeNo={}", merchantTradeNo);
-            throw new BusinessException("簽章驗證失敗", HttpStatus.BAD_REQUEST);
-        }
-        return transactionTemplate.execute(status -> apply(merchantTradeNo, amount, result, providerRef));
+        VerifiedPaymentCallback callback = gateway.verifyCallback(parameters).orElseThrow(() -> {
+            log.warn("Rejected payment callback that failed verification");
+            return new BusinessException("簽章驗證失敗", HttpStatus.BAD_REQUEST);
+        });
+        return transactionTemplate.execute(status -> apply(callback.merchantTradeNo(), callback.amount(),
+                callback.result(), callback.providerRef()));
     }
 
     private Outcome apply(String merchantTradeNo, BigDecimal amount, PaymentResult result, String providerRef) {
@@ -85,22 +87,29 @@ public class PaymentCallbackService {
     private Outcome applySuccess(Payment payment, OrderPayState order, String providerRef) {
         return switch (payment.status()) {
             case SUCCEEDED, REFUND_REQUIRED -> Outcome.DUPLICATE;
-            case INITIATED -> {
-                boolean orderCanTakePayment = !"CANCELLED".equals(order.orderStatus())
-                        && order.payStatus() == PayStatus.PENDING.ordinal();
-                if (orderCanTakePayment) {
-                    require(paymentRepository.transition(payment.id(), PaymentStatus.INITIATED, PaymentStatus.SUCCEEDED,
-                            null, true, providerRef) == 1);
-                    require(paymentRepository.markOrderPaid(order.orderId()) == 1);
-                    log.info("Order {} paid via payment {}", order.orderId(), payment.merchantTradeNo());
-                    yield Outcome.SUCCEEDED;
-                }
-                yield parkForRefund(payment, PaymentStatus.INITIATED, order, "ORDER_NOT_PAYABLE", providerRef);
-            }
-            // We had already closed this attempt (failure or order cancelled) and the provider now says money moved.
-            case FAILED -> parkForRefund(payment, PaymentStatus.FAILED, order, "LATE_SUCCESS_ON_CLOSED_ATTEMPT",
-                    providerRef);
+            case INITIATED -> settle(payment, PaymentStatus.INITIATED, order, providerRef, "ORDER_NOT_PAYABLE");
+            // We had closed this attempt (a decline, a "pay again", or a cancelled order) and the provider now says
+            // money moved: if the order is still waiting for payment the buyer paid, so apply it.
+            case FAILED -> settle(payment, PaymentStatus.FAILED, order, providerRef, "LATE_SUCCESS_ON_CLOSED_ATTEMPT");
         };
+    }
+
+    /** Apply a success to a payable order, otherwise record the money as needing a refund. */
+    private Outcome settle(Payment payment, PaymentStatus from, OrderPayState order, String providerRef,
+                           String refundReason) {
+        boolean orderCanTakePayment = !"CANCELLED".equals(order.orderStatus())
+                && order.payStatus() == PayStatus.PENDING.ordinal();
+        if (!orderCanTakePayment) {
+            return parkForRefund(payment, from, order, refundReason, providerRef);
+        }
+        if (from == PaymentStatus.FAILED) {
+            // A newer live attempt may exist; close it first so the one-live-attempt constraint holds.
+            paymentRepository.closeOpenAttempts(order.orderId(), "SUPERSEDED_BY_LATE_SUCCESS");
+        }
+        require(paymentRepository.transition(payment.id(), from, PaymentStatus.SUCCEEDED, null, true, providerRef) == 1);
+        require(paymentRepository.markOrderPaid(order.orderId()) == 1);
+        log.info("Order {} paid via payment {}", order.orderId(), payment.merchantTradeNo());
+        return Outcome.SUCCEEDED;
     }
 
     private Outcome applyFailure(Payment payment, String providerRef) {

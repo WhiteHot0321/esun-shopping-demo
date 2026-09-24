@@ -31,10 +31,19 @@ payment:
   # HMAC key that authenticates payment-provider callbacks. Dev-only fallback: override with PAYMENT_CALLBACK_SECRET
   # in any real deployment (same pattern as jwt.secret).
   callback-secret: ${PAYMENT_CALLBACK_SECRET:dev-only-insecure-payment-secret-change-me}
-  sandbox:
-    # Off by default: in sandbox mode a buyer can report "paid" for their own order. Set PAYMENT_SANDBOX_ENABLED=true
-    # for local development/demos only; with it off no payment can be started and callbacks are rejected (503).
-    enabled: ${PAYMENT_SANDBOX_ENABLED:false}
+  # none (default): no payment can start and every callback is refused (503).
+  # sandbox: a buyer can report "paid" for their own order - local development/demos ONLY, never production.
+  # ecpay: real ECPay AioCheckOut (credit card); needs the ecpay.* settings below.
+  provider: ${PAYMENT_PROVIDER:none}
+
+# Secrets come only from the environment; ECPay's public stage test account is documented in docs/tasks/035.
+ecpay:
+  merchant-id: ${ECPAY_MERCHANT_ID:}
+  hash-key: ${ECPAY_HASH_KEY:}
+  hash-iv: ${ECPAY_HASH_IV:}
+  payment-url: ${ECPAY_PAYMENT_URL:}
+  callback-url: ${ECPAY_CALLBACK_URL:}
+  return-url: ${ECPAY_RETURN_URL:}
 
 stock:
   redis:

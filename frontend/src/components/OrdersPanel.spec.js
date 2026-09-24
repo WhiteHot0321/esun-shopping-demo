@@ -172,6 +172,42 @@ describe('OrdersPanel', () => {
       expect(button(wrapper, '重新付款')).toBeDefined()
     })
 
+    it('hands the buyer to the provider with the server-signed form instead of showing the sandbox box', async () => {
+      api.get.mockResolvedValue(pageOf([unpaid()]))
+      api.post.mockResolvedValueOnce({ data: { data: { ...payment, provider: 'ecpay', simulatable: false, redirect: {
+        actionUrl: 'https://payment-stage.ecpay.com.tw/Cashier/AioCheckOut/V5',
+        fields: { MerchantID: '3002607', MerchantTradeNo: 'EABC', TotalAmount: '200', CheckMacValue: 'SIG' }
+      } } } })
+      const submit = vi.spyOn(HTMLFormElement.prototype, 'submit').mockImplementation(function () {
+        submit.captured = { action: this.action, method: this.method, fields: Object.fromEntries(new FormData(this)) }
+      })
+      const wrapper = await mountPanel('buyer')
+      await button(wrapper, '前往付款').trigger('click')
+      await flushPromises()
+      expect(submit).toHaveBeenCalledTimes(1)
+      expect(submit.captured.action).toBe('https://payment-stage.ecpay.com.tw/Cashier/AioCheckOut/V5')
+      expect(submit.captured.method).toBe('post')
+      expect(submit.captured.fields).toEqual({
+        MerchantID: '3002607', MerchantTradeNo: 'EABC', TotalAmount: '200', CheckMacValue: 'SIG'
+      })
+      expect(wrapper.find('[data-testid="pay-box"]').exists()).toBe(false)
+      submit.mockRestore()
+    })
+
+    it('refuses to relay a provider form whose action is not https', async () => {
+      api.get.mockResolvedValue(pageOf([unpaid()]))
+      api.post.mockResolvedValueOnce({ data: { data: { ...payment, simulatable: false, redirect: {
+        actionUrl: 'javascript:alert(1)', fields: { A: 'b' }
+      } } } })
+      const submit = vi.spyOn(HTMLFormElement.prototype, 'submit').mockImplementation(() => {})
+      const wrapper = await mountPanel('buyer')
+      await button(wrapper, '前往付款').trigger('click')
+      await flushPromises()
+      expect(submit).not.toHaveBeenCalled()
+      expect(toast.items.length).toBeGreaterThan(0)
+      submit.mockRestore()
+    })
+
     it('shows the server message and no pay box when payment cannot be started', async () => {
       api.get.mockResolvedValue(pageOf([unpaid()]))
       api.post.mockRejectedValue({ response: { status: 503, data: { message: '付款服務未啟用' } } })

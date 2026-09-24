@@ -21,15 +21,34 @@
 | 冪等 | 重送/併發重複 → `DUPLICATE`；`SUCCEEDED` 之後的舊 `FAILED` 不會撤銷付款 |
 | 與取消競態 | 取消（同一交易內）關閉進行中嘗試、已付款者標 `REFUND_REQUIRED`；成功回調與取消同時到達，無論誰先，終態一致：訂單 CANCELLED、款項 `REFUND_REQUIRED`、庫存只退一次 |
 | 金額不符 | 簽章正確的 SUCCESS 但金額不同 → `REFUND_REQUIRED(AMOUNT_MISMATCH)`（不套用、不丟棄）；FAILED 金額不符 → 400 |
-| Sandbox | `payment.sandbox.enabled`（`PAYMENT_SANDBOX_ENABLED`）**預設 false**：關閉時無法開始付款（503）、sandbox 端點 404、連簽章正確的回調也拒絕（503），因此 `application.yml` 內的開發用 secret 不能被拿來改單。開啟時買家可用 `POST /api/payments/{tradeNo}/sandbox-result` 為自己的嘗試回報結果，該結果仍走同一條簽章回調路徑 |
+| Sandbox | `payment.provider=sandbox`（`PAYMENT_PROVIDER`，預設 `none`）：預設關閉時關閉時無法開始付款（503）、sandbox 端點 404、連簽章正確的回調也拒絕（503），因此 `application.yml` 內的開發用 secret 不能被拿來改單。開啟時買家可用 `POST /api/payments/{tradeNo}/sandbox-result` 為自己的嘗試回報結果，該結果仍走同一條簽章回調路徑 |
 | Provider 抽換點 | `PaymentGateway` 介面（`HmacPaymentGateway` 為 sandbox 實作）；換成真實綠界/藍新只需實作 `sign/verify`，狀態機不變 |
 | 前端 | `OrdersPanel`：付款狀態徽章（未付款/付款失敗/已付款/待退款）、「前往付款/重新付款」、sandbox 付款面板；徽章與可付款與否完全取自伺服器欄位 `payStatus/paymentStatus/payable` |
 
-## 與既有 ECPay 分支的關係（必讀）
+## ECPay 整合（2026-09-24 後續任務，已完成）
 
-`codex/phase31-pay-status`（worktree `C:/GitHub/esun-shopping-phase31`，基準 `ec140f7`，**未合併**、未推進 advanced-v2）另有一版 2026-09-17 由 Codex 完成的真實 **ECPay AioCheckOut** 實作：`EcpayPaymentGateway`（CheckMacValue 驗簽）、`payment_transaction` 表（`05_payment_transaction.sql`）、payment-form 導向、原子／冪等 PENDING→PAID，當時 backend 89/89 並通過獨立審查。本項（#13）在不知道該分支的情況下於 advanced-v2 另行實作，兩者**類別名稱重疊**（`PaymentController/Service/Repository/PaymentGateway`）且資料表不同（`payment` vs `payment_transaction`），**不可直接 merge**。
+未合併分支 `codex/phase31-pay-status`（基準 `ec140f7`）有另一版 ECPay 實作，類別名與資料表和本項衝突。整合做法：**以本項為底，只移植該分支的 ECPay 簽章／表單／回應協定**，其餘（`payment_transaction`、自有 `PaymentService`）不併入。
 
-建議的整合路線（待決策，未執行）：以 advanced-v2 上本項為底（已含取消競態、REFUND_REQUIRED、單一進行中嘗試的 DB 不變量、後續所有訂單狀態／稽核功能），把該分支的 `EcpayPaymentGateway` 改寫成 `PaymentGateway`（`sign/verify`）的第二個實作，並補 redirect（`PaymentView` 已預留 `simulatable=false` 路徑）；分支上其餘與此重疊的 schema／service 不併入。
+- `PaymentGateway` 改為 provider 接縫（`payment.provider` = `none`（預設）｜`sandbox`｜`ecpay`，以 `@ConditionalOnProperty` 恰好啟用一個）：`newMerchantTradeNo`、`checkout`（回傳要 POST 的表單或空）、`verifyCallback(Map)`（驗證並正規化，永不 throw）、`simulatedCallback`（僅 sandbox）、`canResumeAttempt`。狀態機只接觸經驗證的 `VerifiedPaymentCallback`。
+- `EcpayPaymentGateway`：AioCheckOut、SHA-256 CheckMacValue（含 ECPay 公開測試向量）、`MerchantTradeNo` = `E`+19 碼十六進位（≤20）、僅整數 TWD（否則 422 並回滾剛建立的嘗試）、驗簽後再核對 MerchantID／`TradeAmt` 僅純數字。`POST /api/payments/ecpay/callback`（form-encoded、公開路由、回 `1|OK`／`0|ERROR`）。設定不全時**啟動即失敗**；`ecpay.*` 一律來自環境變數。
+- 只開信用卡（`ChoosePayment=Credit`）：ATM／超商的首次回調 `RtnCode≠1` 代表「已取得繳費代碼」而非失敗，若當作失敗會把之後真的付款變成退款；要支援需先加入「待處理」回調結果。
+- 前端：`OrdersPanel` 收到 `redirect` 時以暫存表單 POST 到 provider（僅接受 `https://`），不假設付款狀態。
+
+### 第二次獨立審查（全新脈絡、唯讀）：FAIL → 已修復
+- **blocker**：CheckMacValue 參數排序必須**不分大小寫**（信用卡回調含 `card4no`／`auth_code`／`amount` 等小寫欄位；區分大小寫的排序會讓每一筆真實回調驗簽失敗）。Codex 原分支同樣有此問題，官方向量只含 PascalCase 所以測不出。已改 `String.CASE_INSENSITIVE_ORDER`，新增以獨立算出的預期值驗證排序、以及帶小寫欄位的回調測試。
+- 遲到成功：已被我方關閉的嘗試（拒付／重付／取消）若之後收到成功回調，**訂單仍待付款且未取消 → 入帳**（並關閉較新的進行中嘗試以維持「每單一個進行中嘗試」）；否則才標 REFUND_REQUIRED。此規則取代前一版「一律退款」。
+- ECPay 不接受重送同一 `MerchantTradeNo` → 「再次付款」改為關閉舊嘗試並開新號（`canResumeAttempt=false`）；舊頁面若之後付款，仍依上一條入帳。
+- 拒絕 `SimulatePaid=1`（後台模擬付款）除非 payment-url 是 stage 主機；缺 `RtnCode` 視為無效。
+- **審查者部分結論來自其記憶（自述約 60–80% 把握）**：小寫欄位、失敗後可在同頁重試、重送同號被拒。已採取「即使不成立也不會出錯」的保守設計，但**必須以 ECPay stage 實測確認**。
+
+### 仍未證明
+- **未對 ECPay stage 實際走過一次**：需要公開 HTTPS callback URL（如 ngrok）＋ stage 帳號 `3002607`／`pwFHCqoQZGmho4w6`／`EkRm7iFT261dpevs`（ECPay 公開測試帳號）。以下為手動驗證步驟。
+
+```bash
+PAYMENT_PROVIDER=ecpay ECPAY_MERCHANT_ID=3002607 ECPAY_HASH_KEY=pwFHCqoQZGmho4w6 ECPAY_HASH_IV=EkRm7iFT261dpevs ECPAY_PAYMENT_URL=https://payment-stage.ecpay.com.tw/Cashier/AioCheckOut/V5 ECPAY_CALLBACK_URL=https://<你的公開網址>/api/payments/ecpay/callback ECPAY_RETURN_URL=http://localhost:5173/ mvn spring-boot:run
+```
+  確認項目：信用卡付款成功後訂單變「已付款」（驗證小寫欄位排序）、拒付後同頁重試的行為、重按「前往付款」不報 MerchantTradeNo 重複。
+- 其餘同上（Codex 獨立審查、瀏覽器 E2E、退款執行／逾期取消／付款稽核／速率限制、賣家可對未付款訂單出貨的業務決策）。
 
 ## 驗證（已執行）
 
@@ -48,7 +67,7 @@
 - 審查者是同一模型家族的新 session，不是 Codex 的獨立審查；如需更強保證可再請 Codex 過一次。
 - 退款本身（呼叫 provider 退款 API、後台處理 `REFUND_REQUIRED`）、付款逾期自動取消、付款事件稽核（`audit_log` 目前不含付款事件）、對 callback 的速率限制、正式環境禁止預設 secret 的啟動檢查（目前僅 ERROR log）。
 - **業務決策待定**：出貨/確認尚未要求已付款（賣家可對未付款訂單 CONFIRMED/SHIPPED），保留 #11 行為以支援貨到付款情境。
-- 遲到的 SUCCESS 落在已關閉（FAILED）嘗試時一律標退款，即使訂單仍未付款（保守、避免重複計入；買家需重付）。
+- 遲到的 SUCCESS 落在已關閉嘗試：訂單仍待付款則入帳，否則標 REFUND_REQUIRED（見「ECPay 整合」）。
 - 尚無 live 瀏覽器 E2E。
 
 ## 本機啟用 sandbox

@@ -27,8 +27,8 @@ import java.io.IOException;
  *
  * Endpoint protection decision (see PR description for the full writeup):
  *  - Public: POST /api/auth/register, POST /api/auth/login, POST /api/auth/forgot-password,
- *    POST /api/auth/reset-password, POST /api/payments/callback (payment-provider webhook: authenticated by its
- *    HMAC signature instead of a JWT), GET /api/products/available, POST /api/support/ask,
+ *    POST /api/auth/reset-password, POST /api/payments/callback and /api/payments/ecpay/callback (payment-provider
+ *    webhooks: authenticated by their signature/CheckMacValue instead of a JWT), GET /api/products/available, POST /api/support/ask,
  *    GET /uploads/products/{uuid}.{jpg|png|webp} (product images shown in the public catalog)
  *    (a shopper must be able to browse, ask product questions, log in, and recover a
  *    forgotten password before they have a token).
@@ -87,6 +87,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 || path.equals("/api/auth/forgot-password")
                 || path.equals("/api/auth/reset-password")
                 || path.equals("/api/payments/callback")
+                || path.equals("/api/payments/ecpay/callback")
                 || path.equals("/api/support/ask"))) {
             return true;
         }
