@@ -12,7 +12,7 @@
     <aside class="workspace__side">
       <AuthPanel v-if="!auth.isAuthenticated" />
       <CartPanel :items="selected" :total="total" :form="form" :authenticated="auth.isAuthenticated" :busy="busy"
-        :pending-attempt="attempt" @set-quantity="setQuantity" @clear="clearCart" @checkout="submitOrder"
+        :pending-attempt="attempt" :preview-coupon="previewCoupon" @set-quantity="setQuantity" @clear="clearCart" @checkout="submitOrder"
         @retry="retry" />
     </aside>
 
@@ -44,7 +44,7 @@ const products = ref([])
 const reviewProduct = ref(null)
 const loadStatus = ref('loading')
 const quantities = reactive({})
-const form = reactive({ memberId: auth.email })
+const form = reactive({ memberId: auth.email, couponCode: '' })
 const lifecycle = createCheckoutLifecycle()
 const attempt = ref(null)
 const busy = ref(false)
@@ -259,9 +259,17 @@ const submitOrder = () => {
     await waitForCartSyncs()
     return api.post('/cart/checkout', {
       requestId: request.requestId,
-      shippingAddressId: request.shippingAddressId
+      shippingAddressId: request.shippingAddressId,
+      couponCode: request.couponCode || undefined
     })
   }))
+}
+
+// Advisory pricing of the server-side cart; wait for pending cart writes so it sees what the buyer sees.
+const previewCoupon = async (code) => {
+  await waitForCartSyncs()
+  const { data } = await api.post('/cart/coupon-preview', { code })
+  return data.data
 }
 
 const retry = () => {
@@ -270,7 +278,8 @@ const retry = () => {
     await waitForCartSyncs()
     return api.post('/cart/checkout', {
       requestId: request.requestId,
-      shippingAddressId: request.shippingAddressId
+      shippingAddressId: request.shippingAddressId,
+      couponCode: request.couponCode || undefined
     })
   }))
 }

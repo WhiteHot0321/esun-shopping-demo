@@ -35,6 +35,16 @@
       <span>總金額</span>
       <strong data-testid="cart-total">{{ formatPrice(total) }}</strong>
     </div>
+    <template v-if="applied">
+      <div class="cart__total">
+        <span>優惠折抵（{{ applied.code }}）</span>
+        <strong data-testid="cart-discount">−{{ formatPrice(applied.discountAmount) }}</strong>
+      </div>
+      <div class="cart__total">
+        <span>應付金額</span>
+        <strong data-testid="cart-payable">{{ formatPrice(applied.total) }}</strong>
+      </div>
+    </template>
 
     <form class="checkout" novalidate @submit.prevent="submitCheckout">
       <template v-if="authenticated">
@@ -70,6 +80,24 @@
           </button>
         </div>
 
+        <div v-if="items.length" class="field coupon">
+          <label for="coupon-code">優惠碼</label>
+          <div class="coupon__row">
+            <input id="coupon-code" v-model.trim="couponInput" maxlength="32" autocomplete="off" placeholder="輸入優惠碼"
+              :disabled="couponLocked || Boolean(applied)" @keydown.enter.prevent="applyCoupon" />
+            <button v-if="!applied" type="button" class="btn btn--secondary btn--sm"
+              :disabled="couponLocked || !couponInput" @click="applyCoupon">
+              {{ couponBusy ? '確認中…' : '套用' }}
+            </button>
+            <button v-else type="button" class="link-button" :disabled="couponLocked" @click="removeCoupon">移除</button>
+          </div>
+          <p v-if="couponError" class="field__error" role="alert">{{ couponError }}</p>
+          <p v-else-if="couponNotice" class="field__hint">{{ couponNotice }}</p>
+          <p v-else-if="applied" class="field__hint" data-testid="coupon-applied">
+            已套用，實際折扣以建立訂單時為準
+          </p>
+        </div>
+
         <p class="field__hint">建立訂單後，請至「我的訂單」完成付款。</p>
       </template>
 
@@ -89,7 +117,7 @@
 import { computed, reactive, ref, watch } from 'vue'
 import api from '../api'
 import QuantityStepper from './QuantityStepper.vue'
-import { formatPrice } from '../format'
+import { errorText, formatPrice } from '../format'
 
 const props = defineProps({
   items: { type: Array, required: true },
@@ -97,7 +125,9 @@ const props = defineProps({
   form: { type: Object, required: true },
   authenticated: Boolean,
   busy: Boolean,
-  pendingAttempt: { type: Object, default: null }
+  pendingAttempt: { type: Object, default: null },
+  // async (code) => { code, subtotal, discountAmount, total }; prices the caller's server-side cart (advisory only).
+  previewCoupon: { type: Function, default: null }
 })
 const emit = defineEmits(['set-quantity', 'clear', 'checkout', 'retry'])
 
@@ -151,6 +181,61 @@ const createAddress = async () => {
     addressBusy.value = false
   }
 }
+
+// The coupon is only ever *named* by the client; the server prices it again under lock at checkout. `form.couponCode`
+// is set only after a successful preview so a code that was merely typed is never submitted.
+const couponInput = ref('')
+const applied = ref(null)
+const couponBusy = ref(false)
+const couponError = ref('')
+const couponNotice = ref('')
+const couponLocked = computed(() => props.busy || couponBusy.value || Boolean(props.pendingAttempt))
+
+const resetCoupon = (notice = '') => {
+  applied.value = null
+  props.form.couponCode = ''
+  couponError.value = ''
+  couponNotice.value = notice
+}
+
+const applyCoupon = async () => {
+  if (!couponInput.value || couponLocked.value || !props.previewCoupon) return
+  couponBusy.value = true
+  couponError.value = ''
+  couponNotice.value = ''
+  const totalAtRequest = props.total
+  try {
+    const preview = await props.previewCoupon(couponInput.value)
+    // The cart moved while the preview was in flight: that amount describes an older cart, so show nothing.
+    if (props.total !== totalAtRequest) {
+      couponNotice.value = '購物車內容已變更，請重新套用優惠碼'
+      return
+    }
+    applied.value = preview
+    props.form.couponCode = preview.code
+    couponInput.value = preview.code
+  } catch (error) {
+    resetCoupon()
+    couponError.value = errorText(error, '優惠碼驗證失敗，請稍後再試')
+  } finally {
+    couponBusy.value = false
+  }
+}
+
+const removeCoupon = () => {
+  resetCoupon()
+  couponInput.value = ''
+}
+
+// Any cart change invalidates the previewed amount, so drop it instead of showing a stale discount.
+watch(() => props.total, () => {
+  if (!applied.value) return
+  resetCoupon(props.items.length ? '購物車內容已變更，請重新套用優惠碼' : '')
+  if (!props.items.length) couponInput.value = ''
+})
+watch(() => props.authenticated, (value) => {
+  if (!value) removeCoupon()
+})
 
 const submitCheckout = () => {
   if (!props.form.shippingAddressId) {

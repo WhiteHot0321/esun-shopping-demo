@@ -22,6 +22,9 @@
           <span class="order-card__total">{{ formatPrice(order.price) }}</span>
         </div>
         <p class="field__hint">{{ formatTime(order.createdAt) }}</p>
+        <p v-if="order.discountAmount > 0" class="field__hint" data-testid="order-discount">
+          優惠碼 {{ order.couponCode }} 已折抵 {{ formatPrice(order.discountAmount) }}（原價 {{ formatPrice(order.price + order.discountAmount) }}）
+        </p>
         <ul class="order-card__items">
           <li v-for="item in order.items" :key="item.productId">
             {{ item.productName }} × {{ item.quantity }}（{{ formatPrice(item.itemPrice) }}）

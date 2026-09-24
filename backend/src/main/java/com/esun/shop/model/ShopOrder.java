@@ -7,6 +7,9 @@ public class ShopOrder {
     private String memberId;
     private BigDecimal price;
     private Integer payStatus;
+    private Long couponId;
+    private String couponCode;
+    private BigDecimal discountAmount = BigDecimal.ZERO;
 
     public String getOrderId() {
         return orderId;
@@ -38,5 +41,29 @@ public class ShopOrder {
 
     public void setPayStatus(Integer payStatus) {
         this.payStatus = payStatus;
+    }
+
+    public Long getCouponId() {
+        return couponId;
+    }
+
+    public void setCouponId(Long couponId) {
+        this.couponId = couponId;
+    }
+
+    public String getCouponCode() {
+        return couponCode;
+    }
+
+    public void setCouponCode(String couponCode) {
+        this.couponCode = couponCode;
+    }
+
+    public BigDecimal getDiscountAmount() {
+        return discountAmount;
+    }
+
+    public void setDiscountAmount(BigDecimal discountAmount) {
+        this.discountAmount = discountAmount;
     }
 }
