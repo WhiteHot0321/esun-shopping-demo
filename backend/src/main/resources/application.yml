@@ -27,6 +27,15 @@ jwt:
   secret: ${JWT_SECRET:dev-only-insecure-secret-change-me-please-32bytes}
   expiration-ms: ${JWT_EXPIRATION_MS:3600000}
 
+payment:
+  # HMAC key that authenticates payment-provider callbacks. Dev-only fallback: override with PAYMENT_CALLBACK_SECRET
+  # in any real deployment (same pattern as jwt.secret).
+  callback-secret: ${PAYMENT_CALLBACK_SECRET:dev-only-insecure-payment-secret-change-me}
+  sandbox:
+    # Off by default: in sandbox mode a buyer can report "paid" for their own order. Set PAYMENT_SANDBOX_ENABLED=true
+    # for local development/demos only; with it off no payment can be started and callbacks are rejected (503).
+    enabled: ${PAYMENT_SANDBOX_ENABLED:false}
+
 stock:
   redis:
     enabled: ${STOCK_REDIS_ENABLED:false}

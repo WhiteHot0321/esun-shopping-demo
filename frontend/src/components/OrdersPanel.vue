@@ -18,6 +18,7 @@
         <div class="order-card__head">
           <strong>{{ order.orderId }}</strong>
           <span class="badge" :class="badgeClass(order.status)">{{ statusLabel(order.status) }}</span>
+          <span v-if="payLabel(order)" class="badge" :class="payBadgeClass(order)" data-testid="pay-badge">{{ payLabel(order) }}</span>
           <span class="order-card__total">{{ formatPrice(order.price) }}</span>
         </div>
         <p class="field__hint">{{ formatTime(order.createdAt) }}</p>
@@ -35,7 +36,18 @@
             <span class="field__hint">{{ formatTime(entry.createdAt) }}</span>
           </li>
         </ol>
-        <div v-if="order.allowedActions?.length" class="order-card__actions">
+        <div v-if="paying?.orderId === order.orderId" class="notice pay-box" data-testid="pay-box">
+          <p><strong>沙盒付款（僅供開發/展示）</strong></p>
+          <p class="field__hint">金額 {{ formatPrice(paying.payment.amount) }}，交易編號 {{ paying.payment.merchantTradeNo }}</p>
+          <div class="order-card__actions">
+            <button type="button" class="btn btn--sm btn--primary" :disabled="Boolean(busyId)" @click="simulate('SUCCESS')">模擬付款成功</button>
+            <button type="button" class="btn btn--sm btn--ghost" :disabled="Boolean(busyId)" @click="simulate('FAILED')">模擬付款失敗</button>
+            <button type="button" class="link-button" :disabled="Boolean(busyId)" @click="paying = null">稍後再付</button>
+          </div>
+        </div>
+        <div v-if="order.allowedActions?.length || (!isSeller && order.payable)" class="order-card__actions">
+          <button v-if="!isSeller && order.payable && paying?.orderId !== order.orderId" type="button" class="btn btn--sm btn--primary"
+            :disabled="Boolean(busyId)" @click="startPayment(order)">{{ order.paymentStatus === 'FAILED' ? '重新付款' : '前往付款' }}</button>
           <button v-for="action in order.allowedActions" :key="action" type="button"
             class="btn btn--sm" :class="action === 'CANCELLED' ? 'btn--ghost' : 'btn--primary'"
             :disabled="busyId === order.orderId" @click="act(order, action)">{{ actionLabel(action) }}</button>
@@ -83,6 +95,7 @@ const page = ref(0)
 const filter = ref('all')
 const loading = ref(true)
 const busyId = ref('')
+const paying = ref(null)
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / size)))
 
 const statusLabel = (status) => STATUS_LABELS[status] || status
@@ -90,6 +103,17 @@ const actionLabel = (action) => ACTION_LABELS[action] || action
 const badgeClass = (status) => ({
   DELIVERED: 'badge--ok', SHIPPED: 'badge--ok', CANCELLED: 'badge--muted'
 }[status] || 'badge--warn')
+// Payment badge: the backend's payStatus/paymentStatus are authoritative; nothing here derives payment state.
+const payLabel = (order) => {
+  if (order.paymentStatus === 'REFUND_REQUIRED') return '待退款'
+  if (order.payStatus === 'PAID') return '已付款'
+  if (order.status === 'CANCELLED') return ''
+  return order.paymentStatus === 'FAILED' ? '付款失敗' : '未付款'
+}
+const payBadgeClass = (order) => {
+  if (order.paymentStatus === 'REFUND_REQUIRED') return 'badge--warn'
+  return order.payStatus === 'PAID' ? 'badge--ok' : 'badge--warn'
+}
 const formatTime = (value) => (value ? String(value).replace('T', ' ').slice(0, 16) : '')
 
 // Only the newest request may update the list, so rapid filter/page clicks cannot show stale data.
@@ -129,6 +153,7 @@ const act = async (order, action) => {
   if (busyId.value) return
   if (action === 'CANCELLED' && !window.confirm(`確定要取消訂單 ${order.orderId} 嗎？庫存會退回。`)) return
   busyId.value = order.orderId
+  if (paying.value?.orderId === order.orderId) paying.value = null
   try {
     if (isSeller.value) {
       await api.post(`/seller/orders/${order.orderId}/status`, { status: action })
@@ -139,6 +164,44 @@ const act = async (order, action) => {
   } catch (error) {
     // 409 means someone else already moved the order; reload so the shown actions are current.
     toast.error(errorText(error, '更新訂單失敗，請稍後再試'))
+  } finally {
+    busyId.value = ''
+    await load()
+  }
+}
+
+// Opens (or resumes) the payment attempt for the caller's own order. The amount is priced by the server.
+const startPayment = async (order) => {
+  if (busyId.value) return
+  busyId.value = order.orderId
+  try {
+    const { data } = await api.post(`/orders/${order.orderId}/payment`)
+    const payment = data.data
+    if (payment.simulatable) {
+      paying.value = { orderId: order.orderId, payment }
+    } else {
+      toast.info('請依付款頁面指示完成付款')
+    }
+  } catch (error) {
+    toast.error(errorText(error, '無法開始付款，請稍後再試'))
+    await load()
+  } finally {
+    busyId.value = ''
+  }
+}
+
+// Sandbox only: report the provider's result; the server still verifies it through the signed-callback path.
+const simulate = async (result) => {
+  if (busyId.value || !paying.value) return
+  const { orderId, payment } = paying.value
+  busyId.value = orderId
+  try {
+    await api.post(`/payments/${payment.merchantTradeNo}/sandbox-result`, { result })
+    if (result === 'SUCCESS') toast.success('付款成功')
+    else toast.info('付款失敗，可重新付款')
+    paying.value = null
+  } catch (error) {
+    toast.error(errorText(error, '付款處理失敗，請稍後再試'))
   } finally {
     busyId.value = ''
     await load()
@@ -156,6 +219,7 @@ onMounted(load)
 .order-card__total { margin-left: auto; font-weight: 700; }
 .order-card__items { margin: 8px 0; padding-left: 18px; }
 .order-card__actions { display: flex; gap: 8px; margin-top: 8px; }
+.pay-box { margin-top: 8px; }
 .timeline { list-style: none; margin: 8px 0 0; padding: 0 0 0 12px; border-left: 2px solid var(--border, #e5e7eb); display: grid; gap: 4px; }
 .timeline li { display: flex; gap: 8px; align-items: baseline; }
 .timeline__status { font-weight: 600; }

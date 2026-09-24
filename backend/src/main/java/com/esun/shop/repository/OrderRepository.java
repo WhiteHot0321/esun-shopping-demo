@@ -24,7 +24,7 @@ public class OrderRepository {
     /** Order header joined with its (optional) shipping-address snapshot. */
     public record OrderHeader(String orderId, String memberId, String status, BigDecimal price,
                               LocalDateTime createdAt, String receiverName, String receiverPhone,
-                              String shippingAddress) { }
+                              String shippingAddress, int payStatus, String paymentStatus) { }
 
     /** One order line plus the owning seller, so callers can apply seller scoping in memory. */
     public record ItemRow(String orderId, String productId, String productName, int quantity,
@@ -32,7 +32,9 @@ public class OrderRepository {
 
     private static final String HEADER_SELECT = """
             SELECT o.order_id, o.member_id, o.order_status, o.price, o.created_at,
-                   a.receiver_name, a.phone, CONCAT_WS(' ', a.postal_code, a.address) AS full_address
+                   a.receiver_name, a.phone, CONCAT_WS(' ', a.postal_code, a.address) AS full_address,
+                   o.pay_status,
+                   (SELECT p.status FROM payment p WHERE p.order_id = o.order_id ORDER BY p.id DESC LIMIT 1) AS payment_status
             FROM shop_order o LEFT JOIN shipping_address a ON a.id = o.shipping_address_id
             """;
     /** Seller scope: the order contains at least one product created by the seller. */
@@ -198,6 +200,7 @@ public class OrderRepository {
     private static OrderHeader mapHeader(ResultSet rs) throws SQLException {
         return new OrderHeader(rs.getString("order_id"), rs.getString("member_id"), rs.getString("order_status"),
                 rs.getBigDecimal("price"), rs.getTimestamp("created_at").toLocalDateTime(),
-                rs.getString("receiver_name"), rs.getString("phone"), rs.getString("full_address"));
+                rs.getString("receiver_name"), rs.getString("phone"), rs.getString("full_address"),
+                rs.getInt("pay_status"), rs.getString("payment_status"));
     }
 }

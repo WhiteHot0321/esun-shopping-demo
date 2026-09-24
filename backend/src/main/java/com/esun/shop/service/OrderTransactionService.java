@@ -6,6 +6,7 @@ import com.esun.shop.exception.BusinessException;
 import com.esun.shop.model.OrderDetail;
 import com.esun.shop.model.OrderRequest;
 import com.esun.shop.model.OrderStatus;
+import com.esun.shop.model.PayStatus;
 import com.esun.shop.model.Product;
 import com.esun.shop.model.ShopOrder;
 import com.esun.shop.repository.OrderRepository;
@@ -102,7 +103,8 @@ public class OrderTransactionService {
         order.setOrderId(orderId);
         order.setMemberId(memberId);
         order.setPrice(totalPrice);
-        order.setPayStatus(request.getPayStatus().ordinal());
+        // A client-supplied payStatus is deliberately ignored: only a verified provider callback may mark an order paid.
+        order.setPayStatus(PayStatus.PENDING.ordinal());
         orderRepository.insertOrder(order, shippingAddressId);
         orderRepository.insertStatusHistory(orderId, null, OrderStatus.CREATED.name(), memberId, "BUYER");
         for (OrderItemRequest item : request.getItems().stream().sorted(Comparator.comparing(OrderItemRequest::getProductId)).toList()) {
