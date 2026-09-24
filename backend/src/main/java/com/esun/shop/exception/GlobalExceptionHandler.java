@@ -4,6 +4,7 @@ import com.esun.shop.dto.ApiResponse;
 import com.esun.shop.service.ConcurrentOrderException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import java.sql.SQLException;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
@@ -74,8 +75,26 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).body(ApiResponse.fail(ex.getMessage()));
     }
 
+    /**
+     * sp_decrease_stock SIGNALs SQLSTATE 45000 / error 1644 when the guarded UPDATE finds too little stock. The
+     * up-front stock check reads a snapshot, so under a sell-out race the loser reaches the procedure and lands
+     * here: that is the same "out of stock" answer (409) as the up-front check, not a server fault. It is the only
+     * SIGNAL in DB/03_stored_procedures.sql, so the pair identifies it unambiguously.
+     */
+    private static boolean isStockSignal(DataAccessException ex) {
+        for (Throwable t = ex; t != null; t = t.getCause()) {
+            if (t instanceof SQLException sql && "45000".equals(sql.getSQLState()) && sql.getErrorCode() == 1644) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     @ExceptionHandler(DataAccessException.class)
     public ResponseEntity<ApiResponse<Void>> handleDb(DataAccessException ex) {
+        if (isStockSignal(ex)) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.fail("商品庫存不足"));
+        }
         log.error("資料庫操作失敗", ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiResponse.fail("DB_ERROR", "資料庫操作失敗"));
