@@ -1,5 +1,7 @@
 # ESUN Shopping Demo
 
+[![CI](https://github.com/WhiteHot0321/esun-shopping-demo/actions/workflows/ci.yml/badge.svg?branch=advanced-v2)](https://github.com/WhiteHot0321/esun-shopping-demo/actions/workflows/ci.yml)
+
 本專案依照玉山銀行 Java 後端實作題需求，提供一個簡易電商購物中心系統，包含：
 
 - 新增商品
