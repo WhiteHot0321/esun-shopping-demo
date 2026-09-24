@@ -5,6 +5,7 @@ import com.esun.shop.dto.OrderItemRequest;
 import com.esun.shop.exception.BusinessException;
 import com.esun.shop.model.OrderDetail;
 import com.esun.shop.model.OrderRequest;
+import com.esun.shop.model.OrderStatus;
 import com.esun.shop.model.Product;
 import com.esun.shop.model.ShopOrder;
 import com.esun.shop.repository.OrderRepository;
@@ -103,6 +104,7 @@ public class OrderTransactionService {
         order.setPrice(totalPrice);
         order.setPayStatus(request.getPayStatus().ordinal());
         orderRepository.insertOrder(order, shippingAddressId);
+        orderRepository.insertStatusHistory(orderId, null, OrderStatus.CREATED.name(), memberId, "BUYER");
         for (OrderItemRequest item : request.getItems().stream().sorted(Comparator.comparing(OrderItemRequest::getProductId)).toList()) {
             Product product = productMap.get(item.getProductId());
             productRepository.decreaseStock(item.getProductId(), item.getQuantity());

@@ -34,6 +34,7 @@ class ProductReviewIntegrationTest extends AbstractMySqlIntegrationTest {
     void setUpReviewFixture() {
         jdbc.update("DELETE FROM product_review WHERE product_id = ?", PRODUCT);
         jdbc.update("DELETE FROM order_detail WHERE product_id = ?", PRODUCT);
+        jdbc.update("DELETE FROM order_status_history WHERE order_id LIKE 'REVIEW-%'");
         jdbc.update("DELETE FROM shop_order WHERE order_id LIKE 'REVIEW-%'");
         jdbc.update("DELETE FROM product WHERE product_id = ?", PRODUCT);
         for (String email : List.of(BUYER, OTHER, SELLER, OTHER_SELLER)) {
