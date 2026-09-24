@@ -19,7 +19,7 @@
       </div>
       <div class="field">
         <label for="audit-target">目標編號</label>
-        <input id="audit-target" v-model.trim="form.targetId" type="text" placeholder="商品 / 訂單編號 / 評論 ID" />
+        <input id="audit-target" v-model.trim="form.targetId" type="text" placeholder="商品 / 訂單編號 / 評論 ID / 優惠券 ID" />
       </div>
       <div class="field">
         <label for="audit-from">起</label>
@@ -82,7 +82,9 @@ const ACTION_LABELS = {
   PRODUCT_RESTOCK: '商品補貨',
   PRODUCT_IMAGE_UPLOAD: '上傳商品圖片',
   ORDER_STATUS_CHANGE: '訂單狀態變更',
-  REVIEW_VISIBILITY_CHANGE: '評論顯示切換'
+  REVIEW_VISIBILITY_CHANGE: '評論顯示切換',
+  COUPON_CREATE: '建立優惠券',
+  COUPON_UPDATE: '修改優惠券'
 }
 const size = 20
 

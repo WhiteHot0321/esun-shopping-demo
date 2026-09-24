@@ -24,6 +24,10 @@ public class CreateOrderRequest {
     @Positive(message = "收件地址編號必須大於 0")
     private Long shippingAddressId;
 
+    /** Optional discount code; the server prices the discount, the client only names the code. */
+    @Size(max = 32)
+    private String couponCode;
+
     @Valid
     @NotEmpty
     private List<OrderItemRequest> items;
@@ -58,6 +62,14 @@ public class CreateOrderRequest {
 
     public void setShippingAddressId(Long shippingAddressId) {
         this.shippingAddressId = shippingAddressId;
+    }
+
+    public String getCouponCode() {
+        return couponCode;
+    }
+
+    public void setCouponCode(String couponCode) {
+        this.couponCode = couponCode;
     }
 
     public List<OrderItemRequest> getItems() {

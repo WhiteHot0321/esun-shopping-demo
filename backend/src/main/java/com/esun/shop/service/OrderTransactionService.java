@@ -34,13 +34,15 @@ public class OrderTransactionService {
     private final ProductRepository productRepository;
     private final OrderRepository orderRepository;
     private final ShippingAddressService shippingAddressService;
+    private final CouponService couponService;
 
     @Autowired
     public OrderTransactionService(ProductRepository productRepository, OrderRepository orderRepository,
-            ShippingAddressService shippingAddressService) {
+            ShippingAddressService shippingAddressService, CouponService couponService) {
         this.productRepository = productRepository;
         this.orderRepository = orderRepository;
         this.shippingAddressService = shippingAddressService;
+        this.couponService = couponService;
     }
 
     /** Compatibility constructor for isolated unit tests that do not load the address schema. */
@@ -48,6 +50,7 @@ public class OrderTransactionService {
         this.productRepository = productRepository;
         this.orderRepository = orderRepository;
         this.shippingAddressService = null;
+        this.couponService = null;
     }
 
     @Transactional
@@ -102,6 +105,17 @@ public class OrderTransactionService {
         ShopOrder order = new ShopOrder();
         order.setOrderId(orderId);
         order.setMemberId(memberId);
+        String couponCode = request.getCouponCode();
+        if (couponCode != null && !couponCode.isBlank()) {
+            if (couponService == null) throw new BusinessException("目前無法使用優惠券", HttpStatus.BAD_REQUEST);
+            // Locks the coupon row before any product row (see CouponService for the global lock order). The discount
+            // is priced from the server-side subtotal above; the client only names the code.
+            CouponService.Applied applied = couponService.redeem(couponCode, memberId, totalPrice);
+            order.setCouponId(applied.couponId());
+            order.setCouponCode(applied.code());
+            order.setDiscountAmount(applied.discount());
+            totalPrice = totalPrice.subtract(applied.discount());
+        }
         order.setPrice(totalPrice);
         // A client-supplied payStatus is deliberately ignored: only a verified provider callback may mark an order paid.
         order.setPayStatus(PayStatus.PENDING.ordinal());

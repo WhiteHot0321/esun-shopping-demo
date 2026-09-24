@@ -24,7 +24,8 @@ public class OrderRepository {
     /** Order header joined with its (optional) shipping-address snapshot. */
     public record OrderHeader(String orderId, String memberId, String status, BigDecimal price,
                               LocalDateTime createdAt, String receiverName, String receiverPhone,
-                              String shippingAddress, int payStatus, String paymentStatus) { }
+                              String shippingAddress, int payStatus, String paymentStatus,
+                              Long couponId, String couponCode, BigDecimal discountAmount) { }
 
     /** One order line plus the owning seller, so callers can apply seller scoping in memory. */
     public record ItemRow(String orderId, String productId, String productName, int quantity,
@@ -33,7 +34,7 @@ public class OrderRepository {
     private static final String HEADER_SELECT = """
             SELECT o.order_id, o.member_id, o.order_status, o.price, o.created_at,
                    a.receiver_name, a.phone, CONCAT_WS(' ', a.postal_code, a.address) AS full_address,
-                   o.pay_status,
+                   o.pay_status, o.coupon_id, o.coupon_code, o.discount_amount,
                    (SELECT p.status FROM payment p WHERE p.order_id = o.order_id ORDER BY p.id DESC LIMIT 1) AS payment_status
             FROM shop_order o LEFT JOIN shipping_address a ON a.id = o.shipping_address_id
             """;
@@ -50,9 +51,11 @@ public class OrderRepository {
     }
 
     public void insertOrder(ShopOrder order, Long shippingAddressId) {
-        String sql = "INSERT INTO shop_order(order_id, member_id, shipping_address_id, price, pay_status) VALUES (?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO shop_order(order_id, member_id, shipping_address_id, price, pay_status, "
+                + "coupon_id, coupon_code, discount_amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
         jdbcTemplate.update(sql, order.getOrderId(), order.getMemberId(), shippingAddressId,
-                order.getPrice(), order.getPayStatus());
+                order.getPrice(), order.getPayStatus(), order.getCouponId(), order.getCouponCode(),
+                order.getDiscountAmount());
     }
 
     public void claimRequest(String requestId, String orderId, String memberId) {
@@ -86,9 +89,14 @@ public class OrderRepository {
                 + "VALUES (?, ?, ?, ?, ?)", orderId, fromStatus, toStatus, actor, actorRole);
     }
 
-    /** Row-locks the order so concurrent transitions/cancellations serialize on it. */
+    /**
+     * Row-locks the order so concurrent transitions/cancellations serialize on it. {@code OF o} matters: a bare
+     * FOR UPDATE on this join would also X-lock the shipping_address row, which checkout needs a shared FK lock on
+     * after it already holds the coupon row - a cancel/checkout lock-order cycle (order+address -> coupon vs
+     * coupon -> address).
+     */
     public Optional<OrderHeader> lockHeader(String orderId) {
-        return jdbcTemplate.query(HEADER_SELECT + " WHERE o.order_id = ? FOR UPDATE", (rs, n) -> mapHeader(rs), orderId)
+        return jdbcTemplate.query(HEADER_SELECT + " WHERE o.order_id = ? FOR UPDATE OF o", (rs, n) -> mapHeader(rs), orderId)
                 .stream().findFirst();
     }
 
@@ -201,6 +209,7 @@ public class OrderRepository {
         return new OrderHeader(rs.getString("order_id"), rs.getString("member_id"), rs.getString("order_status"),
                 rs.getBigDecimal("price"), rs.getTimestamp("created_at").toLocalDateTime(),
                 rs.getString("receiver_name"), rs.getString("phone"), rs.getString("full_address"),
-                rs.getInt("pay_status"), rs.getString("payment_status"));
+                rs.getInt("pay_status"), rs.getString("payment_status"),
+                (Long) rs.getObject("coupon_id"), rs.getString("coupon_code"), rs.getBigDecimal("discount_amount"));
     }
 }

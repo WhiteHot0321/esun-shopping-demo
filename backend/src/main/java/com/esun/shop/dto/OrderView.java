@@ -23,7 +23,11 @@ public record OrderView(
         /** Status of the newest payment attempt (INITIATED/SUCCEEDED/FAILED/REFUND_REQUIRED), null if none yet. */
         String paymentStatus,
         /** Buyer view only: the buyer may (re)start payment for this order right now. */
-        boolean payable) {
+        boolean payable,
+        /** Coupon code applied at checkout, or null. Hidden from a seller who sees only part of the order. */
+        String couponCode,
+        /** Discount already deducted from {@code price} (price + discountAmount = pre-discount subtotal). */
+        BigDecimal discountAmount) {
 
     public record Item(String productId, String productName, int quantity, BigDecimal unitPrice, BigDecimal itemPrice) { }
 

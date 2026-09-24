@@ -41,6 +41,19 @@ describe('OrdersPanel', () => {
     expect(button(wrapper, '標記出貨')).toBeUndefined()
   })
 
+  it('shows the applied coupon and the original price only for discounted orders', async () => {
+    api.get.mockResolvedValue(pageOf([
+      order({ orderId: 'Ms2', price: 270, couponCode: 'SAVE10', discountAmount: 30 }),
+      order({ orderId: 'Ms3', couponCode: null, discountAmount: 0 })
+    ]))
+    const wrapper = await mountPanel('buyer')
+    const notes = wrapper.findAll('[data-testid="order-discount"]')
+    expect(notes).toHaveLength(1)
+    expect(notes[0].text()).toContain('SAVE10')
+    expect(notes[0].text()).toContain('30')
+    expect(notes[0].text()).toContain('300')
+  })
+
   it('buyer cancel calls the cancel endpoint, then reloads the list', async () => {
     api.get.mockResolvedValueOnce(pageOf([order()])).mockResolvedValueOnce(pageOf([order({ status: 'CANCELLED', allowedActions: [] })]))
     api.post.mockResolvedValue({ data: { success: true } })

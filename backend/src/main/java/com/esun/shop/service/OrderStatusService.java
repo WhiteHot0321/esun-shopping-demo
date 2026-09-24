@@ -37,13 +37,16 @@ public class OrderStatusService {
     private final StockCacheService stockCacheService;
     private final AuditLogService auditLogService;
     private final PaymentRepository paymentRepository;
+    private final CouponService couponService;
 
     public OrderStatusService(OrderRepository orderRepository, StockCacheService stockCacheService,
-                              AuditLogService auditLogService, PaymentRepository paymentRepository) {
+                              AuditLogService auditLogService, PaymentRepository paymentRepository,
+                              CouponService couponService) {
         this.orderRepository = orderRepository;
         this.stockCacheService = stockCacheService;
         this.auditLogService = auditLogService;
         this.paymentRepository = paymentRepository;
+        this.couponService = couponService;
     }
 
     // ---- buyer ----
@@ -130,6 +133,8 @@ public class OrderStatusService {
             // Order row is already locked: close any open payment attempt and flag money already taken for refund,
             // in the same transaction, so a racing provider callback can only ever observe the cancelled state.
             paymentRepository.settleOnCancel(locked.orderId());
+            // Coupon row is locked before product rows here exactly as in checkout, so the two cannot deadlock.
+            if (locked.couponId() != null) couponService.release(locked.couponId(), locked.memberId());
             restoreStock(locked.orderId());
         }
     }
@@ -189,7 +194,9 @@ public class OrderStatusService {
                     visible.stream().map(i -> new OrderView.Item(i.productId(), i.productName(), i.quantity(),
                             i.unitPrice(), i.itemPrice())).toList(),
                     history.getOrDefault(header.orderId(), List.of()), actions,
-                    payStatusName(header.payStatus()), header.paymentStatus(), payable);
+                    payStatusName(header.payStatus()), header.paymentStatus(), payable,
+                    wholeOrder ? header.couponCode() : null,
+                    wholeOrder && header.discountAmount() != null ? header.discountAmount() : BigDecimal.ZERO);
         }).toList();
     }
 

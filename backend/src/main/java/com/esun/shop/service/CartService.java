@@ -1,5 +1,6 @@
 package com.esun.shop.service;
 
+import com.esun.shop.dto.CouponPreview;
 import com.esun.shop.dto.CreateOrderRequest;
 import com.esun.shop.dto.OrderItemRequest;
 import com.esun.shop.exception.BusinessException;
@@ -12,6 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Service
@@ -20,13 +22,15 @@ public class CartService {
     private final ProductRepository productRepository;
     private final OrderService orderService;
     private final OrderRepository orderRepository;
+    private final CouponService couponService;
 
     public CartService(CartRepository repository, ProductRepository productRepository,
-            OrderService orderService, OrderRepository orderRepository) {
+            OrderService orderService, OrderRepository orderRepository, CouponService couponService) {
         this.repository = repository;
         this.productRepository = productRepository;
         this.orderService = orderService;
         this.orderRepository = orderRepository;
+        this.couponService = couponService;
     }
 
     @Transactional
@@ -72,8 +76,22 @@ public class CartService {
         repository.clear(requireMemberLock(email));
     }
 
+    /** Advisory: prices the current server-side cart with the coupon; nothing is reserved. */
+    public CouponPreview previewCoupon(String email, String code) {
+        BigDecimal subtotal = repository.findAll(email).stream()
+                .map(item -> item.price().multiply(BigDecimal.valueOf(item.quantity())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (subtotal.signum() <= 0) throw new BusinessException("購物車不可為空", HttpStatus.BAD_REQUEST);
+        return couponService.preview(code, email, subtotal);
+    }
+
     @Transactional
     public String checkout(String email, String requestId, Long shippingAddressId) {
+        return checkout(email, requestId, shippingAddressId, null);
+    }
+
+    @Transactional
+    public String checkout(String email, String requestId, Long shippingAddressId, String couponCode) {
         long memberId = requireMemberLock(email);
         var replay = orderRepository.findRequestById(requestId);
         if (replay.isPresent()) {
@@ -90,6 +108,7 @@ public class CartService {
         request.setRequestId(requestId);
         request.setMemberId(email);
         request.setShippingAddressId(shippingAddressId);
+        request.setCouponCode(couponCode);
         request.setItems(cart.stream().map(item -> {
             OrderItemRequest line = new OrderItemRequest();
             line.setProductId(item.productId());

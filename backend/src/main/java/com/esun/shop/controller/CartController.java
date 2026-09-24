@@ -1,6 +1,7 @@
 package com.esun.shop.controller;
 
 import com.esun.shop.dto.ApiResponse;
+import com.esun.shop.dto.CouponPreview;
 import com.esun.shop.repository.CartRepository.CartItem;
 import com.esun.shop.service.CartService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -61,8 +62,15 @@ public class CartController {
     @PostMapping("/checkout")
     public ApiResponse<Map<String, String>> checkout(@Valid @RequestBody CheckoutRequest body,
             HttpServletRequest request) {
-        String orderId = service.checkout(email(request), body.requestId(), body.shippingAddressId());
+        String orderId = service.checkout(email(request), body.requestId(), body.shippingAddressId(), body.couponCode());
         return ApiResponse.ok(Map.of("orderId", orderId));
+    }
+
+    /** Advisory discount preview for the caller's own server-side cart; nothing is reserved or consumed. */
+    @PostMapping("/coupon-preview")
+    public ApiResponse<CouponPreview> couponPreview(@Valid @RequestBody CouponPreviewRequest body,
+            HttpServletRequest request) {
+        return ApiResponse.ok(service.previewCoupon(email(request), body.code()));
     }
 
     private String email(HttpServletRequest request) {
@@ -79,5 +87,8 @@ public class CartController {
             @NotBlank
             @Pattern(regexp = "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
             String requestId,
-            @Positive(message = "收件地址編號必須大於 0") Long shippingAddressId) {}
+            @Positive(message = "收件地址編號必須大於 0") Long shippingAddressId,
+            @Size(max = 32, message = "優惠碼長度不可超過 32") String couponCode) {}
+
+    public record CouponPreviewRequest(@NotBlank @Size(max = 32, message = "優惠碼長度不可超過 32") String code) {}
 }
