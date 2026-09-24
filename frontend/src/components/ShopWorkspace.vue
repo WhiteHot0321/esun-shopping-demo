@@ -44,7 +44,7 @@ const products = ref([])
 const reviewProduct = ref(null)
 const loadStatus = ref('loading')
 const quantities = reactive({})
-const form = reactive({ memberId: auth.email, payStatus: 'PENDING' })
+const form = reactive({ memberId: auth.email })
 const lifecycle = createCheckoutLifecycle()
 const attempt = ref(null)
 const busy = ref(false)
@@ -230,7 +230,7 @@ const finish = async (promise) => {
   busy.value = false
   attempt.value = lifecycle.attempt
   if (result.status === 'success') {
-    toast.success(`訂單建立成功，訂單編號：${result.result.data.data.orderId}`)
+    toast.success(`訂單建立成功，訂單編號：${result.result.data.data.orderId}，請至「我的訂單」完成付款`)
     await clearCart(false)
     await loadProducts()
   } else if (result.status === 'retry-required') {

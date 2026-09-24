@@ -3,7 +3,6 @@ package com.esun.shop.service;
 import com.esun.shop.dto.CreateOrderRequest;
 import com.esun.shop.dto.OrderItemRequest;
 import com.esun.shop.exception.BusinessException;
-import com.esun.shop.model.PayStatus;
 import com.esun.shop.model.Product;
 import com.esun.shop.repository.CartRepository;
 import com.esun.shop.repository.CartRepository.CartItem;
@@ -90,7 +89,6 @@ public class CartService {
         CreateOrderRequest request = new CreateOrderRequest();
         request.setRequestId(requestId);
         request.setMemberId(email);
-        request.setPayStatus(PayStatus.PENDING);
         request.setShippingAddressId(shippingAddressId);
         request.setItems(cart.stream().map(item -> {
             OrderItemRequest line = new OrderItemRequest();

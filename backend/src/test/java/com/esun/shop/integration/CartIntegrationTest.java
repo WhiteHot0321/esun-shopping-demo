@@ -36,6 +36,7 @@ class CartIntegrationTest extends AbstractMySqlIntegrationTest {
         jdbc.update("DELETE FROM order_detail");
         jdbc.update("DELETE FROM order_request");
         jdbc.update("DELETE FROM order_status_history");
+        jdbc.update("DELETE FROM payment");
         jdbc.update("DELETE FROM shop_order");
         jdbc.update("DELETE FROM shopping_cart");
         jdbc.update("DELETE FROM shipping_address");

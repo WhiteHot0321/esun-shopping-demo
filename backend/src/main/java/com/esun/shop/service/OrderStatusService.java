@@ -7,9 +7,11 @@ import com.esun.shop.exception.BusinessException;
 import com.esun.shop.model.AuditAction;
 import com.esun.shop.model.Member;
 import com.esun.shop.model.OrderStatus;
+import com.esun.shop.model.PayStatus;
 import com.esun.shop.repository.OrderRepository;
 import com.esun.shop.repository.OrderRepository.ItemRow;
 import com.esun.shop.repository.OrderRepository.OrderHeader;
+import com.esun.shop.repository.PaymentRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,12 +36,14 @@ public class OrderStatusService {
     private final OrderRepository orderRepository;
     private final StockCacheService stockCacheService;
     private final AuditLogService auditLogService;
+    private final PaymentRepository paymentRepository;
 
     public OrderStatusService(OrderRepository orderRepository, StockCacheService stockCacheService,
-                              AuditLogService auditLogService) {
+                              AuditLogService auditLogService, PaymentRepository paymentRepository) {
         this.orderRepository = orderRepository;
         this.stockCacheService = stockCacheService;
         this.auditLogService = auditLogService;
+        this.paymentRepository = paymentRepository;
     }
 
     // ---- buyer ----
@@ -122,7 +126,12 @@ public class OrderStatusService {
         // Same transaction as the status change: the audit row exists if and only if the transition committed.
         auditLogService.record(actor, actorRole, AuditAction.ORDER_STATUS_CHANGE, locked.orderId(),
                 Map.of("status", current.name(), "buyer", locked.memberId()), Map.of("status", target.name()));
-        if (target == OrderStatus.CANCELLED) restoreStock(locked.orderId());
+        if (target == OrderStatus.CANCELLED) {
+            // Order row is already locked: close any open payment attempt and flag money already taken for refund,
+            // in the same transaction, so a racing provider callback can only ever observe the cancelled state.
+            paymentRepository.settleOnCancel(locked.orderId());
+            restoreStock(locked.orderId());
+        }
     }
 
     private void restoreStock(String orderId) {
@@ -173,11 +182,14 @@ public class OrderStatusService {
             }
             BigDecimal price = wholeOrder ? header.price()
                     : visible.stream().map(ItemRow::itemPrice).reduce(BigDecimal.ZERO, BigDecimal::add);
+            boolean payable = !sellerView && status != OrderStatus.CANCELLED
+                    && header.payStatus() == PayStatus.PENDING.ordinal() && header.price().signum() > 0;
             return new OrderView(header.orderId(), scope == null ? header.memberId() : null, header.status(), price,
                     header.createdAt(), header.receiverName(), header.receiverPhone(), header.shippingAddress(),
                     visible.stream().map(i -> new OrderView.Item(i.productId(), i.productName(), i.quantity(),
                             i.unitPrice(), i.itemPrice())).toList(),
-                    history.getOrDefault(header.orderId(), List.of()), actions);
+                    history.getOrDefault(header.orderId(), List.of()), actions,
+                    payStatusName(header.payStatus()), header.paymentStatus(), payable);
         }).toList();
     }
 
@@ -186,6 +198,11 @@ public class OrderStatusService {
         if (role == Member.Role.ADMIN) return null;
         if (role == Member.Role.SELLER && email != null && !email.isBlank()) return email;
         throw new BusinessException("權限不足", HttpStatus.FORBIDDEN);
+    }
+
+    private static String payStatusName(int stored) {
+        PayStatus[] all = PayStatus.values();
+        return stored >= 0 && stored < all.length ? all[stored].name() : "UNKNOWN";
     }
 
     private static void validatePaging(int page, int size) {

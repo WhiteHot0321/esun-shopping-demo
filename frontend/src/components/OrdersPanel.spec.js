@@ -111,6 +111,78 @@ describe('OrdersPanel', () => {
     expect(wrapper.text()).not.toContain('MsSTALE')
   })
 
+  describe('payment', () => {
+    const unpaid = (overrides = {}) => order({ payStatus: 'PENDING', paymentStatus: null, payable: true, ...overrides })
+    const payment = { paymentId: 1, orderId: 'Ms1', merchantTradeNo: 'PAYabc', amount: 200, status: 'INITIATED',
+      provider: 'sandbox', simulatable: true }
+
+    it('labels each payment state from the server fields and offers to pay only payable buyer orders', async () => {
+      api.get.mockResolvedValue(pageOf([
+        unpaid({ orderId: 'MsA' }),
+        unpaid({ orderId: 'MsB', paymentStatus: 'FAILED' }),
+        order({ orderId: 'MsC', payStatus: 'PAID', paymentStatus: 'SUCCEEDED', payable: false, allowedActions: [] }),
+        order({ orderId: 'MsD', status: 'CANCELLED', payStatus: 'PAID', paymentStatus: 'REFUND_REQUIRED', payable: false, allowedActions: [] }),
+        order({ orderId: 'MsE', status: 'CANCELLED', payStatus: 'PENDING', paymentStatus: 'FAILED', payable: false, allowedActions: [] })
+      ]))
+      const wrapper = await mountPanel('buyer')
+      const badges = wrapper.findAll('[data-testid="pay-badge"]').map((item) => item.text())
+      expect(badges).toEqual(['未付款', '付款失敗', '已付款', '待退款'])
+      expect(wrapper.findAll('button').filter((item) => item.text() === '前往付款')).toHaveLength(1)
+      expect(wrapper.findAll('button').filter((item) => item.text() === '重新付款')).toHaveLength(1)
+    })
+
+    it('never offers payment in seller mode', async () => {
+      api.get.mockResolvedValue(pageOf([unpaid({ allowedActions: [] })]))
+      const wrapper = await mountPanel('seller')
+      expect(button(wrapper, '前往付款')).toBeUndefined()
+      expect(wrapper.find('[data-testid="pay-badge"]').text()).toBe('未付款')
+    })
+
+    it('starts a payment, reports the sandbox result and reloads the list', async () => {
+      api.get.mockResolvedValueOnce(pageOf([unpaid()]))
+        .mockResolvedValueOnce(pageOf([order({ payStatus: 'PAID', paymentStatus: 'SUCCEEDED', payable: false })]))
+      api.post.mockResolvedValueOnce({ data: { data: payment } }).mockResolvedValueOnce({ data: { data: { ...payment, status: 'SUCCEEDED' } } })
+      const wrapper = await mountPanel('buyer')
+
+      await button(wrapper, '前往付款').trigger('click')
+      await flushPromises()
+      expect(api.post).toHaveBeenNthCalledWith(1, '/orders/Ms1/payment')
+      expect(wrapper.find('[data-testid="pay-box"]').text()).toContain('PAYabc')
+
+      await button(wrapper, '模擬付款成功').trigger('click')
+      await flushPromises()
+      expect(api.post).toHaveBeenNthCalledWith(2, '/payments/PAYabc/sandbox-result', { result: 'SUCCESS' })
+      expect(api.get).toHaveBeenCalledTimes(2)
+      expect(wrapper.find('[data-testid="pay-box"]').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="pay-badge"]').text()).toBe('已付款')
+      expect(button(wrapper, '前往付款')).toBeUndefined()
+    })
+
+    it('a simulated failure closes the box and keeps the order payable', async () => {
+      api.get.mockResolvedValueOnce(pageOf([unpaid()])).mockResolvedValueOnce(pageOf([unpaid({ paymentStatus: 'FAILED' })]))
+      api.post.mockResolvedValueOnce({ data: { data: payment } }).mockResolvedValueOnce({ data: { data: { ...payment, status: 'FAILED' } } })
+      const wrapper = await mountPanel('buyer')
+      await button(wrapper, '前往付款').trigger('click')
+      await flushPromises()
+      await button(wrapper, '模擬付款失敗').trigger('click')
+      await flushPromises()
+      expect(api.post).toHaveBeenLastCalledWith('/payments/PAYabc/sandbox-result', { result: 'FAILED' })
+      expect(wrapper.find('[data-testid="pay-box"]').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="pay-badge"]').text()).toBe('付款失敗')
+      expect(button(wrapper, '重新付款')).toBeDefined()
+    })
+
+    it('shows the server message and no pay box when payment cannot be started', async () => {
+      api.get.mockResolvedValue(pageOf([unpaid()]))
+      api.post.mockRejectedValue({ response: { status: 503, data: { message: '付款服務未啟用' } } })
+      const wrapper = await mountPanel('buyer')
+      await button(wrapper, '前往付款').trigger('click')
+      await flushPromises()
+      expect(toast.items.map((item) => item.text)).toContain('付款服務未啟用')
+      expect(wrapper.find('[data-testid="pay-box"]').exists()).toBe(false)
+    })
+  })
+
   it('steps back a page when the current page becomes empty', async () => {
     const many = { data: { data: { orders: [order()], total: 11, page: 0, size: 10 } } }
     api.get.mockResolvedValueOnce(many)

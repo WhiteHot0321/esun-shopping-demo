@@ -17,7 +17,13 @@ public record OrderView(
         List<Item> items,
         List<TimelineEntry> timeline,
         /** Statuses the caller may move this order to right now; empty for read-only views. */
-        List<String> allowedActions) {
+        List<String> allowedActions,
+        /** PENDING or PAID; only ever advanced by a verified payment callback. */
+        String payStatus,
+        /** Status of the newest payment attempt (INITIATED/SUCCEEDED/FAILED/REFUND_REQUIRED), null if none yet. */
+        String paymentStatus,
+        /** Buyer view only: the buyer may (re)start payment for this order right now. */
+        boolean payable) {
 
     public record Item(String productId, String productName, int quantity, BigDecimal unitPrice, BigDecimal itemPrice) { }
 

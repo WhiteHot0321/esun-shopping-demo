@@ -250,6 +250,12 @@ describe('checkout', () => {
     expect(api.get).toHaveBeenCalledTimes(5)
   })
 
+  it('gives the buyer no say in payment status and points to paying after the order exists', async () => {
+    expect(wrapper.find('input[name="pay-status"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('付款狀態')
+    expect(wrapper.text()).toContain('請至「我的訂單」完成付款')
+  })
+
   it('retries a lost response with the original request after cart and products change', async () => {
     await setQty('Tea', 2)
     api.post.mockClear()

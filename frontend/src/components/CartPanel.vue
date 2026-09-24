@@ -70,15 +70,7 @@
           </button>
         </div>
 
-        <fieldset class="field">
-          <legend>付款狀態</legend>
-          <div class="segmented segmented--full">
-            <label v-for="option in payOptions" :key="option.value" :class="{ active: form.payStatus === option.value }">
-              <input v-model="form.payStatus" class="visually-hidden" type="radio" name="pay-status" :value="option.value"
-                :disabled="busy" />{{ option.label }}
-            </label>
-          </div>
-        </fieldset>
+        <p class="field__hint">建立訂單後，請至「我的訂單」完成付款。</p>
       </template>
 
       <button type="submit" class="btn btn--primary btn--block btn--lg"
@@ -109,7 +101,6 @@ const props = defineProps({
 })
 const emit = defineEmits(['set-quantity', 'clear', 'checkout', 'retry'])
 
-const payOptions = [{ value: 'PENDING', label: '未付款' }, { value: 'PAID', label: '已付款' }]
 const count = computed(() => props.items.reduce((sum, item) => sum + item.quantity, 0))
 const addresses = ref([])
 const addressBusy = ref(false)
