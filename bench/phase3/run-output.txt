@@ -1,0 +1,57 @@
+
+=== normal ===
+    409s from the stored-procedure race path=0
+    requests=1501 200=1501 409=0 5xx=0 other=0 orders_per_s=46.8 avg=62ms p50=21ms p95=352ms p99=513ms max=797ms innodb_deadlocks=0 innodb_lock_timeouts=0 log_deadlocks=0 log_lock_timeouts=0
+    [PASS] orders committed == HTTP 200 answers: 1501
+    [PASS] 5xx / no-response / unexpected statuses: 0
+    [PASS] InnoDB lock_deadlocks counter delta: 0
+    [PASS] InnoDB lock_timeouts counter delta: 0
+    [PASS] backend log: deadlock / lock-timeout lines: 0
+    [PASS] stock reconciles for NOR_A (initial - sold == current): 9999230
+    [PASS] stock reconciles for NOR_B (initial - sold == current): 9999269
+    [PASS] no conflict answers with unlimited stock: 0
+
+=== deadlock ===
+    409s from the stored-procedure race path=0
+    requests=1822 200=1822 409=0 5xx=0 other=0 orders_per_s=55.9 avg=665ms p50=642ms p95=894ms p99=939ms max=995ms innodb_deadlocks=0 innodb_lock_timeouts=0 log_deadlocks=0 log_lock_timeouts=0
+    [PASS] orders committed == HTTP 200 answers: 1822
+    [PASS] 5xx / no-response / unexpected statuses: 0
+    [PASS] InnoDB lock_deadlocks counter delta: 0
+    [PASS] InnoDB lock_timeouts counter delta: 0
+    [PASS] backend log: deadlock / lock-timeout lines: 0
+    [PASS] stock reconciles for DEA_A (initial - sold == current): 9998178
+    [PASS] stock reconciles for DEA_B (initial - sold == current): 9998178
+    [PASS] no conflict answers with unlimited stock: 0
+
+=== soldout ===
+    409s from the stored-procedure race path=9
+    requests=600 200=200 409=400 5xx=0 other=0 orders_per_s=115.9 avg=350ms p50=85ms p95=1019ms p99=1055ms max=1066ms innodb_deadlocks=0 innodb_lock_timeouts=0 log_deadlocks=0 log_lock_timeouts=0
+    [PASS] orders committed == HTTP 200 answers: 200
+    [PASS] 5xx / no-response / unexpected statuses: 0
+    [PASS] InnoDB lock_deadlocks counter delta: 0
+    [PASS] InnoDB lock_timeouts counter delta: 0
+    [PASS] backend log: deadlock / lock-timeout lines: 0
+    [PASS] stock reconciles for SOL_A (initial - sold == current): 0
+    [PASS] sold exactly the stock (no oversell, no undersell): 200
+    [PASS] every other attempt refused with 409: 400
+    [PASS] ending stock: 0
+
+=== coupon ===
+    409s from the stored-procedure race path=0
+    requests=400 200=100 409=300 5xx=0 other=0 orders_per_s=84.3 avg=410ms p50=131ms p95=1379ms p99=1401ms max=1423ms innodb_deadlocks=0 innodb_lock_timeouts=0 log_deadlocks=0 log_lock_timeouts=0
+    [PASS] orders committed == HTTP 200 answers: 100
+    [PASS] 5xx / no-response / unexpected statuses: 0
+    [PASS] InnoDB lock_deadlocks counter delta: 0
+    [PASS] InnoDB lock_timeouts counter delta: 0
+    [PASS] backend log: deadlock / lock-timeout lines: 0
+    [PASS] stock reconciles for COU_A (initial - sold == current): 9999900
+    [PASS] stock reconciles for COU_B (initial - sold == current): 10000000
+    [PASS] coupon redeemed exactly its quota: 100
+    [PASS] coupon.used_count == successful orders: 100
+    [PASS] orders carrying the coupon == successes: 100
+    [PASS] sum(coupon_member_usage) == used_count: 100
+    [PASS] every applied discount is > 0 and price = 900: 0
+    [PASS] every other attempt refused with 409: 300
+
+RESULT: PASS
+exit=0
