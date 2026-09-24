@@ -10,6 +10,8 @@
       <div class="topbar__user">
         <template v-if="auth.isAuthenticated">
           <span class="topbar__email" :title="auth.email">{{ auth.email }}</span>
+          <button type="button" class="btn btn--ghost btn--sm" @click="togglePanel('orders')">我的訂單</button>
+          <button v-if="isSeller" type="button" class="btn btn--ghost btn--sm" @click="togglePanel('sellerOrders')">訂單管理</button>
           <button type="button" class="btn btn--ghost btn--sm" @click="toggleProfile">個人資料</button>
           <button type="button" class="btn btn--ghost btn--sm" @click="toggleChangePassword">修改密碼</button>
           <button type="button" class="btn btn--ghost btn--sm" @click="logout">登出</button>
@@ -20,6 +22,8 @@
   </header>
 
   <main id="main" class="container">
+    <OrdersPanel v-if="activePanel === 'orders'" mode="buyer" @close="activePanel = ''" />
+    <OrdersPanel v-if="activePanel === 'sellerOrders' && isSeller" mode="seller" @close="activePanel = ''" />
     <ProfilePanel v-if="showProfile" @close="showProfile = false" />
     <ChangePasswordPanel v-if="showChangePassword" @close="showChangePassword = false" />
     <ShopWorkspace />
@@ -30,8 +34,9 @@
 </template>
 
 <script setup>
-import { nextTick, onMounted, onUnmounted, provide, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, provide, ref, watch } from 'vue'
 import ChangePasswordPanel from './components/ChangePasswordPanel.vue'
+import OrdersPanel from './components/OrdersPanel.vue'
 import ProfilePanel from './components/ProfilePanel.vue'
 import ShopWorkspace from './components/ShopWorkspace.vue'
 import SupportChat from './components/SupportChat.vue'
@@ -45,23 +50,35 @@ provide(TOAST_KEY, toast)
 
 const showChangePassword = ref(false)
 const showProfile = ref(false)
+// 'orders' (buyer history) or 'sellerOrders' (fulfilment); only one order panel is open at a time.
+const activePanel = ref('')
+const isSeller = computed(() => ['SELLER', 'ADMIN'].includes(auth.role))
 // Logging out (or a 401 auth-expiry) while the panel is open would otherwise leave it open
 // on top of a logged-out header.
 watch(() => auth.isAuthenticated, (authenticated) => {
   if (!authenticated) {
     showChangePassword.value = false
     showProfile.value = false
+    activePanel.value = ''
   }
 })
+
+const togglePanel = (name) => {
+  activePanel.value = activePanel.value === name ? '' : name
+  showProfile.value = false
+  showChangePassword.value = false
+}
 
 const toggleProfile = () => {
   showProfile.value = !showProfile.value
   showChangePassword.value = false
+  activePanel.value = ''
 }
 
 const toggleChangePassword = () => {
   showChangePassword.value = !showChangePassword.value
   showProfile.value = false
+  activePanel.value = ''
 }
 
 const focusLogin = async () => {

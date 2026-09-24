@@ -34,6 +34,9 @@ class OrderControllerTest {
     private OrderService orderService;
 
     @MockBean
+    private com.esun.shop.service.OrderStatusService orderStatusService;
+
+    @MockBean
     private JwtService jwtService;
 
     @Test

@@ -1,6 +1,7 @@
 CREATE DATABASE IF NOT EXISTS esun_shop CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE esun_shop;
 
+DROP TABLE IF EXISTS order_status_history;
 DROP TABLE IF EXISTS order_detail;
 DROP TABLE IF EXISTS order_request;
 DROP TABLE IF EXISTS shop_order;
@@ -35,7 +36,10 @@ CREATE TABLE shop_order (
     member_id    VARCHAR(100) NOT NULL,
     price        DECIMAL(12,2) NOT NULL CHECK (price >= 0),
     pay_status   TINYINT NOT NULL DEFAULT 0,
-    created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    order_status VARCHAR(20) NOT NULL DEFAULT 'CREATED',
+    created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_shop_order_member (member_id, created_at),
+    INDEX idx_shop_order_status (order_status, created_at)
 );
 
 CREATE TABLE order_request (
@@ -54,4 +58,17 @@ CREATE TABLE order_detail (
     item_price    DECIMAL(12,2) NOT NULL CHECK (item_price >= 0),
     CONSTRAINT fk_order_detail_order FOREIGN KEY (order_id) REFERENCES shop_order(order_id),
     CONSTRAINT fk_order_detail_product FOREIGN KEY (product_id) REFERENCES product(product_id)
+);
+
+-- Append-only audit trail of every order_status change; also the source of the buyer-facing timeline.
+CREATE TABLE order_status_history (
+    id          BIGINT PRIMARY KEY AUTO_INCREMENT,
+    order_id    VARCHAR(30) NOT NULL,
+    from_status VARCHAR(20) NULL,
+    to_status   VARCHAR(20) NOT NULL,
+    actor       VARCHAR(255) NOT NULL,
+    actor_role  VARCHAR(20) NOT NULL,
+    created_at  DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    CONSTRAINT fk_order_status_history_order FOREIGN KEY (order_id) REFERENCES shop_order(order_id),
+    INDEX idx_order_status_history_order (order_id, id)
 );

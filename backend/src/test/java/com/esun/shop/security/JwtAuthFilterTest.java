@@ -66,6 +66,9 @@ class JwtAuthFilterTest {
     private OrderService orderService;
 
     @MockBean
+    private com.esun.shop.service.OrderStatusService orderStatusService;
+
+    @MockBean
     private ProductService productService;
 
     @MockBean
