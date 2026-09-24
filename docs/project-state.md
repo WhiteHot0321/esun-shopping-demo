@@ -7,6 +7,8 @@ Baseline: advanced-v2, latest merge
 
 ## Current acceptance status (supersedes historical entries below)
 
+- **Phase 3.1 #11 — 訂單狀態流程 [Seller + Buyer], complete, independently reviewed and fully verified — 2026-09-24, Claude Code.** Order lifecycle CREATED→CONFIRMED→SHIPPED→DELIVERED with CANCELLED allowed only before shipping (stock returned, Redis compensated after commit). New `shop_order.order_status` plus append-only `order_status_history` (timeline + audit) via `01_schema.sql` and repeatable, backfilling `11_order_status.sql`. Buyer: JWT-owned order list/detail/timeline and self-cancel (foreign orders 404). Seller/Admin: scoped list/detail and transitions; sellers see only their own lines and may transition only orders whose lines are all theirs, admin unrestricted; server-provided `allowedActions`. Transitions row-lock the order, re-validate on the locked row, compare-and-set and log in one transaction. Frontend `OrdersPanel.vue` (buyer/seller). Verification: backend `mvn clean test` **145/145**, JaCoCo PASS; real-MySQL `OrderStatusIntegrationTest` 6/6 (incl. 6-way concurrent cancel restoring stock once, migration run twice); Vitest **43/43**, checkout 3/3, build PASS. Independent read-only audit PASS; lock-order (SQL collation vs Java sort) and stale-response findings repaired. Known follow-ups: multi-seller orders need admin to advance; Redis compensation drift on DB-only checkouts; no notifications; no live browser E2E. Details: `docs/tasks/033-order-status-flow.md`, `docs/handoff/phase31-11-order-status-flow.md`. Engineering note: make the state machine's authority the locked database row (compare-and-set), never the client's view of the status.
+
 - **Phase 3.1 #10 — 賣家商品管理後台 [Seller], complete, independently reviewed and fully verified — 2026-09-21, Codex (core CRUD/restock, 2026-09-20) + Claude Code (search/pagination, images, bulk, repairs).** SELLER/ADMIN-gated, JWT-owned product list/search (keyword, status, paging)/create/update/soft-delete/restock, single- and multi-image upload (server-generated UUID names, content-type + extension + magic-byte checks, traversal-safe root guard, cleanup on failure, `product_image` metadata, public serving limited to `/uploads/products/{uuid}.{jpg|png|webp}`), and all-or-nothing bulk delete/restock; atomic restock, `deleted_at` soft-delete filtering across catalog/order/stock/stored procedures/AI indexing; frontend management UI with search, paging, bulk selection and image upload. Verification: final backend `mvn clean test` **137/137**, 0 failures/errors/skips, JaCoCo PASS (ProductService 108/110 lines); real-MySQL `ProductManagementIntegrationTest` 3/3; frontend checkout 3/3, Vitest **35/35**, production build PASS; `git diff --check` PASS. Independent read-only audit: **PASS** on six security/ownership rules; its seven implementation findings (partial upload rollback, pre-commit index side effects, orphan file on failed write, static location slash, offset overflow/400s, 413 for oversized upload, restock cap) were repaired and retested. Follow-ups recorded, not blocking: image-delete endpoint / orphan sweeper, upload rate limit, `nosniff` header, live browser E2E. Details: `docs/tasks/031-seller-product-management.md`, `docs/handoff/phase31-10-seller-product-management.md`. Feature commit `13d13f3` (branch `feature/phase31-10-seller-product-management`); merge commit `7d6a887` into `advanced-v2`. Engineering note: repeat the ownership predicate inside the write itself, and make filesystem and database changes compensate each other.
 
 - **Phase 3.1 #9 — 商品評論系統 [Buyer + Seller], implemented, fully verified, independently reviewed and merged — 2026-09-20, Codex.** Added public visible-review paging/stable sorting and visible-only average/count; verified-purchase buyer create, author-only update/delete, DB-backed one-review-per-member/product concurrency enforcement; and seller-owned/admin hide/restore moderation without buyer-content editing. Integrated the missing role-bearing JWT and product creator ownership prerequisites. Frontend exposes rating/count, buyer authoring, and seller/admin moderation. Verification: product-review real-MySQL integration 3/3, targeted RBAC compatibility PASS, final backend `mvn -q clean test` **104/104** with 0 failures/errors/skips and JaCoCo PASS; frontend checkout 3/3 and Vitest **26/26**, Vite production build PASS (102 modules), `git diff --check` PASS. Two separate Claude Code read-only audits (prerequisite authorization and product-review contract) both returned **PASS**. Feature commit `7c24669`; merge commit `8876fa4`; both pushed through `origin`, with the merge integrated into `advanced-v2`. Details: `docs/tasks/028-product-reviews-system.md`, audits 029/030. Engineering note: review authorization needs both server-derived identity and database invariants; UI role hiding is only presentation, while backend ownership checks remain authoritative.
@@ -56,8 +58,8 @@ Baseline: advanced-v2, latest merge
   Engineering note:
   ownership must come from the verified principal, and
   a unique database invariant must back application-level default-address switching.
-- **Phase 3.1 #6 — 個人資料編輯 [Buyer], implemented and targeted verification passed,
-  not yet committed — 2026-09-19, Codex, branch `feature/frontend-ux-revamp` @ `8fa3096`.**
+- **Phase 3.1 #6 — 個人資料編輯 [Buyer], complete, merged and re-verified —
+  2026-09-24, Codex, `advanced-v2` @ `8e6cd20`.**
   Added nullable `member.display_name` / `member.phone` columns to the fresh schema and an
   idempotent `06_member_profile.sql` migration. Authenticated buyers can read and replace only
   their own profile through `GET/PUT /api/member/profile`; the target identity comes exclusively
@@ -66,10 +68,18 @@ Baseline: advanced-v2, latest merge
   are validated. The new frontend profile panel loads existing values, prevents email editing,
   validates phone input and persists profile changes. Verification: real-MySQL
   `MemberProfileIntegrationTest` **2/2 PASS** with JaCoCo gate passing; frontend Vitest
-  **18/18 PASS**; production build PASS; `git diff --check` PASS. One repair round corrected an
+  **18/18 PASS**; production build PASS; `git diff --check` PASS. The profile work was later
+  included in feature commit `6c79815` and merge commit `10c642c` on `advanced-v2`. Closure
+  verification on 2026-09-24 passed real-MySQL `MemberProfileIntegrationTest` **2/2** and
+  frontend checkout **3/3** plus `App.spec.js` **26/26**. One repair round corrected an
   unsupported MySQL `ADD COLUMN IF NOT EXISTS` form to an `information_schema`-guarded migration.
   The focused suite proves fresh initialization and the already-current no-op migration path;
-  a separate populated legacy-DB migration drill and full repository regression were not run.
+  a populated legacy-DB migration drill was completed on 2026-09-24 against a disposable MySQL 8
+  database: two pre-existing member rows retained the same count and legacy-field MD5 before and
+  after migration, both nullable profile columns were added, profile values remained intact after
+  a second no-op execution, and the disposable container was removed. Subsequent merged-tree full
+  regressions through Phase 3.1 #10 remain broader regression evidence. Closure details:
+  `docs/tasks/032-phase31-profile-closure.md`.
   User interventions: one explicit scope expansion approval; elapsed/model cost/five-hour usage
   delta unavailable. Engineering note: derive record ownership from authenticated server context,
   never from an editable identifier in the request payload.
