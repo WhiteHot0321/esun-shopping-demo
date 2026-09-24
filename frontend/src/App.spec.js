@@ -247,7 +247,7 @@ describe('checkout', () => {
     await flushPromises()
     expect(wrapper.text()).toContain('訂單建立成功，訂單編號：ORDER-1')
     expect(qtyInput('Tea').element.value).toBe('0')
-    expect(api.get).toHaveBeenCalledTimes(5)
+    expect(api.get.mock.calls.filter(([url]) => url !== '/recommendations')).toHaveLength(5)
   })
 
   it('gives the buyer no say in payment status and points to paying after the order exists', async () => {
@@ -285,7 +285,7 @@ describe('checkout', () => {
     await flushPromises()
     expect(wrapper.text()).toContain('商品庫存不足')
     expect(button('重試未確認訂單')).toBeUndefined()
-    expect(api.get).toHaveBeenCalledTimes(5)
+    expect(api.get.mock.calls.filter(([url]) => url !== '/recommendations')).toHaveLength(5)
   })
 
   it('shrinks cart lines when a reload reports lower stock', async () => {
@@ -444,6 +444,39 @@ describe('product form', () => {
     await clearing
     await flushPromises()
     expect(api.delete.mock.calls.filter(([url]) => url === '/cart')).toHaveLength(1)
+  })
+})
+
+describe('recommendations', () => {
+  const rec = (product, reason = 'CO_PURCHASE') => ({ product: { ...product, averageRating: 0, reviewCount: 0 }, reason, score: 2 })
+
+  it('shows the personal list to a signed-in member and adds a recommended product to the cart', async () => {
+    api.get.mockImplementation((url) => {
+      if (url === '/products/available') return Promise.resolve({ data: { data: structuredClone(products) } })
+      if (url === '/recommendations') return Promise.resolve({ data: { data: [rec(products[1])] } })
+      if (url === '/member/addresses') return Promise.resolve({ data: { data: addresses } })
+      return Promise.resolve({ data: { data: [] } })
+    })
+    await mountApp({ signedIn: true })
+    const strip = wrapper.get('section[aria-label="為你推薦"]')
+    expect(strip.text()).toContain(products[1].productName)
+    await strip.get('button').trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('購物車 1 項')
+  })
+
+  it('does not request the personal list for a guest, and shows the also-bought list for a product', async () => {
+    api.get.mockImplementation((url) => {
+      if (url === '/products/available') return Promise.resolve({ data: { data: structuredClone(products) } })
+      if (url === '/products/P001/recommendations') return Promise.resolve({ data: { data: [rec(products[1])] } })
+      if (url.startsWith('/products/P001/reviews')) return Promise.resolve({ data: { data: { reviews: [], averageRating: 0, reviewCount: 0 } } })
+      return Promise.resolve({ data: { data: [] } })
+    })
+    await mountApp()
+    expect(api.get.mock.calls.filter(([url]) => url === '/recommendations')).toHaveLength(0)
+    await wrapper.findAll('button').find(b => b.text() === '查看評論').trigger('click')
+    await flushPromises()
+    expect(wrapper.get('section[aria-label^="買過"]').text()).toContain(products[1].productName)
   })
 })
 
