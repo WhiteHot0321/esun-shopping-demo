@@ -27,7 +27,7 @@
 
 ## ECPay 整合（2026-09-24 後續任務，已完成）
 
-未合併分支 `codex/phase31-pay-status`（基準 `ec140f7`）有另一版 ECPay 實作，類別名與資料表和本項衝突。整合做法：**以本項為底，只移植該分支的 ECPay 簽章／表單／回應協定**，其餘（`payment_transaction`、自有 `PaymentService`）不併入。
+分支 `codex/phase31-pay-status`（基準 `ec140f7`，**已於 2026-09-24 歸檔為 tag `archive/codex-phase31-pay-status`（`9b3c4e0`），分支與工作樹已刪除；復原：`git checkout -b <name> archive/codex-phase31-pay-status`**）有另一版 ECPay 實作，類別名與資料表和本項衝突。整合做法：**以本項為底，只移植該分支的 ECPay 簽章／表單／回應協定**，其餘（`payment_transaction`、自有 `PaymentService`）不併入。
 
 - `PaymentGateway` 改為 provider 接縫（`payment.provider` = `none`（預設）｜`sandbox`｜`ecpay`，以 `@ConditionalOnProperty` 恰好啟用一個）：`newMerchantTradeNo`、`checkout`（回傳要 POST 的表單或空）、`verifyCallback(Map)`（驗證並正規化，永不 throw）、`simulatedCallback`（僅 sandbox）、`canResumeAttempt`。狀態機只接觸經驗證的 `VerifiedPaymentCallback`。
 - `EcpayPaymentGateway`：AioCheckOut、SHA-256 CheckMacValue（含 ECPay 公開測試向量）、`MerchantTradeNo` = `E`+19 碼十六進位（≤20）、僅整數 TWD（否則 422 並回滾剛建立的嘗試）、驗簽後再核對 MerchantID／`TradeAmt` 僅純數字。`POST /api/payments/ecpay/callback`（form-encoded、公開路由、回 `1|OK`／`0|ERROR`）。設定不全時**啟動即失敗**；`ecpay.*` 一律來自環境變數。

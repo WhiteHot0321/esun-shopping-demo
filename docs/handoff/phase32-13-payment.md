@@ -10,6 +10,6 @@ Live verified: ECPay stage 接受我方簽章表單、拒絕重送同一 Merchan
 
 ECPay 整合（同日後續）：已移植為 `PaymentGateway` 的第二實作（`payment.provider=ecpay`），修正審查發現的 CheckMacValue 大小寫排序 blocker；舊分支付款程式已被取代，勿 merge。
 
-Risks: 未合併分支 `codex/phase31-pay-status` 含另一版真實 ECPay 實作，類別名衝突、表不同，勿直接 merge，應把其 `EcpayPaymentGateway` 移植為 `PaymentGateway` 的第二實作（見 task 035）；預設 `payment.provider=none`——本機需 `PAYMENT_PROVIDER=sandbox`（或 ecpay + ecpay.* 設定）才能付款；賣家仍可對未付款訂單出貨（業務決策待定）。
+Risks: 舊分支 `codex/phase31-pay-status`（另一版 ECPay，類別名衝突）已歸檔為 tag `archive/codex-phase31-pay-status`，其 ECPay 簽章已移植完成，勿 merge（見 task 035）；預設 `payment.provider=none`——本機需 `PAYMENT_PROVIDER=sandbox`（或 ecpay + ecpay.* 設定）才能付款；賣家仍可對未付款訂單出貨（業務決策待定）。
 
 Next: 決定 ECPay 整合路線（移植上述 gateway）；其後收藏/心願單、優惠券（019 Phase 3.2）或 Phase 3 工程深度主線；若要上真實 provider，實作 `PaymentGateway` 並取得測試帳號。
