@@ -62,3 +62,18 @@
 ## 工程概念
 
 地址簿是可變的會員資料，但訂單必須保留建立當下所引用的有效地址關係；因此刪除採限制而非級聯，避免歷史訂單失去收件依據。唯一預設地址同時由交易邏輯與資料庫唯一約束防守，避免並行請求產生兩筆預設值。
+
+## 收尾核對（2026-09-24，Codex）
+
+- 狀態：✅ 已實作、已測試、已獨立審查、已整合至 `advanced-v2`。
+- Git 證據：功能提交 `6c79815`（同時包含購物車持久化）已由 merge commit
+  `10c642c` 納入目前 `advanced-v2`；`git merge-base --is-ancestor 6c79815 HEAD`
+  回傳成功。先前「未 commit／push／merge」僅是 2026-09-20 合併前的歷史狀態。
+- 2026-09-24 merged-tree 重驗：`mvn -q -Dtest=ShippingAddressIntegrationTest test`
+  **2/2 PASS**、0 failures/errors/skipped；`npm test -- --run` 為 checkout **3/3**、
+  Vitest **35/35 PASS**。本輪未重跑完整 backend suite 或 frontend production build；
+  完整回歸與 build 證據仍採用上方 2026-09-20 已完成的驗收紀錄。
+- 本輪只更新文件狀態，未修改 production/test code；closure branch 的 commit／push／merge
+  依最終 Git 紀錄為準。
+- 任務分類：Small（收尾核對）；使用者介入 0、修正輪次 0、scope expansion 0；
+  elapsed time、起訖 context、tool calls、model cost 與五小時 usage delta 均 unavailable／unknown。
