@@ -25,6 +25,12 @@
 | Provider 抽換點 | `PaymentGateway` 介面（`HmacPaymentGateway` 為 sandbox 實作）；換成真實綠界/藍新只需實作 `sign/verify`，狀態機不變 |
 | 前端 | `OrdersPanel`：付款狀態徽章（未付款/付款失敗/已付款/待退款）、「前往付款/重新付款」、sandbox 付款面板；徽章與可付款與否完全取自伺服器欄位 `payStatus/paymentStatus/payable` |
 
+## 與既有 ECPay 分支的關係（必讀）
+
+`codex/phase31-pay-status`（worktree `C:/GitHub/esun-shopping-phase31`，基準 `ec140f7`，**未合併**、未推進 advanced-v2）另有一版 2026-09-17 由 Codex 完成的真實 **ECPay AioCheckOut** 實作：`EcpayPaymentGateway`（CheckMacValue 驗簽）、`payment_transaction` 表（`05_payment_transaction.sql`）、payment-form 導向、原子／冪等 PENDING→PAID，當時 backend 89/89 並通過獨立審查。本項（#13）在不知道該分支的情況下於 advanced-v2 另行實作，兩者**類別名稱重疊**（`PaymentController/Service/Repository/PaymentGateway`）且資料表不同（`payment` vs `payment_transaction`），**不可直接 merge**。
+
+建議的整合路線（待決策，未執行）：以 advanced-v2 上本項為底（已含取消競態、REFUND_REQUIRED、單一進行中嘗試的 DB 不變量、後續所有訂單狀態／稽核功能），把該分支的 `EcpayPaymentGateway` 改寫成 `PaymentGateway`（`sign/verify`）的第二個實作，並補 redirect（`PaymentView` 已預留 `simulatable=false` 路徑）；分支上其餘與此重疊的 schema／service 不併入。
+
 ## 驗證（已執行）
 
 - 後端 `mvn clean test`：見 handoff 的最終數字（含 JaCoCo gate）。
