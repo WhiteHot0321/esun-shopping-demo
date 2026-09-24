@@ -42,13 +42,29 @@
 - **審查者部分結論來自其記憶（自述約 60–80% 把握）**：小寫欄位、失敗後可在同頁重試、重送同號被拒。已採取「即使不成立也不會出錯」的保守設計，但**必須以 ECPay stage 實測確認**。
 
 ### 仍未證明
-- **未對 ECPay stage 實際走過一次**：需要公開 HTTPS callback URL（如 ngrok）＋ stage 帳號 `3002607`／`pwFHCqoQZGmho4w6`／`EkRm7iFT261dpevs`（ECPay 公開測試帳號）。以下為手動驗證步驟。
+- **ECPay 回調（入站）尚未收過真實的一筆**：需要公開 HTTPS callback URL（如 ngrok）＋ stage 帳號 `3002607`／`pwFHCqoQZGmho4w6`／`EkRm7iFT261dpevs`（ECPay 公開測試帳號），並在 ECPay 頁面完成一次測試付款。出站部分與 UI 已實測，見下節。以下為入站手動驗證步驟。
 
 ```bash
 PAYMENT_PROVIDER=ecpay ECPAY_MERCHANT_ID=3002607 ECPAY_HASH_KEY=pwFHCqoQZGmho4w6 ECPAY_HASH_IV=EkRm7iFT261dpevs ECPAY_PAYMENT_URL=https://payment-stage.ecpay.com.tw/Cashier/AioCheckOut/V5 ECPAY_CALLBACK_URL=https://<你的公開網址>/api/payments/ecpay/callback ECPAY_RETURN_URL=http://localhost:5173/ mvn spring-boot:run
 ```
   確認項目：信用卡付款成功後訂單變「已付款」（驗證小寫欄位排序）、拒付後同頁重試的行為、重按「前往付款」不報 MerchantTradeNo 重複。
-- 其餘同上（Codex 獨立審查、瀏覽器 E2E、退款執行／逾期取消／付款稽核／速率限制、賣家可對未付款訂單出貨的業務決策）。
+- 其餘同上（Codex 獨立審查、退款執行／逾期取消／付款稽核／速率限制、賣家可對未付款訂單出貨的業務決策）。
+
+## 實機驗證（2026-09-24，Claude Code）
+
+用一次性 MySQL 容器（載入全部 DB 腳本）+ 真實後端 + Vite 前端，非 mock。
+
+**A. 真實 ECPay stage（`payment.provider=ecpay`，公開測試帳號，出站）**
+- 後端產生的簽章表單 POST 到 `payment-stage.ecpay.com.tw` → **被接受**，顯示「選擇支付方式」頁：訂單編號＝我方 `MerchantTradeNo`（20 碼）、商品說明、`NT$240`、信用卡付款；無 CheckMacValue 錯誤。另以獨立的 Python 實作重算 CheckMacValue，與伺服器輸出一致。
+- **同一 `MerchantTradeNo` 第二次送出（相同內容、或只改日期並重簽）→ ECPay 回 `10300028 訂單編號重覆，建立失敗`**；「再次付款」開的新編號 → 被接受。這實證了 `canResumeAttempt=false` 的設計（審查者原本只有約 60% 把握）。
+- 用戶端送 `payStatus:"PAID"` 下單 → 訂單仍為 `PENDING`（實機確認漏洞已關閉）。
+
+**B. 瀏覽器 E2E（`payment.provider=sandbox`，真實 UI）**
+- 購物車不再有「付款狀態」選項，並提示「建立訂單後，請至『我的訂單』完成付款」。
+- 「我的訂單」顯示「未付款」徽章與「前往付款」→ 沙盒面板 → **模擬付款失敗** → 徽章「付款失敗」＋「重新付款」→ **重新付款 → 模擬付款成功** → 「已付款」，且不再出現「前往付款」。DB：第一次嘗試 `FAILED(PROVIDER_DECLINED)`、第二次 `SUCCEEDED`、`pay_status=1`；另一張訂單維持未付款。
+- **取消已付款訂單** → 畫面「已取消／待退款」；DB `CANCELLED / pay_status=1 / REFUND_REQUIRED`，庫存回補。
+- 登入以本機拋棄式測試帳號的 JWT 寫入 localStorage 完成（未在 UI 輸入密碼）；測試後已停止後端／前端並刪除 MySQL 容器。
+- 未涵蓋：真實 ECPay 頁面上完成一次付款並由 ECPay 回打我方 callback；手機寬度；賣家端畫面。
 
 ## 驗證（已執行）
 
@@ -63,12 +79,11 @@ PAYMENT_PROVIDER=ecpay ECPAY_MERCHANT_ID=3002607 ECPAY_HASH_KEY=pwFHCqoQZGmho4w6
 
 ## 未證明 / 後續（不阻擋本項）
 
-- **未做真實金流商端對端**：沒有綠界/藍新測試帳號與可公開的 callback URL；目前只證明「簽章式回調 + 冪等狀態機」，真實 provider 的欄位/CheckMacValue/redirect 需另接 `PaymentGateway`。
+- **真實 ECPay 只驗證了出站半邊**（見「實機驗證」）：ECPay 伺服器對我方回調的實際內容（含小寫欄位）尚未收過；此外未接藍新。
 - 審查者是同一模型家族的新 session，不是 Codex 的獨立審查；如需更強保證可再請 Codex 過一次。
 - 退款本身（呼叫 provider 退款 API、後台處理 `REFUND_REQUIRED`）、付款逾期自動取消、付款事件稽核（`audit_log` 目前不含付款事件）、對 callback 的速率限制、正式環境禁止預設 secret 的啟動檢查（目前僅 ERROR log）。
 - **業務決策待定**：出貨/確認尚未要求已付款（賣家可對未付款訂單 CONFIRMED/SHIPPED），保留 #11 行為以支援貨到付款情境。
 - 遲到的 SUCCESS 落在已關閉嘗試：訂單仍待付款則入帳，否則標 REFUND_REQUIRED（見「ECPay 整合」）。
-- 尚無 live 瀏覽器 E2E。
 
 ## 本機啟用 sandbox
 
