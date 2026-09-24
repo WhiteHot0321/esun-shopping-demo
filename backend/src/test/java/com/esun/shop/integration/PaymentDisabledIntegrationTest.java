@@ -1,7 +1,7 @@
 package com.esun.shop.integration;
 
 import com.esun.shop.model.PaymentResult;
-import com.esun.shop.service.PaymentGateway;
+import com.esun.shop.service.HmacPaymentGateway;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,18 +20,17 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * The default deployment (no {@code PAYMENT_SANDBOX_ENABLED}): payments cannot be started, the buyer-facing sandbox
+ * The default deployment (no {@code PAYMENT_PROVIDER}, i.e. {@code none}): payments cannot be started, the buyer-facing sandbox
  * shortcut does not exist, and even a correctly signed callback is refused - so the well-known dev secret in
  * application.yml cannot be used to mark orders paid on an instance that never turned payments on.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
 @AutoConfigureMockMvc
-@TestPropertySource(properties = "payment.sandbox.enabled=false")
+@TestPropertySource(properties = "payment.provider=none")
 class PaymentDisabledIntegrationTest extends AbstractMySqlIntegrationTest {
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper mapper;
     @Autowired JdbcTemplate jdbc;
-    @Autowired PaymentGateway gateway;
 
     @Test
     void nothingPaymentRelatedWorksWhilePaymentsAreOff() throws Exception {
@@ -50,11 +49,16 @@ class PaymentDisabledIntegrationTest extends AbstractMySqlIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON).content("{\"result\":\"SUCCESS\"}"))
                 .andExpect(status().isNotFound());
 
-        String signature = gateway.sign("PAYany", new BigDecimal("1.00"), PaymentResult.SUCCESS, null);
+        // A correctly signed callback (the dev secret is public in application.yml) must still be refused.
+        String signature = new HmacPaymentGateway("dev-only-insecure-payment-secret-change-me")
+                .sign("PAYany", new BigDecimal("1.00"), PaymentResult.SUCCESS, null);
         mvc.perform(post("/api/payments/callback").contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(Map.of("merchantTradeNo", "PAYany", "amount", 1,
                                 "result", "SUCCESS", "signature", signature))))
                 .andExpect(status().isServiceUnavailable());
+        mvc.perform(post("/api/payments/ecpay/callback").contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                        .param("MerchantTradeNo", "PAYany"))
+                .andExpect(status().isBadRequest());
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM payment WHERE merchant_trade_no = 'PAYany'", Integer.class))
                 .isZero();
     }

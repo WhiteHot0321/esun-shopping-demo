@@ -80,6 +80,12 @@ public class PaymentRepository {
                 to.name(), failureReason, now, providerRef, paid, now, id, from.name());
     }
 
+    /** Closes the order's live (INITIATED) attempt, if any; call with the order row locked. */
+    public void closeOpenAttempts(String orderId, String reason) {
+        jdbcTemplate.update("UPDATE payment SET status = 'FAILED', failure_reason = ?, updated_at = ? "
+                + "WHERE order_id = ? AND status = 'INITIATED'", reason, LocalDateTime.now(), orderId);
+    }
+
     /** Compare-and-set PENDING -> PAID; the only statement in the codebase that marks an order paid. */
     public int markOrderPaid(String orderId) {
         return jdbcTemplate.update("UPDATE shop_order SET pay_status = ? WHERE order_id = ? AND pay_status = ?",

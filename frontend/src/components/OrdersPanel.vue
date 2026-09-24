@@ -170,6 +170,25 @@ const act = async (order, action) => {
   }
 }
 
+// Builds a throwaway form and POSTs it to the provider (fields are server-signed; the browser only relays them).
+const submitToProvider = ({ actionUrl, fields }) => {
+  if (!/^https:\/\//i.test(actionUrl)) throw new Error('付款網址不合法')
+  const form = document.createElement('form')
+  form.method = 'POST'
+  form.action = actionUrl
+  form.style.display = 'none'
+  Object.entries(fields).forEach(([name, value]) => {
+    const input = document.createElement('input')
+    input.type = 'hidden'
+    input.name = name
+    input.value = value
+    form.appendChild(input)
+  })
+  document.body.appendChild(form)
+  form.submit()
+  form.remove()
+}
+
 // Opens (or resumes) the payment attempt for the caller's own order. The amount is priced by the server.
 const startPayment = async (order) => {
   if (busyId.value) return
@@ -177,10 +196,14 @@ const startPayment = async (order) => {
   try {
     const { data } = await api.post(`/orders/${order.orderId}/payment`)
     const payment = data.data
-    if (payment.simulatable) {
+    if (payment.redirect) {
+      // Real provider: hand the buyer to its hosted page. Payment state only changes via the provider's callback to
+      // the server, so nothing is assumed here; the list shows the truth when the buyer comes back.
+      submitToProvider(payment.redirect)
+    } else if (payment.simulatable) {
       paying.value = { orderId: order.orderId, payment }
     } else {
-      toast.info('請依付款頁面指示完成付款')
+      toast.info('付款尚未開放')
     }
   } catch (error) {
     toast.error(errorText(error, '無法開始付款，請稍後再試'))

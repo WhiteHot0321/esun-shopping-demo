@@ -1,5 +1,6 @@
 package com.esun.shop.service;
 
+import com.esun.shop.dto.PaymentRedirect;
 import com.esun.shop.dto.PaymentView;
 import com.esun.shop.exception.BusinessException;
 import com.esun.shop.model.PayStatus;
@@ -11,6 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -50,12 +52,18 @@ public class PaymentService {
         if (order.price().signum() <= 0) {
             throw new BusinessException("訂單金額為 0，無需付款", HttpStatus.CONFLICT);
         }
+        if (!gateway.canResumeAttempt()) {
+            paymentRepository.closeOpenAttempts(orderId, "SUPERSEDED_BY_RETRY");
+        }
         Payment payment = paymentRepository.findOpenAttempt(orderId).orElseGet(() -> {
-            String tradeNo = "PAY" + UUID.randomUUID().toString().replace("-", "").substring(0, 24);
+            String tradeNo = gateway.newMerchantTradeNo();
             paymentRepository.insert(orderId, tradeNo, gateway.providerName(), order.price());
             return paymentRepository.findByTradeNo(tradeNo).orElseThrow();
         });
-        return toView(payment);
+        // May refuse (e.g. a fractional TWD amount for ECPay): the exception rolls back the attempt inserted above.
+        Optional<PaymentRedirect> redirect = gateway.checkout(payment.merchantTradeNo(), payment.amount(),
+                "ESUN order " + orderId);
+        return toView(payment, redirect.orElse(null));
     }
 
     /**
@@ -70,21 +78,20 @@ public class PaymentService {
                 .filter(p -> paymentRepository.findOrderOwner(p.orderId()).filter(memberId::equals).isPresent())
                 .orElseThrow(() -> new BusinessException("找不到付款紀錄", HttpStatus.NOT_FOUND));
         String providerRef = "SBX-" + UUID.randomUUID().toString().replace("-", "").substring(0, 16);
-        String signature = gateway.sign(merchantTradeNo, payment.amount(), result, providerRef);
-        callbackService.handle(merchantTradeNo, payment.amount(), result, providerRef, signature);
-        return toView(paymentRepository.findByTradeNo(merchantTradeNo).orElseThrow());
+        callbackService.handle(gateway.simulatedCallback(merchantTradeNo, payment.amount(), result, providerRef));
+        return toView(paymentRepository.findByTradeNo(merchantTradeNo).orElseThrow(), null);
     }
 
     private void requireEnabled() {
         if (!gateway.isEnabled()) {
-            throw new BusinessException("付款服務未啟用（開發環境請設定 PAYMENT_SANDBOX_ENABLED=true）",
+            throw new BusinessException("付款服務未啟用（開發環境請設定 PAYMENT_PROVIDER=sandbox）",
                     HttpStatus.SERVICE_UNAVAILABLE);
         }
     }
 
-    private PaymentView toView(Payment payment) {
+    private PaymentView toView(Payment payment, PaymentRedirect redirect) {
         return new PaymentView(payment.id(), payment.orderId(), payment.merchantTradeNo(), payment.amount(),
                 payment.status().name(), payment.provider(), gateway.supportsSimulation(), payment.createdAt(),
-                payment.paidAt());
+                payment.paidAt(), redirect);
     }
 }

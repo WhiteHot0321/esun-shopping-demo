@@ -1,7 +1,7 @@
 package com.esun.shop.integration;
 
 import com.esun.shop.model.PaymentResult;
-import com.esun.shop.service.PaymentGateway;
+import com.esun.shop.service.HmacPaymentGateway;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -39,12 +39,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
 @AutoConfigureMockMvc
-@TestPropertySource(properties = "payment.sandbox.enabled=true")
+@TestPropertySource(properties = "payment.provider=sandbox")
 class PaymentIntegrationTest extends AbstractMySqlIntegrationTest {
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper mapper;
     @Autowired JdbcTemplate jdbc;
-    @Autowired PaymentGateway gateway;
+    @Autowired HmacPaymentGateway gateway;
     @Autowired javax.sql.DataSource dataSource;
 
     // ---- the vulnerability this feature closes ----
@@ -268,6 +268,22 @@ class PaymentIntegrationTest extends AbstractMySqlIntegrationTest {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.outcome").value("REFUND_REQUIRED"));
         assertThat(paymentStatus(first)).isEqualTo("REFUND_REQUIRED");
         assertThat(paymentStatus(second)).isEqualTo("SUCCEEDED");
+        assertThat(payStatusColumn(f.orderId)).isEqualTo(1);
+    }
+
+    @Test
+    void moneyTakenOnAnAttemptWeHadClosedIsAppliedWhileTheOrderIsStillWaitingForPayment() throws Exception {
+        Fixture f = fixture(1, 100);
+        String declined = startPayment(f);
+        signedCallback(declined, "100.00", PaymentResult.FAILED, null).andExpect(status().isOk());
+        String retry = startPayment(f); // a newer live attempt exists
+        assertThat(paymentStatus(retry)).isEqualTo("INITIATED");
+
+        // the provider now reports the declined attempt as paid after all: the buyer paid, the order was unpaid
+        signedCallback(declined, "100.00", PaymentResult.SUCCESS, "REF-LATE")
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.outcome").value("SUCCEEDED"));
+        assertThat(paymentStatus(declined)).isEqualTo("SUCCEEDED");
+        assertThat(paymentStatus(retry)).isEqualTo("FAILED"); // superseded so only one live attempt remains
         assertThat(payStatusColumn(f.orderId)).isEqualTo(1);
     }
 
