@@ -509,3 +509,25 @@ describe('shipping address book UI', () => {
     expect(wrapper.get('#shipping-address').element.value).toBe('8')
   })
 })
+
+describe('audit log entry point', () => {
+  it('is offered to ADMIN only and opens the audit panel', async () => {
+    api.get.mockImplementation((url) => {
+      if (url === '/admin/audit-logs') return Promise.resolve({ data: { data: { entries: [], total: 0, page: 0, size: 20 } } })
+      if (url === '/member/addresses') return Promise.resolve({ data: { data: addresses } })
+      if (url === '/cart') return Promise.resolve({ data: { data: [] } })
+      return Promise.resolve({ data: { data: products } })
+    })
+    await mountApp({ signedIn: true, role: 'SELLER' })
+    expect(button('稽核日誌')).toBeUndefined()
+    wrapper.unmount()
+
+    await mountApp({ signedIn: true, role: 'ADMIN' })
+    await button('稽核日誌').trigger('click')
+    await flushPromises()
+    expect(api.get).toHaveBeenCalledWith('/admin/audit-logs', { params: { page: 0, size: 20 } })
+    expect(wrapper.text()).toContain('操作稽核日誌')
+    await wrapper.get('.audit-panel .link-button').trigger('click')
+    expect(wrapper.find('.audit-panel').exists()).toBe(false)
+  })
+})

@@ -97,6 +97,20 @@ public class ProductRepository {
         return list.isEmpty() ? null : list.get(0);
     }
 
+    /** 取得列鎖後讀取（僅供交易內使用），讓稽核的 before 快照不會被並發寫入蓋掉。 */
+    public Product lockIncludingDeletedById(String productId) {
+        List<Product> list = jdbcTemplate.query(selectProductColumns() + " WHERE product_id = ? FOR UPDATE",
+                PRODUCT_ROW_MAPPER, productId);
+        return list.isEmpty() ? null : list.get(0);
+    }
+
+    public List<Product> findIncludingDeletedByIds(Collection<String> productIds) {
+        if (productIds.isEmpty()) return List.of();
+        String placeholders = String.join(",", Collections.nCopies(productIds.size(), "?"));
+        return jdbcTemplate.query(selectProductColumns() + " WHERE product_id IN (" + placeholders
+                + ") ORDER BY product_id", PRODUCT_ROW_MAPPER, productIds.toArray());
+    }
+
     public List<Product> findByCreator(String creatorId) {
         List<Product> products = jdbcTemplate.query(selectProductColumns() + " WHERE creator_id = ? ORDER BY product_id",
                 PRODUCT_ROW_MAPPER, creatorId);

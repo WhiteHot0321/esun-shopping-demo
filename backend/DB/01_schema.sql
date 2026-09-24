@@ -1,6 +1,7 @@
 CREATE DATABASE IF NOT EXISTS esun_shop CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE esun_shop;
 
+DROP TABLE IF EXISTS audit_log;
 DROP TABLE IF EXISTS order_status_history;
 DROP TABLE IF EXISTS order_detail;
 DROP TABLE IF EXISTS order_request;
@@ -71,4 +72,22 @@ CREATE TABLE order_status_history (
     created_at  DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     CONSTRAINT fk_order_status_history_order FOREIGN KEY (order_id) REFERENCES shop_order(order_id),
     INDEX idx_order_status_history_order (order_id, id)
+);
+
+-- Append-only operation audit log: who (actor/role) did what (action) to which record, with before/after snapshots.
+-- No foreign key on target_*: targets span several tables and must stay traceable after the target is deleted.
+CREATE TABLE audit_log (
+    id           BIGINT PRIMARY KEY AUTO_INCREMENT,
+    actor        VARCHAR(255) NOT NULL,
+    actor_role   VARCHAR(20)  NOT NULL,
+    action       VARCHAR(40)  NOT NULL,
+    target_type  VARCHAR(30)  NOT NULL,
+    target_id    VARCHAR(100) NOT NULL,
+    before_state JSON NULL,
+    after_state  JSON NULL,
+    created_at   DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    INDEX idx_audit_log_created (created_at, id),
+    INDEX idx_audit_log_actor (actor, id),
+    INDEX idx_audit_log_target (target_type, target_id, id),
+    INDEX idx_audit_log_action (action, id)
 );

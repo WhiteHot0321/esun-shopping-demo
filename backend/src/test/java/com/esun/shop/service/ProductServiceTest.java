@@ -47,12 +47,15 @@ class ProductServiceTest {
     private EmbeddingIndexService embeddingIndexService;
     @Mock
     private ProductImageStorageService imageStorageService;
+    @Mock
+    private AuditLogService auditLogService;
 
     private ProductService productService;
 
     @BeforeEach
     void setUp() {
-        productService = new ProductService(productRepository, embeddingIndexService, imageStorageService);
+        productService = new ProductService(productRepository, embeddingIndexService, imageStorageService,
+                auditLogService);
     }
 
     @Test

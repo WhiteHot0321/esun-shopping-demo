@@ -4,6 +4,7 @@ import com.esun.shop.dto.OrderItemRequest;
 import com.esun.shop.dto.OrderPageResponse;
 import com.esun.shop.dto.OrderView;
 import com.esun.shop.exception.BusinessException;
+import com.esun.shop.model.AuditAction;
 import com.esun.shop.model.Member;
 import com.esun.shop.model.OrderStatus;
 import com.esun.shop.repository.OrderRepository;
@@ -32,10 +33,13 @@ import java.util.Map;
 public class OrderStatusService {
     private final OrderRepository orderRepository;
     private final StockCacheService stockCacheService;
+    private final AuditLogService auditLogService;
 
-    public OrderStatusService(OrderRepository orderRepository, StockCacheService stockCacheService) {
+    public OrderStatusService(OrderRepository orderRepository, StockCacheService stockCacheService,
+                              AuditLogService auditLogService) {
         this.orderRepository = orderRepository;
         this.stockCacheService = stockCacheService;
+        this.auditLogService = auditLogService;
     }
 
     // ---- buyer ----
@@ -115,6 +119,9 @@ public class OrderStatusService {
             throw new BusinessException("訂單狀態已被其他人變更，請重新整理", HttpStatus.CONFLICT);
         }
         orderRepository.insertStatusHistory(locked.orderId(), current.name(), target.name(), actor, actorRole.name());
+        // Same transaction as the status change: the audit row exists if and only if the transition committed.
+        auditLogService.record(actor, actorRole, AuditAction.ORDER_STATUS_CHANGE, locked.orderId(),
+                Map.of("status", current.name(), "buyer", locked.memberId()), Map.of("status", target.name()));
         if (target == OrderStatus.CANCELLED) restoreStock(locked.orderId());
     }
 
