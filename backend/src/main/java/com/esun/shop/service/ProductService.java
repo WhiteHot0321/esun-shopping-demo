@@ -6,6 +6,8 @@ import com.esun.shop.dto.BulkProductRequest;
 import com.esun.shop.dto.ProductPageResponse;
 import com.esun.shop.exception.BusinessException;
 import com.esun.shop.llm.EmbeddingIndexService;
+import com.esun.shop.model.AuditAction;
+import com.esun.shop.model.Member;
 import com.esun.shop.model.Product;
 import com.esun.shop.repository.ProductRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,8 +19,10 @@ import org.springframework.transaction.support.TransactionOperations;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
 
 @Service
 public class ProductService {
@@ -28,26 +32,32 @@ public class ProductService {
     private final ProductRepository productRepository;
     private final EmbeddingIndexService embeddingIndexService;
     private final ProductImageStorageService imageStorageService;
+    private final AuditLogService auditLogService;
 
     private final TransactionOperations transactions;
 
     @Autowired
     public ProductService(ProductRepository productRepository, EmbeddingIndexService embeddingIndexService,
-                          ProductImageStorageService imageStorageService, PlatformTransactionManager transactionManager) {
-        this(productRepository, embeddingIndexService, imageStorageService, new TransactionTemplate(transactionManager));
+                          ProductImageStorageService imageStorageService, AuditLogService auditLogService,
+                          PlatformTransactionManager transactionManager) {
+        this(productRepository, embeddingIndexService, imageStorageService, auditLogService,
+                new TransactionTemplate(transactionManager));
     }
 
     /** 單元測試用：不開真實交易。 */
     ProductService(ProductRepository productRepository, EmbeddingIndexService embeddingIndexService,
-                   ProductImageStorageService imageStorageService) {
-        this(productRepository, embeddingIndexService, imageStorageService, TransactionOperations.withoutTransaction());
+                   ProductImageStorageService imageStorageService, AuditLogService auditLogService) {
+        this(productRepository, embeddingIndexService, imageStorageService, auditLogService,
+                TransactionOperations.withoutTransaction());
     }
 
     private ProductService(ProductRepository productRepository, EmbeddingIndexService embeddingIndexService,
-                           ProductImageStorageService imageStorageService, TransactionOperations transactions) {
+                           ProductImageStorageService imageStorageService, AuditLogService auditLogService,
+                           TransactionOperations transactions) {
         this.productRepository = productRepository;
         this.embeddingIndexService = embeddingIndexService;
         this.imageStorageService = imageStorageService;
+        this.auditLogService = auditLogService;
         this.transactions = transactions;
     }
 
@@ -70,7 +80,11 @@ public class ProductService {
         product.setPrice(request.getPrice());
         product.setQuantity(request.getQuantity());
         product.setCreatorId(creatorId);
-        productRepository.addProduct(product);
+        // 稽核紀錄與商品寫入同一交易：兩者一起提交或一起 rollback。
+        transactions.executeWithoutResult(status -> {
+            productRepository.addProduct(product);
+            auditLogService.record(creatorId, null, AuditAction.PRODUCT_CREATE, productId, null, snapshot(product));
+        });
 
         // 讓 AI 客服立即查得到新商品，不必等下次應用程式啟動才重新索引。
         embeddingIndexService.indexProduct(productId);
@@ -113,27 +127,44 @@ public class ProductService {
 
     public void updateOwnedProduct(String productId, UpdateProductRequest request, String creatorId) {
         requireOwnedActive(productId, creatorId);
-        if (productRepository.updateOwnedProduct(productId, creatorId,
-                escapeHtml(request.getProductName().trim()), request.getPrice()) != 1) {
-            throw new BusinessException("商品狀態已變更，請重新整理", HttpStatus.CONFLICT);
-        }
+        transactions.executeWithoutResult(status -> {
+            // 先鎖列再讀 before，稽核記錄的「更新前」才不會被並發更新蓋掉。
+            Map<String, Object> before = snapshot(productRepository.lockIncludingDeletedById(productId));
+            if (productRepository.updateOwnedProduct(productId, creatorId,
+                    escapeHtml(request.getProductName().trim()), request.getPrice()) != 1) {
+                throw new BusinessException("商品狀態已變更，請重新整理", HttpStatus.CONFLICT);
+            }
+            auditLogService.record(creatorId, null, AuditAction.PRODUCT_UPDATE, productId, before,
+                    snapshot(productRepository.findIncludingDeletedById(productId)));
+        });
         embeddingIndexService.indexProduct(productId);
     }
 
     public void deleteOwnedProduct(String productId, String creatorId) {
         requireOwnedActive(productId, creatorId);
-        if (productRepository.softDeleteOwnedProduct(productId, creatorId) != 1) {
-            throw new BusinessException("商品狀態已變更，請重新整理", HttpStatus.CONFLICT);
-        }
+        transactions.executeWithoutResult(status -> {
+            Map<String, Object> before = snapshot(productRepository.lockIncludingDeletedById(productId));
+            if (productRepository.softDeleteOwnedProduct(productId, creatorId) != 1) {
+                throw new BusinessException("商品狀態已變更，請重新整理", HttpStatus.CONFLICT);
+            }
+            auditLogService.record(creatorId, null, AuditAction.PRODUCT_DELETE, productId, before,
+                    snapshot(productRepository.findIncludingDeletedById(productId)));
+        });
         embeddingIndexService.removeProduct(productId);
     }
 
     public void restockOwnedProduct(String productId, int amount, String creatorId) {
         requireValidRestockAmount(amount);
         requireOwnedActive(productId, creatorId);
-        if (productRepository.restockOwnedProduct(productId, creatorId, amount) != 1) {
-            throw new BusinessException("商品狀態已變更，請重新整理", HttpStatus.CONFLICT);
-        }
+        transactions.executeWithoutResult(status -> {
+            Map<String, Object> before = snapshot(productRepository.lockIncludingDeletedById(productId));
+            if (productRepository.restockOwnedProduct(productId, creatorId, amount) != 1) {
+                throw new BusinessException("商品狀態已變更，請重新整理", HttpStatus.CONFLICT);
+            }
+            Map<String, Object> after = snapshot(productRepository.findIncludingDeletedById(productId));
+            after.put("restockAmount", amount);
+            auditLogService.record(creatorId, null, AuditAction.PRODUCT_RESTOCK, productId, before, after);
+        });
         embeddingIndexService.indexProduct(productId);
     }
 
@@ -163,6 +194,22 @@ public class ProductService {
                     ? productRepository.bulkSoftDeleteOwned(ids, creatorId)
                     : productRepository.bulkRestockOwned(ids, creatorId, request.getAmount());
             if (changed != ids.size()) throw new BusinessException("商品狀態已變更，請重新整理", HttpStatus.CONFLICT);
+            // 批量操作逐商品各記一筆：稽核要能以「單一商品」追溯。UPDATE 已鎖住這些列，之後讀到的即為精確的
+            // after，before 可由 after 與本次操作反推（刪除 → 未刪除；補貨 → 數量減去補貨量）。
+            Member.Role actorRole = auditLogService.roleOf(creatorId);
+            for (Product after : productRepository.findIncludingDeletedByIds(ids)) {
+                Map<String, Object> afterState = snapshot(after);
+                Map<String, Object> beforeState = new LinkedHashMap<>(afterState);
+                if (delete) {
+                    beforeState.put("deleted", false);
+                } else {
+                    beforeState.put("quantity", after.getQuantity() - request.getAmount());
+                    afterState.put("restockAmount", request.getAmount());
+                }
+                auditLogService.record(creatorId, actorRole,
+                        delete ? AuditAction.PRODUCT_DELETE : AuditAction.PRODUCT_RESTOCK,
+                        after.getProductId(), beforeState, afterState);
+            }
         });
         // 向量索引（可能呼叫 LLM 並寫入資料庫）在交易提交之後才更新：rollback 時索引不會與資料不一致，
         // 也不會在持有商品列鎖的交易內等待外部服務。
@@ -179,11 +226,26 @@ public class ProductService {
         List<ProductImageStorageService.StoredImage> stored = imageStorageService.store(files);
         try {
             stored.forEach(image -> productRepository.addProductImage(productId, image.url()));
-            return stored.stream().map(ProductImageStorageService.StoredImage::url).toList();
+            List<String> urls = stored.stream().map(ProductImageStorageService.StoredImage::url).toList();
+            auditLogService.record(creatorId, null, AuditAction.PRODUCT_IMAGE_UPLOAD, productId, null,
+                    Map.of("addedImageUrls", urls));
+            return urls;
         } catch (RuntimeException ex) {
             stored.forEach(imageStorageService::deleteQuietly);
             throw ex;
         }
+    }
+
+    /** 稽核用商品快照：只放白名單業務欄位。 */
+    private static Map<String, Object> snapshot(Product product) {
+        Map<String, Object> state = new LinkedHashMap<>();
+        if (product == null) return state;
+        state.put("productName", product.getProductName());
+        state.put("price", product.getPrice());
+        state.put("quantity", product.getQuantity());
+        state.put("creatorId", product.getCreatorId());
+        state.put("deleted", product.getDeletedAt() != null);
+        return state;
     }
 
     private static void requireValidRestockAmount(int amount) {

@@ -3,6 +3,7 @@ package com.esun.shop.service;
 import com.esun.shop.dto.ReviewPageResponse;
 import com.esun.shop.dto.ReviewRequest;
 import com.esun.shop.exception.BusinessException;
+import com.esun.shop.model.AuditAction;
 import com.esun.shop.model.Member;
 import com.esun.shop.model.ProductReview;
 import com.esun.shop.repository.MemberRepository;
@@ -26,12 +27,14 @@ public class ProductReviewService {
     private final ProductReviewRepository reviewRepository;
     private final ProductRepository productRepository;
     private final MemberRepository memberRepository;
+    private final AuditLogService auditLogService;
 
     public ProductReviewService(ProductReviewRepository reviewRepository, ProductRepository productRepository,
-                                MemberRepository memberRepository) {
+                                MemberRepository memberRepository, AuditLogService auditLogService) {
         this.reviewRepository = reviewRepository;
         this.productRepository = productRepository;
         this.memberRepository = memberRepository;
+        this.auditLogService = auditLogService;
     }
 
     public ReviewPageResponse getVisible(String productId, int page, int size, String sort) {
@@ -116,6 +119,10 @@ public class ProductReviewService {
         if (reviewRepository.setVisibility(reviewId, visibility) != 1) {
             throw new BusinessException("評論狀態已變更", HttpStatus.CONFLICT);
         }
+        // Moderation is a privileged action on someone else's content, so it is audited (same transaction).
+        auditLogService.record(email, role, AuditAction.REVIEW_VISIBILITY_CHANGE, String.valueOf(reviewId),
+                Map.of("visibility", review.getVisibility().name(), "productId", review.getProductId()),
+                Map.of("visibility", visibility.name(), "productId", review.getProductId()));
         return reviewRepository.findById(reviewId);
     }
 
