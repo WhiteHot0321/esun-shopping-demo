@@ -29,7 +29,8 @@ import java.io.IOException;
  *  - Public: POST /api/auth/register, POST /api/auth/login, POST /api/auth/forgot-password,
  *    POST /api/auth/reset-password, POST /api/payments/callback and /api/payments/ecpay/callback (payment-provider
  *    webhooks: authenticated by their signature/CheckMacValue instead of a JWT), GET /api/products/available, GET /api/products/{id}/recommendations (aggregate-only), POST /api/support/ask,
- *    GET /uploads/products/{uuid}.{jpg|png|webp} (product images shown in the public catalog)
+ *    GET /uploads/products/{uuid}.{jpg|png|webp} (product images shown in the public catalog),
+ *    GET /v3/api-docs and /swagger-ui (API documentation, removable with API_DOCS_ENABLED=false)
  *    (a shopper must be able to browse, ask product questions, log in, and recover a
  *    forgotten password before they have a token).
  *  - Protected: POST /api/products, POST /api/orders, POST /api/auth/change-password
@@ -77,11 +78,18 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     }
 
     private boolean isPublic(HttpServletRequest request) {
-        if (HttpMethod.OPTIONS.matches(request.getMethod())) {
+        return isPublicRoute(request.getMethod(), request.getRequestURI());
+    }
+
+    /**
+     * The single public-route policy. Also read by {@code OpenApiConfig} so the published spec marks exactly these
+     * operations as needing no bearer token instead of keeping a second, driftable list.
+     */
+    public static boolean isPublicRoute(String method, String path) {
+        if (HttpMethod.OPTIONS.matches(method)) {
             return true;
         }
-        String path = request.getRequestURI();
-        if (HttpMethod.POST.matches(request.getMethod())
+        if (HttpMethod.POST.matches(method)
                 && (path.equals("/api/auth/register")
                 || path.equals("/api/auth/login")
                 || path.equals("/api/auth/forgot-password")
@@ -92,11 +100,17 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             return true;
         }
         // 商品圖片隨公開商品目錄顯示；限定為伺服器產生的「UUID.副檔名」單層檔名，任何含 .. 或子目錄的路徑都不公開。
-        return HttpMethod.GET.matches(request.getMethod())
+        // API 文件（springdoc）：僅 GET、僅其固定路徑；API_DOCS_ENABLED=false 時 springdoc 不註冊 handler，會直接 404。
+        return HttpMethod.GET.matches(method)
                 && (path.equals("/api/products/available")
                 || path.matches("/api/products/[^/]+/reviews")
                 || path.matches("/api/products/[^/]+/recommendations")
-                || path.matches("/uploads/products/[0-9a-f-]{36}\\.(jpg|png|webp)"));
+                || path.matches("/uploads/products/[0-9a-f-]{36}\\.(jpg|png|webp)")
+                || path.equals("/v3/api-docs")
+                || path.equals("/v3/api-docs.yaml")
+                || path.equals("/v3/api-docs/swagger-config")
+                || path.equals("/swagger-ui.html")
+                || path.startsWith("/swagger-ui/"));
     }
 
     private void unauthorized(HttpServletResponse response, String message) throws IOException {

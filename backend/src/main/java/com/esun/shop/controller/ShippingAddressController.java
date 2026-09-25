@@ -1,5 +1,7 @@
 package com.esun.shop.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import com.esun.shop.dto.ApiResponse;
 import com.esun.shop.repository.ShippingAddressRepository.ShippingAddress;
 import com.esun.shop.service.ShippingAddressService;
@@ -19,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+@Tag(name = "收件地址 Shipping Address", description = "登入會員自己的地址簿")
 @RestController
 @RequestMapping("/api/member/addresses")
 public class ShippingAddressController {
@@ -28,29 +31,34 @@ public class ShippingAddressController {
         this.service = service;
     }
 
+    @Operation(summary = "列出我的收件地址")
     @GetMapping
     public ApiResponse<List<ShippingAddress>> list(HttpServletRequest request) {
         return ApiResponse.ok(service.list(email(request)));
     }
 
+    @Operation(summary = "新增收件地址")
     @PostMapping
     public ApiResponse<ShippingAddress> create(@Valid @RequestBody AddressRequest body,
             HttpServletRequest request) {
         return ApiResponse.ok(service.create(email(request), body.toInput()));
     }
 
+    @Operation(summary = "更新收件地址")
     @PutMapping("/{id}")
     public ApiResponse<ShippingAddress> update(@PathVariable long id,
             @Valid @RequestBody AddressRequest body, HttpServletRequest request) {
         return ApiResponse.ok(service.update(id, email(request), body.toInput()));
     }
 
+    @Operation(summary = "刪除收件地址")
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable long id, HttpServletRequest request) {
         service.delete(id, email(request));
         return ApiResponse.ok(null);
     }
 
+    @Operation(summary = "設為預設收件地址")
     @PostMapping("/{id}/set-default")
     public ApiResponse<ShippingAddress> setDefault(@PathVariable long id, HttpServletRequest request) {
         return ApiResponse.ok(service.setDefault(id, email(request)));

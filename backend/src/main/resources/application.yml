@@ -20,6 +20,16 @@ spring:
   jackson:
     time-zone: Asia/Taipei
 
+# OpenAPI spec (/v3/api-docs) and Swagger UI (/swagger-ui.html). Public routes (no JWT, see JwtAuthFilter) so a
+# maintainer can open them in a browser; set API_DOCS_ENABLED=false in production to remove the endpoints (404).
+springdoc:
+  api-docs:
+    enabled: ${API_DOCS_ENABLED:true}
+  swagger-ui:
+    enabled: ${API_DOCS_ENABLED:true}
+    operations-sorter: alpha
+    tags-sorter: alpha
+
 jwt:
   # Dev-only fallback secret (must be >= 32 bytes for HS256) - override with the JWT_SECRET
   # env var in any real deployment, the same pattern already used for DB_* below it in

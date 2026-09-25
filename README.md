@@ -101,6 +101,20 @@ Build Tool
 
 ## API
 
+### 互動式 API 文件（Swagger UI / OpenAPI）
+
+後端啟動後（預設 `http://localhost:8080`）：
+
+| 網址 | 內容 |
+|------|------|
+| `/swagger-ui.html` | Swagger UI：依模組分組（認證、商品、訂單、付款…），可直接試打 |
+| `/v3/api-docs` | OpenAPI 3 JSON（`/v3/api-docs.yaml` 為 YAML），可匯入 Postman / 產生 client |
+
+- 文件由 Controller 上的 `@Tag` / `@Operation` 與 Spring MVC 對應自動產生，改 API 後重啟即更新，不需另外維護文件。
+- 需要登入的 API 已標上鎖頭：先 `POST /api/auth/login` 取得 token，按右上角 **Authorize** 貼上（不必加 `Bearer`）。公開路由的判定與 `JwtAuthFilter` 共用同一份規則，文件不會與實際驗證漂移。
+- 角色限制（BUYER / SELLER / ADMIN）寫在每個 API 的摘要中；實際檢查仍在後端 Controller。
+- **正式環境請設 `API_DOCS_ENABLED=false`**：文件端點會直接回 404（預設為開啟，方便本機開發）。
+
 ### 新增商品
 POST /api/products
 

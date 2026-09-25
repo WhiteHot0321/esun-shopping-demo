@@ -1,5 +1,7 @@
 package com.esun.shop.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import com.esun.shop.dto.ApiResponse;
 import com.esun.shop.dto.CreateOrderRequest;
 import com.esun.shop.dto.OrderPageResponse;
@@ -21,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
 
+@Tag(name = "訂單 Order", description = "買家訂單、賣家/管理員出貨與狀態流轉")
 @RestController
 public class OrderController {
     private final OrderService orderService;
@@ -31,6 +34,7 @@ public class OrderController {
         this.orderStatusService = orderStatusService;
     }
 
+    @Operation(summary = "建立訂單（身分取自 token；requestId 提供冪等）")
     @PostMapping("/api/orders")
     public ApiResponse<Map<String, String>> createOrder(@Valid @RequestBody CreateOrderRequest request,
             HttpServletRequest httpRequest) {
@@ -43,6 +47,7 @@ public class OrderController {
 
     // ---- buyer: own orders only, identity from the verified JWT ----
 
+    @Operation(summary = "列出我的訂單（可依狀態篩選、分頁）")
     @GetMapping("/api/orders")
     public ApiResponse<OrderPageResponse> listMyOrders(@RequestParam(defaultValue = "all") String status,
                                                        @RequestParam(defaultValue = "0") int page,
@@ -51,11 +56,13 @@ public class OrderController {
         return ApiResponse.ok(orderStatusService.listMine(principal(request), status, page, size));
     }
 
+    @Operation(summary = "取得我的單筆訂單")
     @GetMapping("/api/orders/{orderId}")
     public ApiResponse<OrderView> getMyOrder(@PathVariable String orderId, HttpServletRequest request) {
         return ApiResponse.ok(orderStatusService.getMine(orderId, principal(request)));
     }
 
+    @Operation(summary = "取消我的訂單（僅限允許取消的狀態）")
     @PostMapping("/api/orders/{orderId}/cancel")
     public ApiResponse<OrderView> cancelMyOrder(@PathVariable String orderId, HttpServletRequest request) {
         return ApiResponse.ok(orderStatusService.cancelMine(orderId, principal(request)));
@@ -63,6 +70,7 @@ public class OrderController {
 
     // ---- seller / admin fulfilment ----
 
+    @Operation(summary = "列出賣家/管理員可見的訂單（SELLER、ADMIN）")
     @GetMapping({"/api/seller/orders", "/api/admin/orders"})
     public ApiResponse<OrderPageResponse> listSellerOrders(@RequestParam(defaultValue = "all") String status,
                                                            @RequestParam(defaultValue = "0") int page,
@@ -71,11 +79,13 @@ public class OrderController {
         return ApiResponse.ok(orderStatusService.listForSeller(principal(request), sellerRole(request), status, page, size));
     }
 
+    @Operation(summary = "取得賣家/管理員可見的單筆訂單（SELLER、ADMIN）")
     @GetMapping({"/api/seller/orders/{orderId}", "/api/admin/orders/{orderId}"})
     public ApiResponse<OrderView> getSellerOrder(@PathVariable String orderId, HttpServletRequest request) {
         return ApiResponse.ok(orderStatusService.getForSeller(orderId, principal(request), sellerRole(request)));
     }
 
+    @Operation(summary = "變更訂單狀態（SELLER、ADMIN；須符合狀態機）")
     @PostMapping({"/api/seller/orders/{orderId}/status", "/api/admin/orders/{orderId}/status"})
     public ApiResponse<OrderView> updateOrderStatus(@PathVariable String orderId,
                                                     @Valid @RequestBody UpdateOrderStatusRequest body,

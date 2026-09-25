@@ -1,5 +1,7 @@
 package com.esun.shop.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import com.esun.shop.dto.ApiResponse;
 import com.esun.shop.dto.CouponPageResponse;
 import com.esun.shop.dto.CouponView;
@@ -24,6 +26,7 @@ import org.springframework.web.bind.annotation.RestController;
  * Coupon management for maintainers. Every endpoint is ADMIN-only and the actor comes from the verified JWT; there
  * is intentionally no delete (orders reference coupons) — a coupon is retired by deactivating it.
  */
+@Tag(name = "優惠券 Coupon", description = "僅 ADMIN 管理")
 @RestController
 public class CouponController {
     private final CouponService couponService;
@@ -32,6 +35,7 @@ public class CouponController {
         this.couponService = couponService;
     }
 
+    @Operation(summary = "列出優惠券（ADMIN）")
     @GetMapping("/api/admin/coupons")
     public ApiResponse<CouponPageResponse> list(@RequestParam(defaultValue = "0") int page,
                                                 @RequestParam(defaultValue = "20") int size,
@@ -40,17 +44,20 @@ public class CouponController {
         return ApiResponse.ok(couponService.list(page, size));
     }
 
+    @Operation(summary = "建立優惠券（ADMIN）")
     @PostMapping("/api/admin/coupons")
     public ApiResponse<CouponView> create(@Valid @RequestBody CreateCouponRequest body, HttpServletRequest request) {
         return ApiResponse.ok(couponService.create(body, requireAdmin(request), Member.Role.ADMIN));
     }
 
+    @Operation(summary = "更新優惠券（ADMIN）")
     @PutMapping("/api/admin/coupons/{id}")
     public ApiResponse<CouponView> update(@PathVariable long id, @Valid @RequestBody UpdateCouponRequest body,
                                           HttpServletRequest request) {
         return ApiResponse.ok(couponService.update(id, body, requireAdmin(request), Member.Role.ADMIN));
     }
 
+    @Operation(summary = "啟用／停用優惠券（ADMIN）")
     @PostMapping("/api/admin/coupons/{id}/active")
     public ApiResponse<CouponView> setActive(@PathVariable long id, @Valid @RequestBody SetActiveRequest body,
                                              HttpServletRequest request) {
