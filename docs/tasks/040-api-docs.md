@@ -1,4 +1,4 @@
-# Task 039 — Phase 3.2 #17 API 文件 (Swagger / OpenAPI) [Small]
+# Task 040 — Phase 3.2 #17 API 文件 (Swagger / OpenAPI) [Small]
 
 - Baseline: branch `feature/phase32-17-api-docs` @ `2894c83`. Implementer: Claude Code (single agent; Small tier per `019`, no independent review required).
 - Scope: 以 springdoc-openapi 自動產生 OpenAPI 3 規格與 Swagger UI，涵蓋全部 12 個 Controller；與 `JwtAuthFilter` 共用公開路由規則；可用環境變數關閉。Out of scope: request/response 欄位級 `@Schema` 說明、錯誤回應範例、Postman collection、前端整合。
