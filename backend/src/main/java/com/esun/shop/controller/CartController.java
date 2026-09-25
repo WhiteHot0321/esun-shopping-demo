@@ -1,5 +1,7 @@
 package com.esun.shop.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import com.esun.shop.dto.ApiResponse;
 import com.esun.shop.dto.CouponPreview;
 import com.esun.shop.repository.CartRepository.CartItem;
@@ -22,6 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 import java.util.Map;
 
+@Tag(name = "購物車 Cart", description = "登入會員自己的伺服器端購物車")
 @RestController
 @RequestMapping("/api/cart")
 public class CartController {
@@ -31,34 +34,40 @@ public class CartController {
         this.service = service;
     }
 
+    @Operation(summary = "列出我的購物車")
     @GetMapping
     public ApiResponse<List<CartItem>> list(HttpServletRequest request) {
         return ApiResponse.ok(service.list(email(request)));
     }
 
+    @Operation(summary = "加入商品到購物車")
     @PostMapping("/add")
     public ApiResponse<CartItem> add(@Valid @RequestBody AddItemRequest body, HttpServletRequest request) {
         return ApiResponse.ok(service.add(email(request), body.productId().trim(), body.quantity()));
     }
 
+    @Operation(summary = "修改購物車項目數量")
     @PutMapping("/items/{itemId}")
     public ApiResponse<CartItem> update(@PathVariable long itemId,
             @Valid @RequestBody QuantityRequest body, HttpServletRequest request) {
         return ApiResponse.ok(service.update(email(request), itemId, body.quantity()));
     }
 
+    @Operation(summary = "刪除單一購物車項目")
     @DeleteMapping("/items/{itemId}")
     public ApiResponse<Void> delete(@PathVariable long itemId, HttpServletRequest request) {
         service.delete(email(request), itemId);
         return ApiResponse.ok(null);
     }
 
+    @Operation(summary = "清空購物車")
     @DeleteMapping
     public ApiResponse<Void> clear(HttpServletRequest request) {
         service.clear(email(request));
         return ApiResponse.ok(null);
     }
 
+    @Operation(summary = "購物車結帳（建立訂單；requestId 提供冪等）")
     @PostMapping("/checkout")
     public ApiResponse<Map<String, String>> checkout(@Valid @RequestBody CheckoutRequest body,
             HttpServletRequest request) {
@@ -67,6 +76,7 @@ public class CartController {
     }
 
     /** Advisory discount preview for the caller's own server-side cart; nothing is reserved or consumed. */
+    @Operation(summary = "預覽優惠碼折扣（不保留、不消耗）")
     @PostMapping("/coupon-preview")
     public ApiResponse<CouponPreview> couponPreview(@Valid @RequestBody CouponPreviewRequest body,
             HttpServletRequest request) {

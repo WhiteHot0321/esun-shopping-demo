@@ -1,5 +1,7 @@
 package com.esun.shop.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import com.esun.shop.dto.ApiResponse;
 import com.esun.shop.exception.BusinessException;
 import com.esun.shop.repository.MemberRepository;
@@ -14,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+@Tag(name = "會員資料 Member Profile", description = "登入會員自己的資料")
 @RestController
 @RequestMapping("/api/member/profile")
 public class MemberProfileController {
@@ -23,11 +26,13 @@ public class MemberProfileController {
         this.memberRepository = memberRepository;
     }
 
+    @Operation(summary = "取得我的會員資料")
     @GetMapping
     public ApiResponse<MemberRepository.Profile> getProfile(HttpServletRequest request) {
         return ApiResponse.ok(requireProfile(authenticatedEmail(request)));
     }
 
+    @Operation(summary = "更新我的會員資料")
     @PutMapping
     public ApiResponse<MemberRepository.Profile> updateProfile(
             @Valid @RequestBody UpdateProfileRequest profile, HttpServletRequest request) {

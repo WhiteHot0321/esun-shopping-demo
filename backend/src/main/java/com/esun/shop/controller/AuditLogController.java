@@ -1,5 +1,7 @@
 package com.esun.shop.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import com.esun.shop.dto.ApiResponse;
 import com.esun.shop.dto.AuditLogPageResponse;
 import com.esun.shop.exception.BusinessException;
@@ -12,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /** Read-only audit trail for maintainers (ADMIN). There is intentionally no write/update/delete endpoint. */
+@Tag(name = "稽核日誌 Audit Log", description = "僅 ADMIN")
 @RestController
 public class AuditLogController {
     private final AuditLogService auditLogService;
@@ -20,6 +23,7 @@ public class AuditLogController {
         this.auditLogService = auditLogService;
     }
 
+    @Operation(summary = "查詢操作稽核日誌（ADMIN）")
     @GetMapping("/api/admin/audit-logs")
     public ApiResponse<AuditLogPageResponse> search(@RequestParam(required = false) String actor,
                                                     @RequestParam(required = false) String action,

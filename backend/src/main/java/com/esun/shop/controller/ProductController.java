@@ -1,5 +1,7 @@
 package com.esun.shop.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import com.esun.shop.dto.ApiResponse;
 import com.esun.shop.dto.CreateProductRequest;
 import com.esun.shop.dto.UpdateProductRequest;
@@ -26,6 +28,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
+@Tag(name = "商品 Product", description = "公開目錄與賣家/管理員商品管理")
 @RestController
 public class ProductController {
     private final ProductService productService;
@@ -39,6 +42,7 @@ public class ProductController {
         return ApiResponse.ok(null);
     }
 
+    @Operation(summary = "建立商品（SELLER、ADMIN）")
     @PostMapping("/api/products")
     public ApiResponse<Void> createProductAuthenticated(@Valid @RequestBody CreateProductRequest request,
                                                         HttpServletRequest servletRequest) {
@@ -50,11 +54,13 @@ public class ProductController {
         return ApiResponse.ok(null);
     }
 
+    @Operation(summary = "列出可售商品（公開）")
     @GetMapping("/api/products/available")
     public ApiResponse<List<Product>> getAvailableProducts() {
         return ApiResponse.ok(productService.getAvailableProducts());
     }
 
+    @Operation(summary = "建立商品（賣家後台，SELLER、ADMIN）")
     @PostMapping("/api/admin/products")
     public ApiResponse<Void> createAdminProduct(@Valid @RequestBody CreateProductRequest request,
                                                 HttpServletRequest servletRequest) {
@@ -63,12 +69,14 @@ public class ProductController {
         return ApiResponse.ok(null);
     }
 
+    @Operation(summary = "列出自己的商品（SELLER、ADMIN）")
     @GetMapping("/api/admin/products")
     public ApiResponse<List<Product>> getOwnedProducts(HttpServletRequest servletRequest) {
         requireSellerRole(servletRequest);
         return ApiResponse.ok(productService.getOwnedProducts(principal(servletRequest)));
     }
 
+    @Operation(summary = "搜尋自己的商品（分頁，SELLER、ADMIN）")
     @GetMapping({"/api/admin/products/search", "/api/seller/products/search"})
     public ApiResponse<ProductPageResponse> searchOwnedProducts(
             @RequestParam(defaultValue = "") String keyword,
@@ -81,12 +89,14 @@ public class ProductController {
                 principal(servletRequest), keyword, status, page, size));
     }
 
+    @Operation(summary = "取得自己的單一商品（SELLER、ADMIN）")
     @GetMapping("/api/admin/products/{productId}")
     public ApiResponse<Product> getOwnedProduct(@PathVariable String productId, HttpServletRequest servletRequest) {
         requireSellerRole(servletRequest);
         return ApiResponse.ok(productService.getOwnedProduct(productId, principal(servletRequest)));
     }
 
+    @Operation(summary = "更新自己的商品（SELLER、ADMIN）")
     @PutMapping("/api/admin/products/{productId}")
     public ApiResponse<Void> updateOwnedProduct(@PathVariable String productId,
                                                 @Valid @RequestBody UpdateProductRequest request,
@@ -96,6 +106,7 @@ public class ProductController {
         return ApiResponse.ok(null);
     }
 
+    @Operation(summary = "軟刪除自己的商品（SELLER、ADMIN）")
     @DeleteMapping("/api/admin/products/{productId}")
     public ApiResponse<Void> deleteOwnedProduct(@PathVariable String productId, HttpServletRequest servletRequest) {
         requireSellerRole(servletRequest);
@@ -103,6 +114,7 @@ public class ProductController {
         return ApiResponse.ok(null);
     }
 
+    @Operation(summary = "補貨（SELLER、ADMIN）")
     @PostMapping("/api/admin/products/{productId}/restock")
     public ApiResponse<Void> restockOwnedProduct(@PathVariable String productId, @RequestParam int amount,
                                                  HttpServletRequest servletRequest) {
@@ -112,6 +124,7 @@ public class ProductController {
         return ApiResponse.ok(null);
     }
 
+    @Operation(summary = "批量上架／下架／刪除商品（SELLER、ADMIN）")
     @PostMapping({"/api/admin/products/bulk", "/api/seller/products/bulk"})
     public ApiResponse<Void> bulkManageOwnedProducts(@Valid @RequestBody BulkProductRequest request,
                                                      HttpServletRequest servletRequest) {
@@ -120,6 +133,7 @@ public class ProductController {
         return ApiResponse.ok(null);
     }
 
+    @Operation(summary = "上傳商品圖片 multipart（SELLER、ADMIN）")
     @PostMapping(value = {"/api/admin/products/{productId}/images", "/api/seller/products/{productId}/images"},
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ApiResponse<List<String>> uploadOwnedProductImages(@PathVariable String productId,

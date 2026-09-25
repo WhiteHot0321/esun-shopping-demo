@@ -1,5 +1,7 @@
 package com.esun.shop.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import com.esun.shop.dto.ApiResponse;
 import com.esun.shop.dto.PaymentCallbackRequest;
 import com.esun.shop.dto.PaymentView;
@@ -23,6 +25,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+@Tag(name = "付款 Payment", description = "付款發起、金流回呼、sandbox 模擬")
 @RestController
 public class PaymentController {
     private final PaymentService paymentService;
@@ -34,6 +37,7 @@ public class PaymentController {
     }
 
     /** Buyer: open (or resume) the payment attempt for their own order. */
+    @Operation(summary = "發起訂單付款（依 payment.provider 回傳導向資訊）")
     @PostMapping("/api/orders/{orderId}/payment")
     public ApiResponse<PaymentView> startPayment(@PathVariable String orderId, HttpServletRequest request) {
         return ApiResponse.ok(paymentService.start(orderId, principal(request)));
@@ -43,6 +47,7 @@ public class PaymentController {
      * Payment provider webhook. Public route (no JWT): authenticity comes solely from the signature, which
      * {@link PaymentCallbackService} verifies before anything else.
      */
+    @Operation(summary = "付款商通用回呼（公開，以簽章驗證）")
     @PostMapping("/api/payments/callback")
     public ApiResponse<Map<String, String>> callback(@Valid @RequestBody PaymentCallbackRequest body) {
         Map<String, String> parameters = new LinkedHashMap<>();
@@ -59,6 +64,7 @@ public class PaymentController {
      * text {@code 1|OK} (anything else makes ECPay retry). Duplicates and refund-flagged payments are acknowledged too:
      * the money movement is already recorded, retrying would change nothing.
      */
+    @Operation(summary = "綠界 ECPay 伺服器回呼（公開，以 CheckMacValue 驗證，回應 1|OK）")
     @PostMapping(value = "/api/payments/ecpay/callback", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE,
             produces = MediaType.TEXT_PLAIN_VALUE)
     public ResponseEntity<String> ecpayCallback(@RequestParam MultiValueMap<String, String> formParameters) {
@@ -80,6 +86,7 @@ public class PaymentController {
     }
 
     /** Sandbox only (404 otherwise): complete the caller's own attempt as the simulated provider would. */
+    @Operation(summary = "Sandbox 模擬付款結果（僅 sandbox，其他模式 404）")
     @PostMapping("/api/payments/{merchantTradeNo}/sandbox-result")
     public ApiResponse<PaymentView> sandboxResult(@PathVariable String merchantTradeNo,
                                                   @Valid @RequestBody SandboxPaymentResultRequest body,
