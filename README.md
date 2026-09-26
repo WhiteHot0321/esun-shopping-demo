@@ -220,17 +220,41 @@ SERVER_PORT=8080
 docker compose up -d
 ```
 
-若後端不透過 Docker、直接用 `mvn` 或 IDE 啟動，需自行把 `.env` 內容匯出成環境變數（例如在 IDE 的 Run Configuration 設定環境變數，或執行前 `export $(cat .env | xargs)`），否則會套用 `application.yml` 中的預設值（對應 `.env.example` 的預設值）。
+> ⚠️ **Spring Boot 不會自動讀取 `.env`。** 若後端不透過 Docker、直接用 `mvn` 或 IDE 啟動，必須先把 `.env` 匯出成環境變數（做法見下方「3. 啟動後端」），否則會套用 `application.yml` 中的預設值（`localhost:3306`、`root`、`123456`）。
+>
+> 若你的 `.env` 改過 `DB_PORT`（例如本機 3306 已被原生 MySQL 佔用，改用 3310），漏了這一步後端就會連到錯誤的資料庫，前端會顯示「商品載入失敗」、「資料庫操作失敗」，請見 [常見問題](#常見問題)。
 
 ---
 
 ### 3. 啟動後端
+
+先把 `.env` 匯出成環境變數，**再**啟動後端（環境變數只對當前終端機生效，每開一個新終端機都要重做一次）。
+
+PowerShell：
+
+```powershell
+Get-Content .env | Where-Object { $_ -match '^\s*[^#\s][^=]*=' } | ForEach-Object { $k,$v = $_ -split '=',2; Set-Item "env:$($k.Trim())" $v.Trim() }
+cd backend
+mvn spring-boot:run
+```
+
+Bash／Git Bash：
+
+```bash
+set -a; source .env; set +a
+cd backend
+mvn spring-boot:run
+```
+
+或打包後執行（同樣要先匯出環境變數）：
 
 ```bash
 cd backend
 mvn clean package
 java -jar target/shopping-backend-1.0.0.jar
 ```
+
+用 IDE 啟動時，改在 Run Configuration 的環境變數中設定 `.env` 的內容（至少 `DB_PORT`、`DB_PASSWORD`）。
 
 後端預設：
 
@@ -249,6 +273,17 @@ npm run dev
 前端預設：
 
 http://localhost:5173
+
+---
+
+### 常見問題
+
+**前端一開就顯示「商品載入失敗」／「資料庫操作失敗」**
+
+前端能開、但商品列表、收件地址、推薦都載入失敗（`GET /api/products/available` 回 500），通常是後端與資料庫沒接對，依序檢查：
+
+1. **後端連錯資料庫**：沒有匯出 `.env` 就啟動，後端會套用預設值 `localhost:3306`。若本機 3306 被原生 MySQL 佔用（Docker 的 MySQL 在 `.env` 指定的其他埠，如 3310），會因帳密不符連線失敗。解法：依「3. 啟動後端」匯出 `.env` 後重啟。
+2. **資料庫 schema 落後**：後端日誌出現 `Table 'esun_shop.xxx' doesn't exist`，代表既有資料庫缺新版本的資料表。請依序執行 `backend/DB/` 下編號較新的 migration（`06_member_profile.sql` 之後皆可重複執行）。**不要**對既有資料庫重跑 `01_schema.sql`、`04_member.sql`、`05_password_reset_token.sql`，它們會先 `DROP TABLE` 清掉資料。
 
 ---
 
