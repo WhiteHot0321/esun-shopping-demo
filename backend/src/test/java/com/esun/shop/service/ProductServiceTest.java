@@ -339,7 +339,7 @@ class ProductServiceTest {
     @Test
     void imageUploadEnforcesPerProductImageCapBeforeStoringFiles() {
         Product product = owned("P001", "owner@example.com");
-        when(productRepository.findIncludingDeletedById("P001")).thenReturn(product);
+        when(productRepository.lockIncludingDeletedById("P001")).thenReturn(product);
         when(productRepository.countProductImages("P001")).thenReturn(ProductService.MAX_IMAGES_PER_PRODUCT - 1);
         MultipartFile[] files = {new MockMultipartFile("images", "a.png", "image/png", new byte[]{1}),
                 new MockMultipartFile("images", "b.png", "image/png", new byte[]{1})};
@@ -351,7 +351,7 @@ class ProductServiceTest {
     @Test
     void imageUploadRequiresOwnershipAndPersistsMetadataInOrder() {
         Product product = owned("P001", "owner@example.com");
-        when(productRepository.findIncludingDeletedById("P001")).thenReturn(product);
+        when(productRepository.lockIncludingDeletedById("P001")).thenReturn(product);
         MultipartFile[] files = {new MockMultipartFile("images", "a.png", "image/png", new byte[]{1})};
         ProductImageStorageService.StoredImage first = new ProductImageStorageService.StoredImage("/uploads/products/1.png", Path.of("1.png"));
         ProductImageStorageService.StoredImage second = new ProductImageStorageService.StoredImage("/uploads/products/2.png", Path.of("2.png"));
@@ -360,6 +360,11 @@ class ProductServiceTest {
         List<String> urls = productService.uploadOwnedProductImages("P001", files, "owner@example.com");
 
         assertThat(urls).containsExactly("/uploads/products/1.png", "/uploads/products/2.png");
+        var ordered = org.mockito.Mockito.inOrder(productRepository, imageStorageService);
+        ordered.verify(productRepository).lockIncludingDeletedById("P001");
+        ordered.verify(productRepository).countProductImages("P001");
+        ordered.verify(imageStorageService).store(files);
+        verify(productRepository, never()).findIncludingDeletedById(anyString());
         verify(productRepository).addProductImage("P001", "/uploads/products/1.png");
         verify(productRepository).addProductImage("P001", "/uploads/products/2.png");
     }
@@ -367,7 +372,7 @@ class ProductServiceTest {
     @Test
     void imageUploadByNonOwnerOrOnDeletedProductNeverStoresFiles() {
         Product product = owned("P001", "owner@example.com");
-        when(productRepository.findIncludingDeletedById("P001")).thenReturn(product);
+        when(productRepository.lockIncludingDeletedById("P001")).thenReturn(product);
         MultipartFile[] files = {new MockMultipartFile("images", "a.png", "image/png", new byte[]{1})};
 
         assertStatus(() -> productService.uploadOwnedProductImages("P001", files, "other@example.com"), HttpStatus.FORBIDDEN);
@@ -378,7 +383,7 @@ class ProductServiceTest {
     @Test
     void imageMetadataFailureRemovesAlreadyStoredFiles() {
         Product product = owned("P001", "owner@example.com");
-        when(productRepository.findIncludingDeletedById("P001")).thenReturn(product);
+        when(productRepository.lockIncludingDeletedById("P001")).thenReturn(product);
         MultipartFile[] files = {new MockMultipartFile("images", "a.png", "image/png", new byte[]{1})};
         ProductImageStorageService.StoredImage stored = new ProductImageStorageService.StoredImage("/uploads/products/1.png", Path.of("1.png"));
         when(imageStorageService.store(files)).thenReturn(List.of(stored));
