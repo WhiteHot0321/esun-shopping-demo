@@ -24,8 +24,10 @@ springdoc:
     enabled: ${API_DOCS_ENABLED:false}
 
 payment:
-  callback-secret: ${PAYMENT_CALLBACK_SECRET:}
-  provider: ${PAYMENT_PROVIDER:none}
+  # No defaults: prod must state its payment mode and callback secret explicitly (PAYMENT_PROVIDER=none|ecpay;
+  # PAYMENT_CALLBACK_SECRET may be set empty only when the provider is none - the validator requires it for ecpay).
+  callback-secret: ${PAYMENT_CALLBACK_SECRET}
+  provider: ${PAYMENT_PROVIDER}
 
 management:
   server:

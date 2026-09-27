@@ -67,10 +67,18 @@ public class ProductionConfigValidator {
             violations.add("spring.data.redis.password (REDIS_PASSWORD) is required when stock.redis.enabled=true");
         }
 
+        if (env.getProperty("springdoc.api-docs.enabled", Boolean.class, false)
+                || env.getProperty("springdoc.swagger-ui.enabled", Boolean.class, false)) {
+            violations.add("API_DOCS_ENABLED must not be true in production (it publishes the full endpoint list)");
+        }
+
         String provider = env.getProperty("payment.provider", "none");
         if ("sandbox".equalsIgnoreCase(provider)) {
             violations.add("payment.provider=sandbox lets buyers mark their own orders paid; use none or ecpay");
         } else if ("ecpay".equalsIgnoreCase(provider)) {
+            if (env.getProperty("payment.callback-secret", "").isBlank()) {
+                violations.add("payment.callback-secret (PAYMENT_CALLBACK_SECRET) is required when payment.provider=ecpay");
+            }
             for (String key : ECPAY_REQUIRED) {
                 if (env.getProperty(key, "").isBlank()) {
                     violations.add(key + " is required when payment.provider=ecpay");
