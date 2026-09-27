@@ -342,6 +342,17 @@ Dependencies are linear by default: **#18 → #19 → #20 → #21 → #22**. #21
 - **Order history view** — `docs/tasks/015-order-history-candidate.md`. Deferred in favor of Phase 3 engineering depth.
 - **Role-based feature lists** — `docs/tasks/016–020` (seller/buyer/maintainer/RBAC/audit). Analyzed but not scheduled ahead of engineering work.
 
+## Phase 3.0 #1–4 evidence reconciliation — 2026-09-27, Claude Code, MODE: REVIEW_ONLY
+
+Documentation/evidence check only (per Task 046's "next bounded action" in the isolated `codex/review-audit-concurrency` worktree); no production/test code read or changed beyond `grep`/`git log` inspection of already-committed history. Baseline: this checkout's `advanced-v2` @ `32afd3d`.
+
+- **#1 RBAC — capability is real and merged, but its cited acceptance evidence is orphaned.** `Member.Role`, the JWT `role` claim (`JwtService.java`), and controller-level role checks (`ProductController`, `OrderController`, `AuditLogController`, `CouponController`) all exist in the current tree. However, `git log` traces that code to commit `7c24669` (Phase 3.1 #9 product-review prerequisites), not to the `codex/phase30-rbac` branch that Notion's "Task 020" entry describes (86/86 tests, independent review PASS) — that branch no longer exists in `git branch -a` and is not an ancestor of `advanced-v2`. The only Task-020-named file in this working tree, `docs/tasks/020-rbac-endpoint-audit.md` (still untracked), is the earlier read-only gap inventory (0 role-gated endpoints), not that implementation's own record. **Do not keep citing the old branch's 86/86 run as evidence for the RBAC code actually running today** — if dedicated RBAC acceptance is wanted, it needs a fresh, narrowly-scoped verification against the current controllers.
+- **#2 Order history — still an unreconciled, uncommitted worktree, not "done pending merge."** Re-inspected the `phase31-closure` worktree (baseline `3cfd934`): it is unchanged since 2026-09-24 (`OrderHistoryMigrationTest`, `OrderQueryServiceTest`, `OrderHistory.vue` etc. all still untracked). The overlap this project-state.md already flagged against the merged Phase 3.1 #11 order-status-flow feature has never actually been checked by anyone — nobody has determined how much of #2's scope #11 already covers. Status is genuinely open/undecided, not a completed feature waiting on a mechanical merge.
+- **#3 Monitoring — matches its documentation; still not integrated.** Same worktree's `backend/src/main/java/com/esun/shop/monitoring/` and `ManagementEndpointsIntegrationTest` remain untracked there; `advanced-v2`'s `application.yml` has no actuator/management-port configuration. Existing "implemented and tested in an isolated worktree, not committed/merged" wording is accurate as-is — no correction needed here.
+- **#4 Backup/restore — confirmed complete, no gap found.** Task 024's drill is merged (PR #6, `8a97dfd`) and was a real, executed drill (backup/restore/corrupt/restore cycle with SHA-256 data-hash comparison and both safety guards exercised), not a static review. Stands as PASS.
+
+Next: user/Codex decision needed on whether to rebase the `phase31-closure` worktree's order-history delta onto `advanced-v2` @ `e289141`-or-later and de-duplicate against #11, or archive it as superseded; RBAC's evidence citation should be corrected wherever it's repeated (Notion 進度追蹤's "Phase 3.0 RBAC Task 020" entry) rather than treated as current proof.
+
 ## Historical records below
 
 - Spring Boot 3.3.5 / Java target 17; Vue 3 / Vite.
