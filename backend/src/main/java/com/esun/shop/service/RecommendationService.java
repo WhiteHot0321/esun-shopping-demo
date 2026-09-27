@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Isolation;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -45,7 +46,7 @@ public class RecommendationService {
     }
 
     /** "Customers who bought this also bought" — public, aggregate-only. */
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public List<RecommendationItem> forProduct(String productId, int limit) {
         requireLimit(limit);
         if (products.findById(productId) == null) {
@@ -56,7 +57,7 @@ public class RecommendationService {
     }
 
     /** Personalised list for a member: co-purchases of their own basket history, minus what they own or carted. */
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public List<RecommendationItem> forMember(String email, int limit) {
         requireLimit(limit);
         List<String> purchased = recommendations.purchasedProductIds(email);
@@ -84,7 +85,8 @@ public class RecommendationService {
         Map<String, Product> byId = new LinkedHashMap<>();
         products.findAvailableByIds(reasons.keySet()).forEach(product -> byId.put(product.getProductId(), product));
         List<RecommendationItem> result = new ArrayList<>();
-        // Rank order comes from the tiers; a product that sold out or was deleted between the two reads just drops out.
+        // Rank and details share the first consistent-read snapshot. Concurrent commits appear on the next request.
+        // Missing payloads are skipped defensively; this is not a current-stock refresh.
         reasons.forEach((id, reason) -> {
             Product product = byId.get(id);
             if (product != null) result.add(new RecommendationItem(product, reason, scores.get(id)));

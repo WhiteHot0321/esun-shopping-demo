@@ -13,8 +13,9 @@ import java.util.List;
  * candidates are always sellable products (not soft-deleted, in stock). Ordering is fully deterministic
  * (score DESC, product id ASC) so the same data always yields the same list.
  *
- * Signals are aggregated per distinct order, and a signal below {@code minSupport} orders is dropped: a single
- * buyer's basket must not be recoverable from a public "bought together" list.
+ * Signals are aggregated per distinct buyer (not per order), and a signal below {@code minSupport} buyers is
+ * dropped: one buyer repeating the same basket in several orders must not be enough to recover that basket from a
+ * public "bought together" list.
  */
 @Repository
 public class RecommendationRepository {
@@ -35,7 +36,7 @@ public class RecommendationRepository {
         if (anchors.isEmpty() || limit <= 0) return List.of();
         List<Object> args = new ArrayList<>();
         StringBuilder sql = new StringBuilder(
-                "SELECT b.product_id, COUNT(DISTINCT b.order_id) AS score "
+                "SELECT b.product_id, COUNT(DISTINCT o.member_id) AS score "
                 + "FROM order_detail a "
                 + "JOIN shop_order o ON o.order_id = a.order_id" + LIVE_ORDER
                 + " JOIN order_detail b ON b.order_id = a.order_id "
@@ -43,7 +44,7 @@ public class RecommendationRepository {
                 + " WHERE a.product_id IN (" + placeholders(anchors.size()) + ")");
         args.addAll(anchors);
         appendNotIn(sql, args, "b.product_id", exclude);
-        sql.append(" GROUP BY b.product_id HAVING COUNT(DISTINCT b.order_id) >= ?"
+        sql.append(" GROUP BY b.product_id HAVING COUNT(DISTINCT o.member_id) >= ?"
                 + " ORDER BY score DESC, b.product_id ASC LIMIT ?");
         args.add(minSupport);
         args.add(limit);
@@ -51,18 +52,18 @@ public class RecommendationRepository {
                 (rs, i) -> new Candidate(rs.getString(1), rs.getLong(2)), args.toArray());
     }
 
-    /** Best sellers by number of distinct live orders. */
+    /** Best sellers by number of distinct buyers with a live order for the product. */
     public List<Candidate> popular(Collection<String> exclude, int minSupport, int limit) {
         if (limit <= 0) return List.of();
         List<Object> args = new ArrayList<>();
         StringBuilder sql = new StringBuilder(
-                "SELECT d.product_id, COUNT(DISTINCT d.order_id) AS score "
+                "SELECT d.product_id, COUNT(DISTINCT o.member_id) AS score "
                 + "FROM order_detail d "
                 + "JOIN shop_order o ON o.order_id = d.order_id" + LIVE_ORDER
                 + " JOIN product p ON p.product_id = d.product_id" + SELLABLE
                 + " WHERE 1 = 1");
         appendNotIn(sql, args, "d.product_id", exclude);
-        sql.append(" GROUP BY d.product_id HAVING COUNT(DISTINCT d.order_id) >= ?"
+        sql.append(" GROUP BY d.product_id HAVING COUNT(DISTINCT o.member_id) >= ?"
                 + " ORDER BY score DESC, d.product_id ASC LIMIT ?");
         args.add(minSupport);
         args.add(limit);

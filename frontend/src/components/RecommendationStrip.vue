@@ -48,6 +48,19 @@ const REASONS = {
   NEW_ARRIVAL: { text: '新上架', tone: 'badge--muted' }
 }
 
+const isRecord = (value) => value !== null && typeof value === 'object' && !Array.isArray(value)
+const isNonBlank = (value) => typeof value === 'string' && value.trim().length > 0
+const isValidCard = (entry) => {
+  if (!isRecord(entry) || !isRecord(entry.product)) return false
+  const { productId, productName, price, quantity, averageRating, reviewCount } = entry.product
+  // Check before formatting: numeric coercion would disguise missing/invalid prices as zero.
+  return isNonBlank(productId) && isNonBlank(productName)
+    && Number.isFinite(price) && price >= 0.01
+    && Number.isSafeInteger(quantity) && quantity > 0
+    && (averageRating == null || (Number.isFinite(averageRating) && averageRating >= 0 && averageRating <= 5))
+    && (reviewCount == null || (Number.isSafeInteger(reviewCount) && reviewCount >= 0))
+}
+
 const items = ref([])
 const status = ref('loading')
 // Only the newest request may write: switching products quickly must not show a slower, older answer.
@@ -62,8 +75,8 @@ const load = async () => {
       : '/recommendations'
     const { data } = await api.get(url, { params: { limit: props.limit } })
     if (current !== requestId) return
-    // Defensive: only well-formed entries render; anything else (wrong shape, missing product) is dropped.
-    items.value = Array.isArray(data.data) ? data.data.filter((entry) => entry?.product?.productId) : []
+    // Validate only fields consumed by the card; unknown reasons retain the generic label.
+    items.value = Array.isArray(data?.data) ? data.data.filter(isValidCard) : []
     status.value = 'ready'
   } catch {
     if (current !== requestId) return

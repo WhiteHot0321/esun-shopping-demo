@@ -3,6 +3,12 @@ package com.esun.shop.integration;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import com.esun.shop.repository.ProductRepository;
+import org.springframework.boot.test.mock.mockito.SpyBean;
+import org.springframework.jdbc.core.ConnectionCallback;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -32,6 +38,65 @@ class RecommendationIntegrationTest extends AbstractMySqlIntegrationTest {
     @Autowired ObjectMapper mapper;
     @Autowired JdbcTemplate jdbc;
     @Autowired javax.sql.DataSource dataSource;
+    @SpyBean ProductRepository productRepository;
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void requestKeepsSnapshotWhileNextRequestSeesCommittedProductChanges(boolean personalised) throws Exception {
+        Catalog k = seedCatalog();
+        String token = null;
+        String url = "/api/products/" + k.a + "/recommendations?limit=3";
+        if (personalised) {
+            String email = "snapshot-" + k.tag + "@example.com";
+            token = buyerToken(email);
+            order(k.tag + "-snapshot", email, "CREATED", k.a);
+            url = "/api/recommendations?limit=3";
+        }
+        var committed = new java.util.concurrent.atomic.AtomicBoolean();
+        // Only synchronize the boundary. Both ranking and payload queries execute their real SQL.
+        org.mockito.Mockito.doAnswer(invocation -> {
+            if (committed.compareAndSet(false, true)) {
+                assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isTrue();
+                assertThat(TransactionSynchronizationManager.isCurrentTransactionReadOnly()).isTrue();
+                jdbc.execute((ConnectionCallback<Void>) connection -> {
+                    assertThat(connection.getTransactionIsolation()).isEqualTo(java.sql.Connection.TRANSACTION_REPEATABLE_READ);
+                    return null;
+                });
+                Long readerId = jdbc.queryForObject("SELECT CONNECTION_ID()", Long.class);
+                // Raw DataSource connection is independent of Spring's thread-bound read transaction.
+                try (var writer = dataSource.getConnection()) {
+                    writer.setAutoCommit(false);
+                    try (var statement = writer.createStatement(); var result = statement.executeQuery("SELECT CONNECTION_ID()")) {
+                        assertThat(result.next()).isTrue();
+                        assertThat(result.getLong(1)).isNotEqualTo(readerId);
+                    }
+                    try (var statement = writer.prepareStatement("UPDATE product SET quantity=0 WHERE product_id=?")) {
+                        statement.setString(1, k.b);
+                        assertThat(statement.executeUpdate()).isEqualTo(1);
+                    }
+                    try (var statement = writer.prepareStatement("UPDATE product SET deleted_at=NOW() WHERE product_id=?")) {
+                        statement.setString(1, k.c);
+                        assertThat(statement.executeUpdate()).isEqualTo(1);
+                    }
+                    writer.commit();
+                }
+            }
+            return invocation.callRealMethod();
+        }).when(productRepository).findAvailableByIds(org.mockito.ArgumentMatchers.anyCollection());
+        try {
+            JsonNode current = call(url, token, 200);
+            assertThat(committed).isTrue();
+            assertThat(ids(current)).containsExactly(k.b, k.c, k.h);
+            assertThat(current.get(0).path("product").path("quantity").asInt()).isEqualTo(5);
+            assertThat(current).allSatisfy(item -> assertThat(item.path("reason").asText()).isEqualTo("CO_PURCHASE"));
+            assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+            assertThat(jdbc.queryForObject("SELECT quantity FROM product WHERE product_id=?", Integer.class, k.b)).isZero();
+            assertThat(jdbc.queryForObject("SELECT deleted_at IS NOT NULL FROM product WHERE product_id=?", Boolean.class, k.c)).isTrue();
+            assertThat(ids(call(url, token, 200))).contains(k.h).doesNotContain(k.b, k.c);
+        } finally {
+            org.mockito.Mockito.reset(productRepository);
+        }
+    }
 
     /** Anchor A, B (support 3), C and H (support 2, tie -> id order), D (only via a cancelled order), G (support 1). */
     private record Catalog(String tag, String a, String b, String c, String d, String e, String f, String g, String h) { }
@@ -78,6 +143,29 @@ class RecommendationIntegrationTest extends AbstractMySqlIntegrationTest {
         assertThat(tierRanks(wide)).isSorted();
         assertThat(ids(wide)).doesNotHaveDuplicates();
         assertThat(ids(wide).size()).isLessThanOrEqualTo(20);
+    }
+
+    @Test
+    void oneBuyerRepeatingTheSameBasketNeverReachesMinimumSupport() throws Exception {
+        String tag = tag();
+        String anchor = id(tag, "A");
+        String other = id(tag, "X");
+        product(anchor, 5, false);
+        product(other, 5, false);
+        String repeatBuyer = "repeat-" + tag + "@example.com";
+        order(tag + "-r1", repeatBuyer, "CREATED", anchor, other);
+        order(tag + "-r2", repeatBuyer, "CONFIRMED", anchor, other);
+        String url = "/api/products/" + anchor + "/recommendations?limit=20";
+
+        // Two live orders but a single buyer: neither co-purchase nor popular may report the pair, otherwise a public
+        // endpoint would reveal that one person's basket. (The product can still appear as new-arrival filler.)
+        assertThat(reasonOf(call(url, null, 200), other)).isNotIn("CO_PURCHASE", "POPULAR");
+
+        // A second, different buyer makes it an aggregate of two people, so the signal now qualifies.
+        order(tag + "-r3", "second-" + tag + "@example.com", "CREATED", anchor, other);
+        JsonNode items = call(url, null, 200);
+        assertThat(reasonOf(items, other)).isEqualTo("CO_PURCHASE");
+        assertThat(items.get(0).path("score").asLong()).isEqualTo(2);
     }
 
     @Test
@@ -185,6 +273,13 @@ class RecommendationIntegrationTest extends AbstractMySqlIntegrationTest {
         List<String> ids = new ArrayList<>();
         for (JsonNode item : items) ids.add(item.path("product").path("productId").asText());
         return ids;
+    }
+
+    private static String reasonOf(JsonNode items, String productId) {
+        for (JsonNode item : items) {
+            if (productId.equals(item.path("product").path("productId").asText())) return item.path("reason").asText();
+        }
+        return "ABSENT";
     }
 
     private static List<Integer> tierRanks(JsonNode items) {
