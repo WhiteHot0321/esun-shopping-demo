@@ -18,6 +18,8 @@
 
     <properties>
         <java.version>17</java.version>
+        <!-- Docker 29 compatibility; keep all test-only modules aligned through Boot's BOM. -->
+        <testcontainers.version>1.21.4</testcontainers.version>
     </properties>
 
     <dependencies>
