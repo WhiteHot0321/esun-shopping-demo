@@ -56,6 +56,16 @@ public class ProductReviewRepository {
                 .stream().findFirst().orElse(null);
     }
 
+    /**
+     * Reads one review as a current read while locking only the review row.  The member join is
+     * needed for the response's display name, but must not extend moderation's lock footprint to
+     * the member table.
+     */
+    public ProductReview lockById(long id) {
+        return jdbcTemplate.query(REVIEW_COLUMNS + " WHERE pr.id = ? FOR UPDATE OF pr", MAPPER, id)
+                .stream().findFirst().orElse(null);
+    }
+
     public ProductReview findByMemberAndProduct(long memberId, String productId) {
         return jdbcTemplate.query(REVIEW_COLUMNS + " WHERE pr.member_id = ? AND pr.product_id = ?", MAPPER,
                 memberId, productId).stream().findFirst().orElse(null);

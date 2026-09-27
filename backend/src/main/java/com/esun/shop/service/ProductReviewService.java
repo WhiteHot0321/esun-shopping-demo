@@ -112,7 +112,10 @@ public class ProductReviewService {
     public ProductReview setVisibility(long reviewId, String email, Member.Role role,
                                        ProductReview.Visibility visibility) {
         requireSeller(role);
-        ProductReview review = requireReview(reviewId);
+        // The audit "before" state must come from this transaction's locked current read.
+        // A normal consistent read could see an obsolete visibility while another moderator is
+        // committing, leaving a false audit chain even though the UPDATE eventually serializes.
+        ProductReview review = requireLockedReview(reviewId);
         if (role != Member.Role.ADMIN && !productRepository.isOwnedBy(review.getProductId(), email)) {
             throw new BusinessException("無權管理此商品的評論", HttpStatus.FORBIDDEN);
         }
@@ -140,6 +143,12 @@ public class ProductReviewService {
 
     private ProductReview requireReview(long reviewId) {
         ProductReview review = reviewRepository.findById(reviewId);
+        if (review == null) throw new BusinessException("評論不存在", HttpStatus.NOT_FOUND);
+        return review;
+    }
+
+    private ProductReview requireLockedReview(long reviewId) {
+        ProductReview review = reviewRepository.lockById(reviewId);
         if (review == null) throw new BusinessException("評論不存在", HttpStatus.NOT_FOUND);
         return review;
     }
