@@ -241,7 +241,7 @@ mvn spring-boot:run
 Bash／Git Bash：
 
 ```bash
-set -a; source .env; set +a
+set -a; source <(tr -d '' < .env); set +a   # tr 去掉 Windows 換行，否則變數值會帶著 
 cd backend
 mvn spring-boot:run
 ```
@@ -284,6 +284,22 @@ http://localhost:5173
 
 1. **後端連錯資料庫**：沒有匯出 `.env` 就啟動，後端會套用預設值 `localhost:3306`。若本機 3306 被原生 MySQL 佔用（Docker 的 MySQL 在 `.env` 指定的其他埠，如 3310），會因帳密不符連線失敗。解法：依「3. 啟動後端」匯出 `.env` 後重啟。
 2. **資料庫 schema 落後**：後端日誌出現 `Table 'esun_shop.xxx' doesn't exist`，代表既有資料庫缺新版本的資料表。請依序執行 `backend/DB/` 下編號較新的 migration（`06_member_profile.sql` 之後皆可重複執行）。**不要**對既有資料庫重跑 `01_schema.sql`、`04_member.sql`、`05_password_reset_token.sql`，它們會先 `DROP TABLE` 清掉資料。
+
+### 正式環境（`prod` profile）設定
+
+以 `SPRING_PROFILES_ACTIVE=prod` 啟動時，安全相關設定**沒有預設值**，缺少就無法啟動；另有啟動檢查會拒絕過弱或僅限開發用的值（錯誤訊息只點名設定，不會印出值）：
+
+| 環境變數 | 說明 | 啟動檢查 |
+|---|---|---|
+| `JWT_SECRET` | JWT 簽章密鑰 | 至少 32 bytes，不可是 `dev-only` 開頭的開發值 |
+| `DB_HOST` `DB_NAME` `DB_USERNAME` `DB_PASSWORD` | 資料庫連線 | 密碼不可空白或為常見預設（如 `123456`） |
+| `REDIS_HOST` `REDIS_PASSWORD` | Redis | 啟用 `STOCK_REDIS_ENABLED=true` 時必須有密碼 |
+| `CORS_ALLOWED_ORIGINS` | 允許呼叫 API 的前端來源，逗號分隔，如 `https://shop.example.com` | 必填；不接受 `*`、路徑或非 http(s) |
+| `PAYMENT_PROVIDER` | `none`（預設）或 `ecpay` | 禁止 `sandbox`；`ecpay` 需 `ECPAY_*` 全部設定 |
+| `API_DOCS_ENABLED` | Swagger／OpenAPI | prod 預設 `false`（404） |
+| `MANAGEMENT_PORT` | 健康檢查埠，預設 `8081` | 不應對外發布 |
+
+健康檢查僅在獨立的 management 埠提供（`/actuator/health/liveness`、`/actuator/health/readiness`，不含細節），主埠不提供。readiness 檢查資料庫；Redis 不列入，因為庫存快取設計上會降級回資料庫。`DB_USE_SSL` 預設 `false`，僅適用於與資料庫同一私有網路的部署。
 
 ---
 

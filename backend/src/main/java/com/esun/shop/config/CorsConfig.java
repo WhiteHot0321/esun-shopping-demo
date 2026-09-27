@@ -18,12 +18,16 @@ public class CorsConfig {
      * CORS is a Servlet filter running before {@code JwtAuthFilter}, not an MVC mapping: the auth filter writes its
      * 401 before Spring MVC is reached, and a cross-origin response without Access-Control-Allow-Origin is hidden
      * by the browser, which the frontend saw as a network error instead of a 401 (so expired tokens were never
-     * cleared). Ordering this first also answers preflight requests before any auth logic.
+     * cleared). Ordering this first also answers preflight requests before any auth logic. Origins come from
+     * {@code cors.allowed-origins} (CORS_ALLOWED_ORIGINS); the prod profile has no default and rejects "*".
      */
     @Bean
-    public FilterRegistrationBean<CorsFilter> corsFilter() {
+    public FilterRegistrationBean<CorsFilter> corsFilter(
+            @Value("${cors.allowed-origins:http://localhost:5173}") String[] allowedOrigins) {
         CorsConfiguration config = new CorsConfiguration();
-        config.addAllowedOrigin("http://localhost:5173");
+        for (String origin : allowedOrigins) {
+            config.addAllowedOrigin(origin.trim());
+        }
         config.addAllowedMethod("GET");
         config.addAllowedMethod("POST");
         config.addAllowedMethod("PUT");

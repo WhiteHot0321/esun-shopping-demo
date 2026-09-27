@@ -10,10 +10,11 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
       connect-timeout: 500ms
       timeout: 500ms
   datasource:
-    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:esun_shop}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Taipei&characterEncoding=utf8
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:esun_shop}?useSSL=${DB_USE_SSL:false}&allowPublicKeyRetrieval=true&serverTimezone=Asia/Taipei&characterEncoding=utf8
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:123456}
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -29,6 +30,32 @@ springdoc:
     enabled: ${API_DOCS_ENABLED:true}
     operations-sorter: alpha
     tags-sorter: alpha
+
+# Browser origins allowed to call /api (comma-separated). Dev default is the Vite dev server; the prod profile
+# has no default and refuses to start without it. Applied by a servlet filter that runs before JwtAuthFilter.
+cors:
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+
+# Phase 3.3 #18: health probes for container healthchecks / deploy gates. Only /actuator/health is exposed, with no
+# details; liveness has no dependencies and readiness needs the database. Redis is deliberately NOT a health
+# dependency - the stock cache degrades to the database by design, so a Redis outage must not fail a deploy gate
+# or restart the app. The prod profile moves these endpoints to a separate, unpublished management port.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+      group:
+        readiness:
+          include: readinessState,db
+  health:
+    redis:
+      enabled: false
 
 jwt:
   # Dev-only fallback secret (must be >= 32 bytes for HS256) - override with the JWT_SECRET
