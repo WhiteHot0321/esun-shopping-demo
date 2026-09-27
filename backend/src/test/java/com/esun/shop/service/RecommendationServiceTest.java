@@ -92,7 +92,7 @@ class RecommendationServiceTest {
     }
 
     @Test
-    void aProductThatSoldOutBetweenTheReadsDropsOutInsteadOfBreakingTheList() {
+    void missingProductPayloadIsSkippedDefensively() {
         when(recommendations.coPurchased(anyCollection(), anyCollection(), anyInt(), anyInt()))
                 .thenReturn(List.of(new Candidate("B", 3), new Candidate("C", 2)));
         when(products.findAvailableByIds(anyCollection())).thenReturn(List.of(product("C")));
