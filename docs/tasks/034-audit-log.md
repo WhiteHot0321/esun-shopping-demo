@@ -60,9 +60,34 @@ book, profile), error tracking/alerting (§2.2), log export/retention, tamper-pr
   A stricter deployment would grant the app INSERT/SELECT only, or add triggers / ship logs to WORM storage.
 - No retention/archival job; the table grows without bound.
 - Not audited: login/password events, address/profile/cart edits, checkout creation (see Design), Redis compensation.
-- Unmapped HTTP methods (e.g. `DELETE /api/admin/audit-logs`) return 500 rather than 405 because
-  `GlobalExceptionHandler.handleOther` swallows `HttpRequestMethodNotSupportedException` — a pre-existing gap, only
-  asserted here as "not 2xx".
+- HTTP 405 gap repaired on 2026-09-26 (Codex, MODE: IMPLEMENT, baseline advanced-v2 @ 176b190; uncommitted):
+  dedicated `HttpRequestMethodNotSupportedException` handling returns 405 with Spring's Allow header and the API JSON envelope.
+  Exact MockMvc regression and real audit endpoint integration verification both PASS; Docker blocker resolved (details below).
 - Legacy `createProduct(request)` (no principal, creator `legacy`) records actor `legacy` with role `UNKNOWN`; it is not
   reachable from any mapped endpoint.
 - No live browser E2E; the panel is covered by Vitest only.
+
+## HTTP-METHOD-405 follow-up — 2026-09-26 19:56 Asia/Taipei
+
+- Small direct fix, Codex implementation/self-check, no independent review required or claimed. Scope: GlobalExceptionHandler,
+  GlobalExceptionHandlerTest, AuditLogIntegrationTest (3 code/test files) and existing progress records; no auth/CORS/DB changes.
+- RED: `mvn '-Dtest=GlobalExceptionHandlerTest' '-Djacoco.skip=true' test`: 4 tests, 1 expected failure
+  (expected 405, actual 500), exit 1, 6.727 s. Confirms the previous generic handler swallowed the method exception.
+- After fix: `mvn '-Dtest=GlobalExceptionHandlerTest,AuditLogIntegrationTest,AdminProductControllerTest,OrderControllerTest,OrderControllerValidationTest' '-Djacoco.skip=true' test`:
+  21 PASS (4 handler, 6 admin product, 6 order, 5 validation); 9 integration initialization errors, 0 assertion failures,
+  exit 1, 11.543 s. New MockMvc cases verify 405/Allow GET/message, valid GET still 200, unexpected exception still 500 without internal details.
+- Audit integration assertions require exact 405 + Allow GET for POST/DELETE on the existing collection and 404 on
+  nonexistent item routes. Initial run could not execute them: Testcontainers reported no valid Docker environment;
+  `docker info` confirmed missing `dockerDesktopLinuxEngine` pipe. This was not 9 proven business failures; the rerun below resolves it.
+- `git diff --check` PASS. Full regression, coverage and frontend not rerun (bounded backend fix; narrow tests skip global JaCoCo).
+  All pre-existing changes preserved; no commit/push. One implementation round, two test commands, no repair iterations.
+- User-authorized integration rerun (2026-09-26, same advanced-v2 @ 176b190 working tree): Docker Engine 29.8.0 available.
+  `mvn '-Dtest=AuditLogIntegrationTest' '-Djacoco.skip=true' test`: **9/9 PASS**, 0 failures/errors/skipped,
+  exit 0 / BUILD SUCCESS, 37.911 s (test class 35.48 s). Exact 405/Allow and 404 assertions now executed and passed,
+  alongside existing audit authorization, rollback, lifecycle and concurrent-restock cases. No source/test repairs in this rerun.
+  Evidence: `backend/target/surefire-reports/com.esun.shop.integration.AuditLogIntegrationTest.txt`.
+- HTTP-METHOD-405 bounded acceptance is complete: prior 21 non-container PASS + this 9-case integration PASS.
+  These are separate executions, not a new full-suite run. No coverage, frontend or independent review claim; no commit/push.
+  User interventions now include the explicit integration-rerun request. Rerun duration is recorded above; other unavailable metrics remain unknown.
+- Engineering note: a known HTTP protocol exception should keep its status and headers, not be treated as an unexpected server error.
+- User interventions: initial explicit implementation authorization, none mid-run. Total elapsed/context/token/cost/five-hour usage delta unknown.

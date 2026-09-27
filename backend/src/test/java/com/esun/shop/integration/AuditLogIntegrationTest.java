@@ -313,10 +313,14 @@ class AuditLogIntegrationTest extends AbstractMySqlIntegrationTest {
                 .andExpect(status().isBadRequest());
 
         // Append-only surface: the log exposes no mutation endpoints.
-        for (var request : List.of(delete("/api/admin/audit-logs"), post("/api/admin/audit-logs"),
-                put("/api/admin/audit-logs/1"), delete("/api/admin/audit-logs/1"))) {
-            int code = mvc.perform(request.header("Authorization", bearer(admin))).andReturn().getResponse().getStatus();
-            assertThat(code).as(request.toString()).isGreaterThanOrEqualTo(400);
+        for (var request : List.of(delete("/api/admin/audit-logs"), post("/api/admin/audit-logs"))) {
+            mvc.perform(request.header("Authorization", bearer(admin)))
+                    .andExpect(status().isMethodNotAllowed())
+                    .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Allow", "GET"))
+                    .andExpect(jsonPath("$.success").value(false));
+        }
+        for (var request : List.of(put("/api/admin/audit-logs/1"), delete("/api/admin/audit-logs/1"))) {
+            mvc.perform(request.header("Authorization", bearer(admin))).andExpect(status().isNotFound());
         }
     }
 
