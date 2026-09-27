@@ -146,6 +146,29 @@ class RecommendationIntegrationTest extends AbstractMySqlIntegrationTest {
     }
 
     @Test
+    void oneBuyerRepeatingTheSameBasketNeverReachesMinimumSupport() throws Exception {
+        String tag = tag();
+        String anchor = id(tag, "A");
+        String other = id(tag, "X");
+        product(anchor, 5, false);
+        product(other, 5, false);
+        String repeatBuyer = "repeat-" + tag + "@example.com";
+        order(tag + "-r1", repeatBuyer, "CREATED", anchor, other);
+        order(tag + "-r2", repeatBuyer, "CONFIRMED", anchor, other);
+        String url = "/api/products/" + anchor + "/recommendations?limit=20";
+
+        // Two live orders but a single buyer: neither co-purchase nor popular may report the pair, otherwise a public
+        // endpoint would reveal that one person's basket. (The product can still appear as new-arrival filler.)
+        assertThat(reasonOf(call(url, null, 200), other)).isNotIn("CO_PURCHASE", "POPULAR");
+
+        // A second, different buyer makes it an aggregate of two people, so the signal now qualifies.
+        order(tag + "-r3", "second-" + tag + "@example.com", "CREATED", anchor, other);
+        JsonNode items = call(url, null, 200);
+        assertThat(reasonOf(items, other)).isEqualTo("CO_PURCHASE");
+        assertThat(items.get(0).path("score").asLong()).isEqualTo(2);
+    }
+
+    @Test
     void cancellingOrdersRemovesTheirSignalAndProductChangesAreReflected() throws Exception {
         Catalog k = seedCatalog();
         jdbc.update("UPDATE shop_order SET order_status = 'CANCELLED' WHERE order_id IN (?, ?)", k.tag + "-1", k.tag + "-2");
@@ -250,6 +273,13 @@ class RecommendationIntegrationTest extends AbstractMySqlIntegrationTest {
         List<String> ids = new ArrayList<>();
         for (JsonNode item : items) ids.add(item.path("product").path("productId").asText());
         return ids;
+    }
+
+    private static String reasonOf(JsonNode items, String productId) {
+        for (JsonNode item : items) {
+            if (productId.equals(item.path("product").path("productId").asText())) return item.path("reason").asText();
+        }
+        return "ABSENT";
     }
 
     private static List<Integer> tierRanks(JsonNode items) {
