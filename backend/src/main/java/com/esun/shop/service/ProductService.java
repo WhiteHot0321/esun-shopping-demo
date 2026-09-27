@@ -218,7 +218,10 @@ public class ProductService {
 
     @Transactional
     public List<String> uploadOwnedProductImages(String productId, MultipartFile[] files, String creatorId) {
-        requireOwnedActive(productId, creatorId);
+        requirePrincipal(creatorId);
+        // Lock before any snapshot read: concurrent uploads must observe the preceding
+        // commit before checking the cap and allocating display_order (MySQL REPEATABLE READ).
+        requireOwnedActive(productRepository.lockIncludingDeletedById(productId), creatorId);
         int incoming = files == null ? 0 : files.length;
         if (productRepository.countProductImages(productId) + incoming > MAX_IMAGES_PER_PRODUCT) {
             throw new BusinessException("每個商品最多 " + MAX_IMAGES_PER_PRODUCT + " 張圖片", HttpStatus.BAD_REQUEST);
@@ -256,7 +259,10 @@ public class ProductService {
 
     private Product requireOwnedActive(String productId, String creatorId) {
         requirePrincipal(creatorId);
-        Product product = productRepository.findIncludingDeletedById(productId);
+        return requireOwnedActive(productRepository.findIncludingDeletedById(productId), creatorId);
+    }
+
+    private Product requireOwnedActive(Product product, String creatorId) {
         if (product == null || product.getDeletedAt() != null) {
             throw new BusinessException("商品不存在", HttpStatus.NOT_FOUND);
         }
