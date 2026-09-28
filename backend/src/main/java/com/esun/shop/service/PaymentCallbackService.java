@@ -7,10 +7,13 @@ import com.esun.shop.model.PaymentStatus;
 import com.esun.shop.repository.PaymentRepository;
 import com.esun.shop.repository.PaymentRepository.OrderPayState;
 import com.esun.shop.repository.PaymentRepository.Payment;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
@@ -36,12 +39,14 @@ public class PaymentCallbackService {
     private final PaymentGateway gateway;
     private final PaymentRepository paymentRepository;
     private final TransactionTemplate transactionTemplate;
+    private final MeterRegistry meterRegistry;
 
     public PaymentCallbackService(PaymentGateway gateway, PaymentRepository paymentRepository,
-                                  TransactionTemplate transactionTemplate) {
+                                  TransactionTemplate transactionTemplate, MeterRegistry meterRegistry) {
         this.gateway = gateway;
         this.paymentRepository = paymentRepository;
         this.transactionTemplate = transactionTemplate;
+        this.meterRegistry = meterRegistry;
     }
 
     /** @param parameters the raw provider callback parameters; only the gateway knows how to authenticate them */
@@ -119,7 +124,22 @@ public class PaymentCallbackService {
         }
         require(paymentRepository.transition(payment.id(), PaymentStatus.INITIATED, PaymentStatus.FAILED,
                 "PROVIDER_DECLINED", false, providerRef) == 1);
+        recordFailureAfterCommit();
         return Outcome.FAILED;
+    }
+
+    /** A provider decline is operationally visible only after its ledger transition actually commits. */
+    private void recordFailureAfterCommit() {
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                try {
+                    meterRegistry.counter("shop.payments.failure").increment();
+                } catch (RuntimeException metricFailure) {
+                    log.warn("Unable to record payment failure metric", metricFailure);
+                }
+            }
+        });
     }
 
     private Outcome parkForRefund(Payment payment, PaymentStatus from, OrderPayState order, String reason,

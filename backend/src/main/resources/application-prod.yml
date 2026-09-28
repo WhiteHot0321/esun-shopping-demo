@@ -31,5 +31,8 @@ payment:
 
 management:
   server:
-    # Not published by the compose file: reachable only from inside the container network (healthcheck, monitoring).
+    # Safe default for a single-container healthcheck/sidecar. For cross-container monitoring, explicitly set
+    # MANAGEMENT_ADDRESS=0.0.0.0 and keep MANAGEMENT_PORT unpublished from the host/public network; a separate port
+    # alone is not an access-control boundary.
+    address: ${MANAGEMENT_ADDRESS:127.0.0.1}
     port: ${MANAGEMENT_PORT:8081}

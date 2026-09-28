@@ -50,7 +50,7 @@ abstract class AbstractMySqlIntegrationTest {
             // container init, double-encoding every product/FAQ string - same fix as
             // docker-compose.yml's mysql service.
             .withCommand("--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci",
-                    "--character-set-client-handshake=FALSE")
+                    "--character-set-client-handshake=FALSE", "--max-connections=500")
             .withCopyFileToContainer(
                     MountableFile.forHostPath("DB/01_schema.sql"), "/docker-entrypoint-initdb.d/01_schema.sql")
             .withCopyFileToContainer(

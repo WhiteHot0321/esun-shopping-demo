@@ -8,6 +8,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalManagementPort;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.core.env.Environment;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -47,13 +48,17 @@ class ProductionProfileIntegrationTest extends AbstractMySqlIntegrationTest {
     @Autowired
     JwtService jwtService;
 
+    @Autowired
+    Environment environment;
+
     private ResponseEntity<String> get(int port, String path) {
         return rest.getForEntity("http://localhost:" + port + path, String.class);
     }
 
     @Test
-    void healthIsServedOnTheManagementPort_withoutDetails() {
+    void namedHealthProbesAreServedOnTheManagementPort_withoutDetails() {
         assertThat(managementPort).isNotEqualTo(serverPort);
+        assertThat(environment.getProperty("management.server.address")).isEqualTo("127.0.0.1");
 
         ResponseEntity<String> liveness = get(managementPort, "/actuator/health/liveness");
         ResponseEntity<String> readiness = get(managementPort, "/actuator/health/readiness");
@@ -65,8 +70,13 @@ class ProductionProfileIntegrationTest extends AbstractMySqlIntegrationTest {
     }
 
     @Test
-    void onlyHealthIsExposed_onTheManagementPort() {
+    void onlyHealthAndMetricsAreExposed_onTheManagementPort() {
+        ResponseEntity<String> metrics = get(managementPort, "/actuator/metrics");
+
+        assertThat(metrics.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(metrics.getBody()).contains("names").doesNotContain("password").doesNotContain("token");
         assertThat(get(managementPort, "/actuator/env").getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(get(managementPort, "/actuator/configprops").getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
         assertThat(get(managementPort, "/actuator/beans").getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     }
 
@@ -76,14 +86,17 @@ class ProductionProfileIntegrationTest extends AbstractMySqlIntegrationTest {
      * health handler at all (it would be 200 if the actuator were mounted there).
      */
     @Test
-    void mainPortDoesNotServeHealth_evenToAnAuthenticatedCaller() {
+    void mainPortDoesNotServeManagementEndpoints_evenToAnAuthenticatedCaller() {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(jwtService.generateToken("admin@example.com", Member.Role.ADMIN));
 
-        ResponseEntity<String> response = rest.exchange("http://localhost:" + serverPort + "/actuator/health",
+        ResponseEntity<String> health = rest.exchange("http://localhost:" + serverPort + "/actuator/health",
+                HttpMethod.GET, new HttpEntity<>(headers), String.class);
+        ResponseEntity<String> metrics = rest.exchange("http://localhost:" + serverPort + "/actuator/metrics",
                 HttpMethod.GET, new HttpEntity<>(headers), String.class);
 
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(health.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(metrics.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     }
 
     @Test

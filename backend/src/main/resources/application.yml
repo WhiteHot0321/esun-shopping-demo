@@ -36,26 +36,38 @@ springdoc:
 cors:
   allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
 
-# Phase 3.3 #18: health probes for container healthchecks / deploy gates. Only /actuator/health is exposed, with no
-# details; liveness has no dependencies and readiness needs the database. Redis is deliberately NOT a health
-# dependency - the stock cache degrades to the database by design, so a Redis outage must not fail a deploy gate
-# or restart the app. The prod profile moves these endpoints to a separate, unpublished management port.
+# Phase 3.3 #18 / MON-01/02: named health probes for container healthchecks / deploy gates plus the minimum metrics
+# surface. Liveness has no dependencies and readiness needs only the database. Redis/Ollama are observed through a
+# separate dependencies group, so their outage must not fail a deploy gate or restart the app. The prod profile moves
+# these endpoints to a restricted management interface.
 management:
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      percentiles:
+        http.server.requests: 0.95, 0.99
   endpoints:
     web:
       exposure:
-        include: health
+        include: health,metrics
   endpoint:
     health:
       probes:
         enabled: true
       show-details: never
+      validate-group-membership: false
       group:
         readiness:
           include: readinessState,db
+        dependencies:
+          include: redis,ollama
+          show-details: always
   health:
     redis:
       enabled: false
+    dependencies:
+      timeout-ms: ${DEPENDENCY_HEALTH_TIMEOUT_MS:500}
 
 jwt:
   # Dev-only fallback secret (must be >= 32 bytes for HS256) - override with the JWT_SECRET

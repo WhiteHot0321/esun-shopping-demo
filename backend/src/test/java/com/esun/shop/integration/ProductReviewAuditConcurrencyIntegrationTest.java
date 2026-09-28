@@ -145,7 +145,8 @@ class ProductReviewAuditConcurrencyIntegrationTest extends AbstractMySqlIntegrat
     void auditInsertFailureRollsBackReviewVisibility() {
         ProductReview review = reviewService.create(PRODUCT, BUYER, request());
         jdbc.execute("ALTER TABLE audit_log ADD CONSTRAINT chk_review_audit_fail "
-                + "CHECK (action <> 'REVIEW_VISIBILITY_CHANGE')");
+                + "CHECK (NOT (action = 'REVIEW_VISIBILITY_CHANGE' AND target_id = '"
+                + review.getId() + "'))");
         try {
             assertThrows(DataAccessException.class, () -> reviewService.setVisibility(review.getId(), SELLER,
                     Member.Role.SELLER, ProductReview.Visibility.HIDDEN));

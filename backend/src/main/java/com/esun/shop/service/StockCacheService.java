@@ -26,6 +26,8 @@ import org.springframework.scheduling.annotation.Scheduled;
 @Service
 public class StockCacheService {
     public enum Reservation { RESERVED, INSUFFICIENT, BYPASSED }
+    public enum DependencyMode { DISABLED, ENABLED, LATCHED_DB_ONLY }
+    public record DependencySnapshot(DependencyMode mode) {}
     private static final Logger log = LoggerFactory.getLogger(StockCacheService.class);
     private static final String PREFIX = "stock:";
     private final StringRedisTemplate redis;
@@ -51,6 +53,18 @@ public class StockCacheService {
     }
 
     public boolean isEnabled() { return enabled; }
+
+    /**
+     * Read-only process-local state for monitoring. A health probe must never clear the
+     * degradation latch: only maintenance reconciliation followed by a process restart
+     * may return the reservation path to Redis.
+     */
+    public DependencySnapshot dependencySnapshot() {
+        if (!enabled) return new DependencySnapshot(DependencyMode.DISABLED);
+        return new DependencySnapshot(degraded.get()
+                ? DependencyMode.LATCHED_DB_ONLY
+                : DependencyMode.ENABLED);
+    }
 
     @EventListener(ApplicationReadyEvent.class)
     public void preloadOnStartup() {

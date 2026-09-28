@@ -4,6 +4,7 @@ import com.esun.shop.model.PaymentResult;
 import com.esun.shop.service.HmacPaymentGateway;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -13,6 +14,7 @@ import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -46,6 +48,8 @@ class PaymentIntegrationTest extends AbstractMySqlIntegrationTest {
     @Autowired JdbcTemplate jdbc;
     @Autowired HmacPaymentGateway gateway;
     @Autowired javax.sql.DataSource dataSource;
+    @Autowired MeterRegistry meterRegistry;
+    @Autowired TransactionTemplate transactionTemplate;
 
     // ---- the vulnerability this feature closes ----
 
@@ -244,6 +248,68 @@ class PaymentIntegrationTest extends AbstractMySqlIntegrationTest {
     }
 
     // ---- failure, retry, late money ----
+
+    @Test
+    void failureMetricCountsOnlyTheFirstCommittedProviderDecline() throws Exception {
+        double baseline = paymentFailureCount();
+
+        Fixture replay = fixture(1, 100);
+        String replayTradeNo = startPayment(replay);
+        signedCallback(replayTradeNo, "100.00", PaymentResult.FAILED, null)
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.outcome").value("FAILED"));
+        signedCallback(replayTradeNo, "100.00", PaymentResult.FAILED, null)
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.outcome").value("DUPLICATE"));
+        assertThat(paymentFailureCount()).isEqualTo(baseline + 1);
+
+        Fixture concurrent = fixture(1, 100);
+        String concurrentTradeNo = startPayment(concurrent);
+        String body = signedBody(concurrentTradeNo, "100.00", PaymentResult.FAILED, null);
+        CountDownLatch go = new CountDownLatch(1);
+        List<Callable<String>> tasks = new ArrayList<>();
+        for (int i = 0; i < 8; i++) {
+            tasks.add(() -> {
+                go.await();
+                var response = mvc.perform(post("/api/payments/callback").contentType(MediaType.APPLICATION_JSON)
+                        .content(body)).andReturn().getResponse();
+                assertThat(response.getStatus()).isEqualTo(200);
+                return mapper.readTree(response.getContentAsString()).path("data").path("outcome").asText();
+            });
+        }
+        List<String> outcomes = runConcurrently(tasks, go);
+        assertThat(outcomes).filteredOn("FAILED"::equals).hasSize(1);
+        assertThat(outcomes).filteredOn("DUPLICATE"::equals).hasSize(7);
+        assertThat(paymentFailureCount()).isEqualTo(baseline + 2);
+
+        Fixture rolledBack = fixture(1, 100);
+        String rolledBackTradeNo = startPayment(rolledBack);
+        transactionTemplate.executeWithoutResult(status -> {
+            try {
+                signedCallback(rolledBackTradeNo, "100.00", PaymentResult.FAILED, null)
+                        .andExpect(status().isOk()).andExpect(jsonPath("$.data.outcome").value("FAILED"));
+            } catch (Exception exception) {
+                throw new RuntimeException(exception);
+            }
+            status.setRollbackOnly();
+        });
+        assertThat(paymentStatus(rolledBackTradeNo)).isEqualTo("INITIATED");
+        assertThat(paymentFailureCount()).isEqualTo(baseline + 2);
+
+        Fixture lateSuccess = fixture(1, 100);
+        String lateTradeNo = startPayment(lateSuccess);
+        signedCallback(lateTradeNo, "100.00", PaymentResult.FAILED, null).andExpect(status().isOk());
+        signedCallback(lateTradeNo, "100.00", PaymentResult.SUCCESS, "REF-LATE-METRIC")
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.outcome").value("SUCCEEDED"));
+        assertThat(paymentFailureCount()).isEqualTo(baseline + 3);
+
+        Fixture refund = fixture(1, 100);
+        String refundTradeNo = startPayment(refund);
+        signedCallback(refundTradeNo, "100.00", PaymentResult.FAILED, null).andExpect(status().isOk());
+        mvc.perform(post("/api/orders/{id}/cancel", refund.orderId).header("Authorization", bearer(refund.buyer)))
+                .andExpect(status().isOk());
+        signedCallback(refundTradeNo, "100.00", PaymentResult.SUCCESS, "REF-REFUND-METRIC")
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.outcome").value("REFUND_REQUIRED"));
+        assertThat(paymentFailureCount()).isEqualTo(baseline + 4);
+    }
 
     @Test
     void failedAttemptCanBeRetriedAndLateMoneyOnTheOldAttemptIsFlaggedForRefund() throws Exception {
@@ -495,6 +561,11 @@ class PaymentIntegrationTest extends AbstractMySqlIntegrationTest {
 
     private int quantity(String productId) {
         return jdbc.queryForObject("SELECT quantity FROM product WHERE product_id = ?", Integer.class, productId);
+    }
+
+    private double paymentFailureCount() {
+        var counter = meterRegistry.find("shop.payments.failure").counter();
+        return counter == null ? 0 : counter.count();
     }
 
     private JsonNode json(String body) throws Exception {

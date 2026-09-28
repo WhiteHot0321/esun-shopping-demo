@@ -3,6 +3,7 @@ package com.esun.shop.service;
 import com.esun.shop.dto.CreateOrderRequest;
 import com.esun.shop.repository.OrderRepository;
 import com.esun.shop.repository.ProductRepository;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.dao.DeadlockLoserDataAccessException;
 import org.springframework.dao.DataAccessException;
@@ -25,16 +26,25 @@ public class OrderService {
     private final OrderTransactionService transactionService;
     private final AtomicLong retryCount = new AtomicLong();
     private final StockCacheService stockCacheService;
+    private final MeterRegistry meterRegistry;
 
     @Autowired
-    public OrderService(OrderTransactionService transactionService, StockCacheService stockCacheService) {
+    public OrderService(OrderTransactionService transactionService, StockCacheService stockCacheService,
+            MeterRegistry meterRegistry) {
         this.transactionService = transactionService;
         this.stockCacheService = stockCacheService;
+        this.meterRegistry = meterRegistry;
+    }
+
+    /** Compatibility constructor for tests and callers outside the Spring container. */
+    public OrderService(OrderTransactionService transactionService, StockCacheService stockCacheService) {
+        this(transactionService, stockCacheService, null);
     }
 
     public OrderService(OrderTransactionService transactionService) {
         this.transactionService = transactionService;
         this.stockCacheService = null;
+        this.meterRegistry = null;
     }
 
     /** Compatibility constructor used by isolated service unit tests. */
@@ -51,22 +61,27 @@ public class OrderService {
             retryCount.incrementAndGet();
             log.info("Order retry requestId={} attempt={}", request.getRequestId(), retryContext.getRetryCount() + 1);
         }
-        if (stockCacheService == null || !stockCacheService.isEnabled()) {
-            return transactionService.createOrder(request);
-        }
         List<com.esun.shop.dto.OrderItemRequest> items = request.getItems();
         var reservation = new java.util.concurrent.atomic.AtomicReference<>(StockCacheService.Reservation.BYPASSED);
         try {
+            if (stockCacheService == null || !stockCacheService.isEnabled()) {
+                OrderCreationResult result = transactionService.createOrderWithResult(request);
+                recordSuccessIfNew(result);
+                return result.orderId();
+            }
             OrderCreationResult result = transactionService.createOrderWithStock(request, () -> {
                 reservation.set(stockCacheService.tryDecrease(items));
                 if (reservation.get() == StockCacheService.Reservation.INSUFFICIENT) {
                     throw new BusinessException("商品庫存不足", org.springframework.http.HttpStatus.CONFLICT);
                 }
             });
+            recordSuccessIfNew(result);
             return result.orderId();
         } catch (RuntimeException ex) {
             // The transactional proxy has finished rolling back before compensation.
             if (reservation.get() == StockCacheService.Reservation.RESERVED) stockCacheService.compensate(items);
+            // Do not count retryable intermediate failures; @Recover records the one final failure.
+            if (!isRetryableLockFailure(ex)) recordFailure();
             throw ex;
         }
     }
@@ -93,7 +108,31 @@ public class OrderService {
 
     private String recoverLockContention(Throwable cause, CreateOrderRequest request) {
         log.warn("Order retries exhausted requestId={}", request.getRequestId());
+        recordFailure();
         throw new ConcurrentOrderException(request.getRequestId(), cause);
+    }
+
+    private static boolean isRetryableLockFailure(RuntimeException exception) {
+        return exception instanceof CannotAcquireLockException
+                || exception instanceof DeadlockLoserDataAccessException;
+    }
+
+    private void recordSuccessIfNew(OrderCreationResult result) {
+        if (result.newlyCreated()) record("shop.orders.success");
+    }
+
+    private void recordFailure() {
+        record("shop.orders.failure");
+    }
+
+    /** Metrics must remain observational: registry failures never alter the order outcome. */
+    private void record(String metricName) {
+        if (meterRegistry == null) return;
+        try {
+            meterRegistry.counter(metricName).increment();
+        } catch (RuntimeException metricFailure) {
+            log.warn("Unable to record order metric {}", metricName, metricFailure);
+        }
     }
 
     public long getRetryCount() {
