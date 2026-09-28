@@ -3,6 +3,87 @@
 Updated: 2026-09-27 (2026-09-27 batch merged: PRs #7-#11; strategy: engineering depth)
 Baseline: advanced-v2 @ 11c60b6 (merge of PR #11)
 
+## MON-05 integration acceptance — 2026-09-28 Asia/Taipei
+
+MON-05 is complete with **PASS** on `advanced-v2` from working baseline `69517fa`, still uncommitted. The initial
+`mvn clean test` exposed two test-infrastructure interactions: cached Spring contexts collectively exceeded the
+shared MySQL container's default connection ceiling, and an audit fault-injection constraint incorrectly rejected
+valid history from earlier tests. The bounded correction raises only the test-container connection ceiling and scopes
+the constraint to the current review target; production behavior and assertions are unchanged.
+
+Focused verification passed 18/18. Claude Code independent read-only correction review returned **PASS** with no
+blockers or valid defects. Final `mvn clean test` passed **295/295**, 0 failures/errors/skips, exit 0 in 3:47; JaCoCo
+analyzed 156 classes and all configured coverage checks were met. Evidence:
+`docs/tasks/052-mon05-integration-acceptance.md`. No real ECPay inbound traffic, deploy, commit, push, or merge was
+claimed or performed. The non-blocking throwing-`MeterRegistry` executable fault-injection idea remains optional.
+
+## MON-04 payment failure metric and callback deduplication — 2026-09-28 Asia/Taipei
+
+MON-04 is complete for its bounded scope on `advanced-v2` from baseline `69517fa`, still uncommitted. A verified
+provider decline now publishes process-local `shop.payments.failure` only when the existing `INITIATED -> FAILED`
+conditional update succeeds and its transaction commits. Sequential replay and eight-way concurrent duplicate
+callbacks count once; rollback, late success and `REFUND_REQUIRED` do not add counts. The metric has no identifier
+tags, and registry failure is isolated from the already-committed payment outcome. Payment repository SQL, order-to-
+payment lock order, amount/signature/provider rules and refund semantics are unchanged.
+
+Final targeted verification: `mvn '-Dtest=PaymentIntegrationTest' '-Djacoco.skip=true' test` — exit 0, 18/18,
+0 failures/errors/skips after Docker Desktop was started; the first attempt exited 1 with 18 Testcontainers
+initialization errors because Docker was not running, with 0 assertion failures. Claude Code independent read-only
+review: **PASS**, 0 blockers. Its only non-blocking follow-up is executable fault injection for a throwing metric
+registry; static inspection confirms the exception is contained, and this is deferred to MON-05 with full regression
+and coverage. Evidence: `docs/tasks/051-mon04-payment-failure-metrics.md`. No commit, push, merge or deploy. Next:
+MON-05.
+
+## MON-03 order counters and HTTP latency — 2026-09-28 Asia/Taipei
+
+MON-03 is complete for its bounded scope on `advanced-v2` from baseline `69517fa`, still uncommitted. `OrderService`
+now publishes process-local `shop.orders.success` / `shop.orders.failure` counters at the final service outcome:
+only `OrderCreationResult.newlyCreated=true` counts success, replay does not, successful internal retry does not count
+failure, and non-retry failure or exhausted retry counts exactly once. Metric-registry failures are isolated from the
+original order result. `http.server.requests` has histogram and p95/p99 configuration; the targeted test sends real
+401 traffic and then uses an authenticated Actuator metrics request to verify the meter and low-cardinality tags.
+
+Final targeted verification: `mvn '-Dtest=OrderRetryTest' '-Djacoco.skip=true' test` — exit 0, 6/6, 0 failures,
+errors, or skips. Initial independent review found one valid defect (no Actuator endpoint query); the bounded
+correction added that query and the same reviewer re-reviewed read-only: **PASS**. Earlier failed rounds and repair
+history are preserved in `docs/tasks/050-mon03-order-http-metrics.md`. Full suite and JaCoCo remain MON-05; no commit,
+push, merge, or deploy. Next: MON-04.
+
+## MON-02 Redis degradation and Ollama dependency status — 2026-09-27 21:14 Asia/Taipei
+
+Codex implemented MON-02 on `advanced-v2` from baseline `69517fa`, preserving the uncommitted MON-01 changes and
+without commit/push/merge/deploy. `StockCacheService` now exposes an immutable, thread-safe dependency snapshot with
+`DISABLED`, `ENABLED`, and `LATCHED_DB_ONLY`; the health path never clears the latch or writes stock. The custom Redis
+indicator adds bounded PING connectivity and a distinct `CONNECTION_FAILED` observation. The Ollama indicator calls
+only `/api/tags`, checks configured chat/embed model presence, labels the result as tag-inventory-only, exposes counts
+rather than model names, and has a configurable 500 ms default timeout. These indicators belong only to the separate
+`dependencies` group; readiness remains `readinessState,db` and liveness remains dependency-free.
+
+Targeted real-dependency verification: initial MySQL+Redis+controlled-Ollama run passed 2/2, exit 0, 46.145 s; the
+expanded three-test run exposed only an immediate post-MySQL-unpause connection-pool timing assertion. Repair round 1
+changed recovery verification to bounded polling, then `DatabaseReadinessHealthIntegrationTest` passed 1/1, exit 0,
+40.621 s. Proven behaviors include DB outage readiness 503/liveness 200, Redis/Ollama outage not affecting readiness,
+Redis disabled/healthy/failed/latched modes, PING recovery retaining the latch, bounded Ollama timeout/missing-model
+reporting, and a successful DB-only order during a real Redis pause. A first-round Claude Code independent read-only
+review returned PASS but was superseded: a completion audit found the Ollama-refusal criterion (#6) was only proven
+for missing-model/timeout, not an actual HTTP error response. Repair round 2 added a controlled Ollama HTTP 503 stub
+case and one assertion; `ExternalDependenciesHealthIntegrationTest` re-ran 1/1, exit 0, 41.942 s. A fresh independent
+read-only review against the updated code returned **PASS**, all seven acceptance criteria and the `show-details`
+scoping re-confirmed with file:line evidence, 0 valid defects/blockers; `ProductionProfileIntegrationTest.java`'s
+change was checked and is in-scope (prod management-port separation supporting MON-02's isolation requirement).
+JaCoCo/full regression remain MON-05. Evidence: `docs/tasks/049-mon02-redis-ollama-dependencies.md`. Next: MON-03.
+Usage/cost evidence unavailable (unknown).
+
+## MON-01 health probe separation and management security — 2026-09-27 21:02 Asia/Taipei
+
+Codex implemented MON-01 on `advanced-v2` from baseline `69517fa` without commit/push/merge/deploy. The Actuator allow-list is now `health,metrics`; liveness remains dependency-free, readiness remains `readinessState,db`, and a separate `dependencies` group reserves the Redis/Ollama observation boundary for MON-02. The production management listener defaults to `127.0.0.1`; cross-container monitoring must explicitly bind `0.0.0.0` while keeping the management port unpublished. `ProductionProfileIntegrationTest` proves real-prod-profile main/management port separation, liveness/readiness reachability, management-only metrics, and rejection of main-port Actuator plus `env`/`configprops`/`beans`.
+
+Verification: `mvn '-Dtest=ProductionProfileIntegrationTest' '-Djacoco.skip=true' test` first failed at startup because the membership-validation property was nested at the wrong level; after repair round 1, the same command passed 4/4, 0 failures/errors/skips, exit 0, 35.263 s, with Testcontainers MySQL. Claude Code independent read-only review: PASS, no blocker or valid defect. Coverage was deliberately skipped; full regression remains MON-05. Existing Ollama missing-model warnings were non-blocking. Evidence: `docs/tasks/048-mon01-health-management-security.md`. Next: MON-02 Redis/Ollama dependency indicators and bounded-timeout behavior. Usage/cost evidence unavailable (unknown).
+
+## User-directed audit closeout — 2026-09-27 19:19 Asia/Taipei
+
+Current checked HEAD: `69517fa`. At the user's request, remaining monitoring work is handed off as five **pending** Notion prompts (MON-01–05), and this session is closed without further automatic implementation. This supersedes open-ended continuation notes, **not** feature acceptance: no claim that all code through #17 is complete/perfect. Hub: https://app.notion.com/p/3e8708da9f92810787c3e89341756fa2 ; local evidence and remaining #2/RBAC/final-regression limitations: `docs/handoff/through-phase32-closeout.md`. Current config already has Actuator/DB readiness, so historical wording claiming no management configuration is stale. Preserve that policy while adding separate optional-dependency observation. Documentation only this turn; no new tests, commit/push/merge/deploy.
+
 ## Merge status of the 2026-09-27 batch
 
 All five code PRs were merged into `advanced-v2` with merge commits, in this order. CI below is the GitHub Actions run on the merge commit itself (`publish-image` ran because the push was to `advanced-v2`).
