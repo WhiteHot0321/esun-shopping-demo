@@ -1,0 +1,121 @@
+# Alert rules. Every alert links to a section of docs/runbook-incident.md via the `runbook` annotation.
+# Thresholds are starting points sized for a single small instance; tune them from the dashboard, not by guessing.
+groups:
+  - name: esun-availability
+    rules:
+      - alert: BackendDown
+        expr: up{job="esun-backend"} == 0
+        for: 1m
+        labels: {severity: critical}
+        annotations:
+          summary: "Backend metrics target is down"
+          description: "Prometheus cannot scrape the backend management port for 1 minute."
+          runbook: "docs/runbook-incident.md#backenddown"
+
+      - alert: BackendMetricsAbsent
+        expr: absent(up{job="esun-backend"})
+        for: 5m
+        labels: {severity: critical}
+        annotations:
+          summary: "No backend target is being scraped at all"
+          description: "The esun-backend job has no series; the scrape configuration or the stack is broken."
+          runbook: "docs/runbook-incident.md#backenddown"
+
+  - name: esun-http
+    rules:
+      - alert: HighHttp5xxRatio
+        expr: |
+          sum(rate(http_server_requests_seconds_count{status=~"5..",uri!~"/actuator.*"}[5m]))
+            / clamp_min(sum(rate(http_server_requests_seconds_count{uri!~"/actuator.*"}[5m])), 1e-9) > 0.05
+          and sum(rate(http_server_requests_seconds_count{uri!~"/actuator.*"}[5m])) > 0.1
+        for: 5m
+        labels: {severity: critical}
+        annotations:
+          summary: "More than 5% of requests are failing with 5xx"
+          description: "5xx ratio over 5m is {{ $value | humanizePercentage }} with non-trivial traffic."
+          runbook: "docs/runbook-incident.md#highhttp5xxratio"
+
+      - alert: HighP95Latency
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(http_server_requests_seconds_bucket{uri!~"/actuator.*"}[5m]))) > 1
+        for: 10m
+        labels: {severity: warning}
+        annotations:
+          summary: "p95 request latency above 1s for 10 minutes"
+          description: "p95 is {{ $value | humanizeDuration }}."
+          runbook: "docs/runbook-incident.md#highp95latency"
+
+  - name: esun-business
+    rules:
+      - alert: OrderFailureRatioHigh
+        expr: |
+          increase(shop_orders_failure_total[10m])
+            / clamp_min(increase(shop_orders_success_total[10m]) + increase(shop_orders_failure_total[10m]), 1) > 0.2
+          and increase(shop_orders_failure_total[10m]) >= 5
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: "More than 20% of order attempts are failing"
+          description: "Failures include business rejections (e.g. sold out) as well as errors; check the split before acting."
+          runbook: "docs/runbook-incident.md#orderfailureratiohigh"
+
+      - alert: PaymentFailuresElevated
+        expr: increase(shop_payments_failure_total[15m]) >= 5
+        for: 0m
+        labels: {severity: warning}
+        annotations:
+          summary: "5 or more verified payment declines in 15 minutes"
+          description: "Counts provider-verified declines only; unverified callbacks are rejected before this counter."
+          runbook: "docs/runbook-incident.md#paymentfailureselevated"
+
+      - alert: OrderLockRetriesElevated
+        expr: increase(shop_orders_lock_retry_total[10m]) > 20
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: "Order deadlock/lock-wait retries are elevated"
+          description: "More than 20 internal retries in 10 minutes; lock contention on hot products is likely."
+          runbook: "docs/runbook-incident.md#orderlockretrieselevated"
+
+      - alert: OrderLockRetriesExhausted
+        expr: increase(shop_orders_lock_exhausted_total[5m]) > 0
+        for: 0m
+        labels: {severity: critical}
+        annotations:
+          summary: "Orders failed after exhausting lock retries"
+          description: "Customers received a conflict answer after 3 attempts; contention is beyond what retries absorb."
+          runbook: "docs/runbook-incident.md#orderlockretriesexhausted"
+
+  - name: esun-dependencies
+    rules:
+      - alert: StockCacheDegraded
+        expr: max(shop_stock_cache_degraded) == 1
+        for: 1m
+        labels: {severity: warning}
+        annotations:
+          summary: "Redis stock path latched to DB-only"
+          description: "Orders still succeed against MySQL, but the latch clears only after reconciliation and a restart."
+          runbook: "docs/runbook-incident.md#stockcachedegraded"
+
+  - name: esun-resources
+    rules:
+      - alert: JvmHeapHigh
+        expr: sum(jvm_memory_used_bytes{area="heap"}) / sum(jvm_memory_max_bytes{area="heap"}) > 0.9
+        for: 10m
+        labels: {severity: warning}
+        annotations:
+          summary: "JVM heap above 90% for 10 minutes"
+          description: "Heap usage {{ $value | humanizePercentage }}."
+          runbook: "docs/runbook-incident.md#jvmheaphigh"
+
+      - alert: DbPoolSaturated
+        expr: |
+          max(hikaricp_connections_active) / max(hikaricp_connections_max) > 0.9
+          or max(hikaricp_connections_pending) > 0
+        for: 3m
+        labels: {severity: warning}
+        annotations:
+          summary: "Database connection pool is saturated or has waiters"
+          description: "Active/max above 90% or requests are waiting for a connection."
+          runbook: "docs/runbook-incident.md#dbpoolsaturated"

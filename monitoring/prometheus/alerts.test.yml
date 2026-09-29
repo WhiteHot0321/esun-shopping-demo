@@ -1,0 +1,104 @@
+# Unit tests for alerts.yml: run with `promtool test rules` (see docs/tasks/061). Each case feeds synthetic series and
+# asserts which alerts are firing at a given time, so alert behaviour is checked without waiting on a live stack.
+rule_files:
+  - alerts.yml
+
+evaluation_interval: 1m
+
+tests:
+  - interval: 1m
+    name: backend down fires after one minute, not before
+    input_series:
+      - series: 'up{job="esun-backend"}'
+        values: '1 1 0 0 0 0'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: BackendDown
+        exp_alerts: []
+      - eval_time: 3m
+        alertname: BackendDown
+        exp_alerts:
+          - exp_labels: {severity: critical, job: esun-backend}
+            exp_annotations:
+              summary: "Backend metrics target is down"
+              description: "Prometheus cannot scrape the backend management port for 1 minute."
+              runbook: "docs/runbook-incident.md#backenddown"
+
+  - interval: 1m
+    name: healthy backend raises nothing
+    input_series:
+      - series: 'up{job="esun-backend"}'
+        values: '1 1 1 1 1 1'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: BackendDown
+        exp_alerts: []
+
+  - interval: 1m
+    name: stock cache latch fires after one minute
+    input_series:
+      - series: 'shop_stock_cache_degraded{job="esun-backend"}'
+        values: '0 0 1 1 1 1'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: StockCacheDegraded
+        exp_alerts: []
+      - eval_time: 3m
+        alertname: StockCacheDegraded
+        exp_alerts:
+          - exp_labels: {severity: warning}
+            exp_annotations:
+              summary: "Redis stock path latched to DB-only"
+              description: "Orders still succeed against MySQL, but the latch clears only after reconciliation and a restart."
+              runbook: "docs/runbook-incident.md#stockcachedegraded"
+
+  - interval: 1m
+    name: exhausted lock retries page immediately
+    input_series:
+      - series: 'shop_orders_lock_exhausted_total{job="esun-backend"}'
+        values: '0 0 0 1 2 2'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: OrderLockRetriesExhausted
+        exp_alerts: []
+      - eval_time: 4m
+        alertname: OrderLockRetriesExhausted
+        exp_alerts:
+          - exp_labels: {severity: critical, job: esun-backend}
+            exp_annotations:
+              summary: "Orders failed after exhausting lock retries"
+              description: "Customers received a conflict answer after 3 attempts; contention is beyond what retries absorb."
+              runbook: "docs/runbook-incident.md#orderlockretriesexhausted"
+
+  - interval: 1m
+    name: 5xx ratio needs both a high ratio and real traffic
+    input_series:
+      # 60 req/min total, of which 30/min are 5xx -> ratio 0.5, rate 1 req/s
+      - series: 'http_server_requests_seconds_count{status="200",uri="/api/orders"}'
+        values: '0+30x15'
+      - series: 'http_server_requests_seconds_count{status="500",uri="/api/orders"}'
+        values: '0+30x15'
+      # a second endpoint with 1 tiny request: ratio high, traffic negligible -> must not fire
+      - series: 'http_server_requests_seconds_count{status="500",uri="/api/only-one"}'
+        values: '0 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1'
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: HighHttp5xxRatio
+        exp_alerts:
+          - exp_labels: {severity: critical}
+            exp_annotations:
+              summary: "More than 5% of requests are failing with 5xx"
+              description: "5xx ratio over 5m is 50% with non-trivial traffic."
+              runbook: "docs/runbook-incident.md#highhttp5xxratio"
+
+  - interval: 1m
+    name: low-traffic 5xx does not fire
+    input_series:
+      - series: 'http_server_requests_seconds_count{status="200",uri="/api/x"}'
+        values: '0+0x15'
+      - series: 'http_server_requests_seconds_count{status="500",uri="/api/x"}'
+        values: '0 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1'
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: HighHttp5xxRatio
+        exp_alerts: []

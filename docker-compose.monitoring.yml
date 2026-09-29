@@ -1,0 +1,63 @@
+# Monitoring overlay (Phase 3.3 #19 OBS-02): Prometheus + Alertmanager + Grafana next to the production stack.
+#
+#   docker compose -f docker-compose.prod.yml [-f docker-compose.tunnel.yml] -f docker-compose.monitoring.yml \
+#       --env-file .env.prod up -d
+#
+# Nothing here is published on a public interface: the UIs bind to 127.0.0.1 only (reach them over SSH port-forward
+# or locally). The backend management port (8081) is made reachable to Prometheus on the internal Docker network by
+# binding it to 0.0.0.0 inside the container; it stays unpublished, so the host and the internet cannot reach it.
+services:
+  backend:
+    environment:
+      MANAGEMENT_ADDRESS: "0.0.0.0"
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      # Metric history kept 15 days; older samples are deleted. Raise it only together with the volume size.
+      - --storage.tsdb.retention.time=15d
+      - --storage.tsdb.retention.size=2GB
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    volumes:
+      - ./monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager-data:/alertmanager
+    ports:
+      - "127.0.0.1:9093:9093"
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in .env.prod}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+volumes:
+  prometheus-data:
+  alertmanager-data:
+  grafana-data:
