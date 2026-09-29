@@ -62,6 +62,35 @@ class OrderStatusIntegrationTest extends AbstractMySqlIntegrationTest {
     }
 
     @Test
+    void sellerOrderListPagesInDatabaseOrderAndKeepsScopeAndStatusFilter() throws Exception {
+        String tag = tag();
+        String seller = sellerToken("pg-seller-" + tag + "@example.com");
+        String otherSeller = sellerToken("pg-other-" + tag + "@example.com");
+        String buyer = buyerToken("pg-buyer-" + tag + "@example.com");
+        createProduct(seller, "PG-" + tag, 100, 10);
+        List<String> placed = List.of(placeOrder(buyer, "PG-" + tag, 1), placeOrder(buyer, "PG-" + tag, 1),
+                placeOrder(buyer, "PG-" + tag, 1));
+        List<String> expected = jdbc.queryForList("SELECT order_id FROM shop_order WHERE order_id IN (?, ?, ?) "
+                + "ORDER BY created_at DESC, order_id DESC", String.class, placed.get(0), placed.get(1), placed.get(2));
+
+        mvc.perform(get("/api/seller/orders").header("Authorization", bearer(seller)).param("size", "2").param("page", "0"))
+                .andExpect(jsonPath("$.data.total").value(3))
+                .andExpect(jsonPath("$.data.orders.length()").value(2))
+                .andExpect(jsonPath("$.data.orders[0].orderId").value(expected.get(0)))
+                .andExpect(jsonPath("$.data.orders[1].orderId").value(expected.get(1)))
+                .andExpect(jsonPath("$.data.orders[0].receiverName").value("王小明"));
+        mvc.perform(get("/api/seller/orders").header("Authorization", bearer(seller)).param("size", "2").param("page", "1"))
+                .andExpect(jsonPath("$.data.orders.length()").value(1))
+                .andExpect(jsonPath("$.data.orders[0].orderId").value(expected.get(2)));
+        mvc.perform(get("/api/seller/orders").header("Authorization", bearer(seller)).param("status", "CONFIRMED"))
+                .andExpect(jsonPath("$.data.total").value(0))
+                .andExpect(jsonPath("$.data.orders.length()").value(0));
+        mvc.perform(get("/api/seller/orders").header("Authorization", bearer(otherSeller)))
+                .andExpect(jsonPath("$.data.total").value(0))
+                .andExpect(jsonPath("$.data.orders.length()").value(0));
+    }
+
+    @Test
     void buyerTracksOwnOrdersAndCannotSeeOthers() throws Exception {
         String tag = tag();
         String seller = sellerToken("os-seller-" + tag + "@example.com");

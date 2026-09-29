@@ -1,0 +1,2333 @@
+{
+  "label": "current-run1",
+  "runs_per_query": 5,
+  "environment": {
+    "version": "8.0.46",
+    "innodb_buffer_pool_size": "134217728",
+    "max_connections": "151",
+    "transaction_isolation": "REPEATABLE-READ",
+    "image": "mysql:8.0",
+    "host": "16 logical CPUs (Docker Desktop VM shared with the host)",
+    "seed_seconds": 17.4
+  },
+  "tables": [
+    {
+      "t": "order_status_history",
+      "r": "198973",
+      "data_mb": "15.55",
+      "index_mb": "10.52"
+    },
+    {
+      "t": "order_detail",
+      "r": "249174",
+      "data_mb": "15.55",
+      "index_mb": "23.06"
+    },
+    {
+      "t": "audit_log",
+      "r": "99357",
+      "data_mb": "11.52",
+      "index_mb": "16.06"
+    },
+    {
+      "t": "shop_order",
+      "r": "99700",
+      "data_mb": "8.52",
+      "index_mb": "18.06"
+    },
+    {
+      "t": "payment",
+      "r": "89650",
+      "data_mb": "8.52",
+      "index_mb": "8.55"
+    },
+    {
+      "t": "order_request",
+      "r": "99974",
+      "data_mb": "6.52",
+      "index_mb": "0.00"
+    },
+    {
+      "t": "product_review",
+      "r": "19592",
+      "data_mb": "2.52",
+      "index_mb": "3.03"
+    },
+    {
+      "t": "shopping_cart",
+      "r": "9847",
+      "data_mb": "1.52",
+      "index_mb": "1.08"
+    },
+    {
+      "t": "shipping_address",
+      "r": "4854",
+      "data_mb": "0.48",
+      "index_mb": "0.28"
+    },
+    {
+      "t": "member",
+      "r": "4961",
+      "data_mb": "0.38",
+      "index_mb": "0.30"
+    },
+    {
+      "t": "product_image",
+      "r": "4000",
+      "data_mb": "0.31",
+      "index_mb": "0.19"
+    },
+    {
+      "t": "product",
+      "r": "2000",
+      "data_mb": "0.20",
+      "index_mb": "0.08"
+    },
+    {
+      "t": "password_reset_token",
+      "r": "0",
+      "data_mb": "0.02",
+      "index_mb": "0.03"
+    },
+    {
+      "t": "faq",
+      "r": "0",
+      "data_mb": "0.02",
+      "index_mb": "0.00"
+    },
+    {
+      "t": "doc_embedding",
+      "r": "0",
+      "data_mb": "0.02",
+      "index_mb": "0.02"
+    },
+    {
+      "t": "coupon_member_usage",
+      "r": "0",
+      "data_mb": "0.02",
+      "index_mb": "0.00"
+    },
+    {
+      "t": "coupon",
+      "r": "20",
+      "data_mb": "0.02",
+      "index_mb": "0.02"
+    }
+  ],
+  "indexes": [
+    {
+      "t": "audit_log",
+      "i": "idx_audit_log_action",
+      "cols": "action,id",
+      "non_unique": "1",
+      "cardinality": "97704"
+    },
+    {
+      "t": "audit_log",
+      "i": "idx_audit_log_actor",
+      "cols": "actor,id",
+      "non_unique": "1",
+      "cardinality": "90061"
+    },
+    {
+      "t": "audit_log",
+      "i": "idx_audit_log_created",
+      "cols": "created_at,id",
+      "non_unique": "1",
+      "cardinality": "99357"
+    },
+    {
+      "t": "audit_log",
+      "i": "idx_audit_log_target",
+      "cols": "target_type,target_id,id",
+      "non_unique": "1",
+      "cardinality": "99357"
+    },
+    {
+      "t": "audit_log",
+      "i": "PRIMARY",
+      "cols": "id",
+      "non_unique": "0",
+      "cardinality": "99357"
+    },
+    {
+      "t": "coupon",
+      "i": "PRIMARY",
+      "cols": "id",
+      "non_unique": "0",
+      "cardinality": "20"
+    },
+    {
+      "t": "coupon",
+      "i": "uq_coupon_code",
+      "cols": "code",
+      "non_unique": "0",
+      "cardinality": "20"
+    },
+    {
+      "t": "coupon_member_usage",
+      "i": "PRIMARY",
+      "cols": "coupon_id,member_id",
+      "non_unique": "0",
+      "cardinality": "0"
+    },
+    {
+      "t": "doc_embedding",
+      "i": "PRIMARY",
+      "cols": "id",
+      "non_unique": "0",
+      "cardinality": "0"
+    },
+    {
+      "t": "doc_embedding",
+      "i": "uk_doc_embedding_source",
+      "cols": "source_type,source_id",
+      "non_unique": "0",
+      "cardinality": "0"
+    },
+    {
+      "t": "faq",
+      "i": "PRIMARY",
+      "cols": "id",
+      "non_unique": "0",
+      "cardinality": "0"
+    },
+    {
+      "t": "member",
+      "i": "email",
+      "cols": "email",
+      "non_unique": "0",
+      "cardinality": "4961"
+    },
+    {
+      "t": "member",
+      "i": "PRIMARY",
+      "cols": "id",
+      "non_unique": "0",
+      "cardinality": "4961"
+    },
+    {
+      "t": "order_detail",
+      "i": "fk_order_detail_order",
+      "cols": "order_id",
+      "non_unique": "1",
+      "cardinality": "104213"
+    },
+    {
+      "t": "order_detail",
+      "i": "idx_order_detail_product_order",
+      "cols": "product_id,order_id",
+      "non_unique": "1",
+      "cardinality": "249174"
+    },
+    {
+      "t": "order_detail",
+      "i": "PRIMARY",
+      "cols": "order_item_sn",
+      "non_unique": "0",
+      "cardinality": "249174"
+    },
+    {
+      "t": "order_request",
+      "i": "PRIMARY",
+      "cols": "request_id",
+      "non_unique": "0",
+      "cardinality": "99974"
+    },
+    {
+      "t": "order_status_history",
+      "i": "idx_order_status_history_order",
+      "cols": "order_id,id",
+      "non_unique": "1",
+      "cardinality": "198973"
+    },
+    {
+      "t": "order_status_history",
+      "i": "PRIMARY",
+      "cols": "id",
+      "non_unique": "0",
+      "cardinality": "198973"
+    },
+    {
+      "t": "password_reset_token",
+      "i": "idx_password_reset_token_member",
+      "cols": "member_id",
+      "non_unique": "1",
+      "cardinality": "0"
+    },
+    {
+      "t": "password_reset_token",
+      "i": "PRIMARY",
+      "cols": "id",
+      "non_unique": "0",
+      "cardinality": "0"
+    },
+    {
+      "t": "password_reset_token",
+      "i": "token_hash",
+      "cols": "token_hash",
+      "non_unique": "0",
+      "cardinality": "0"
+    },
+    {
+      "t": "payment",
+      "i": "idx_payment_order",
+      "cols": "order_id,id",
+      "non_unique": "1",
+      "cardinality": "89650"
+    },
+    {
+      "t": "payment",
+      "i": "PRIMARY",
+      "cols": "id",
+      "non_unique": "0",
+      "cardinality": "89650"
+    },
+    {
+      "t": "payment",
+      "i": "uq_payment_active_order",
+      "cols": "active_order_id",
+      "non_unique": "0",
+      "cardinality": "83014"
+    },
+    {
+      "t": "payment",
+      "i": "uq_payment_trade_no",
+      "cols": "merchant_trade_no",
+      "non_unique": "0",
+      "cardinality": "89650"
+    },
+    {
+      "t": "product",
+      "i": "idx_product_creator",
+      "cols": "creator_id",
+      "non_unique": "1",
+      "cardinality": "50"
+    },
+    {
+      "t": "product",
+      "i": "PRIMARY",
+      "cols": "product_id",
+      "non_unique": "0",
+      "cardinality": "2000"
+    },
+    {
+      "t": "product_image",
+      "i": "idx_product_image_product",
+      "cols": "product_id,display_order,image_id",
+      "non_unique": "1",
+      "cardinality": "4000"
+    },
+    {
+      "t": "product_image",
+      "i": "PRIMARY",
+      "cols": "image_id",
+      "non_unique": "0",
+      "cardinality": "4000"
+    },
+    {
+      "t": "product_review",
+      "i": "idx_product_review_public",
+      "cols": "product_id,visibility,created_at,id",
+      "non_unique": "1",
+      "cardinality": "19592"
+    },
+    {
+      "t": "product_review",
+      "i": "PRIMARY",
+      "cols": "id",
+      "non_unique": "0",
+      "cardinality": "19592"
+    },
+    {
+      "t": "product_review",
+      "i": "uk_product_review_member_product",
+      "cols": "member_id,product_id",
+      "non_unique": "0",
+      "cardinality": "19592"
+    },
+    {
+      "t": "shipping_address",
+      "i": "idx_shipping_address_member",
+      "cols": "member_id,id",
+      "non_unique": "1",
+      "cardinality": "4854"
+    },
+    {
+      "t": "shipping_address",
+      "i": "PRIMARY",
+      "cols": "id",
+      "non_unique": "0",
+      "cardinality": "4854"
+    },
+    {
+      "t": "shipping_address",
+      "i": "uk_shipping_address_default",
+      "cols": "default_member_id",
+      "non_unique": "0",
+      "cardinality": "4854"
+    },
+    {
+      "t": "shop_order",
+      "i": "fk_shop_order_coupon",
+      "cols": "coupon_id",
+      "non_unique": "1",
+      "cardinality": "1"
+    },
+    {
+      "t": "shop_order",
+      "i": "fk_shop_order_shipping_address",
+      "cols": "shipping_address_id",
+      "non_unique": "1",
+      "cardinality": "4955"
+    },
+    {
+      "t": "shop_order",
+      "i": "idx_shop_order_member",
+      "cols": "member_id,created_at",
+      "non_unique": "1",
+      "cardinality": "99700"
+    },
+    {
+      "t": "shop_order",
+      "i": "idx_shop_order_status",
+      "cols": "order_status,created_at",
+      "non_unique": "1",
+      "cardinality": "95021"
+    },
+    {
+      "t": "shop_order",
+      "i": "PRIMARY",
+      "cols": "order_id",
+      "non_unique": "0",
+      "cardinality": "99700"
+    },
+    {
+      "t": "shopping_cart",
+      "i": "fk_shopping_cart_product",
+      "cols": "product_id",
+      "non_unique": "1",
+      "cardinality": "2000"
+    },
+    {
+      "t": "shopping_cart",
+      "i": "idx_shopping_cart_member",
+      "cols": "member_id,id",
+      "non_unique": "1",
+      "cardinality": "9847"
+    },
+    {
+      "t": "shopping_cart",
+      "i": "PRIMARY",
+      "cols": "id",
+      "non_unique": "0",
+      "cardinality": "9847"
+    },
+    {
+      "t": "shopping_cart",
+      "i": "uk_shopping_cart_member_product",
+      "cols": "member_id,product_id",
+      "non_unique": "0",
+      "cardinality": "9847"
+    }
+  ],
+  "queries": [
+    {
+      "id": "product.catalog_all",
+      "source": "ProductRepository.findAll",
+      "workload": "catalog",
+      "sql": "SELECT product_id, product_name, price, quantity, creator_id, deleted_at FROM product WHERE deleted_at IS NULL",
+      "median_ms": 0.449,
+      "const_lookup": false,
+      "min_ms": 0.403,
+      "max_ms": 0.606,
+      "rows_returned": 1800,
+      "rows_read_approx": 2000,
+      "explain": [
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "product",
+          "partitions": "NULL",
+          "type": "ALL",
+          "possible_keys": "NULL",
+          "key": "NULL",
+          "key_len": "NULL",
+          "ref": "NULL",
+          "rows": "2000",
+          "filtered": "10.00",
+          "Extra": "Using where"
+        }
+      ],
+      "plan": "-> Filter: (product.deleted_at is null)  (cost=203 rows=200) (actual time=0.0423..0.437 rows=1800 loops=1)\n    -> Table scan on product  (cost=203 rows=2000) (actual time=0.0412..0.353 rows=2000 loops=1)\n\n",
+      "flags": [
+        "full_scan",
+        "no_key"
+      ]
+    },
+    {
+      "id": "product.by_pk",
+      "source": "ProductRepository.findActiveById",
+      "workload": "checkout",
+      "sql": "SELECT product_id, product_name, price, quantity, creator_id, deleted_at FROM product WHERE product_id = 'P01200' AND deleted_at IS NULL",
+      "median_ms": 0.0,
+      "const_lookup": true,
+      "min_ms": 0.0,
+      "max_ms": 0.0,
+      "rows_returned": -1,
+      "rows_read_approx": 0,
+      "explain": [
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "product",
+          "partitions": "NULL",
+          "type": "const",
+          "possible_keys": "PRIMARY",
+          "key": "PRIMARY",
+          "key_len": "82",
+          "ref": "const",
+          "rows": "1",
+          "filtered": "100.00",
+          "Extra": "NULL"
+        }
+      ],
+      "plan": "-> Rows fetched before execution  (cost=0..0 rows=1) (actual time=40e-6..70e-6 rows=1 loops=1)\n\n",
+      "flags": []
+    },
+    {
+      "id": "product.lock_by_pk",
+      "source": "ProductRepository.findByIdForUpdate",
+      "workload": "checkout",
+      "sql": "SELECT product_id, product_name, price, quantity, creator_id, deleted_at FROM product WHERE product_id = 'P00001' FOR UPDATE",
+      "median_ms": 0.0,
+      "const_lookup": true,
+      "min_ms": 0.0,
+      "max_ms": 0.0,
+      "rows_returned": -1,
+      "rows_read_approx": 0,
+      "explain": [
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "product",
+          "partitions": "NULL",
+          "type": "const",
+          "possible_keys": "PRIMARY",
+          "key": "PRIMARY",
+          "key_len": "82",
+          "ref": "const",
+          "rows": "1",
+          "filtered": "100.00",
+          "Extra": "NULL"
+        }
+      ],
+      "plan": "-> Rows fetched before execution  (cost=0..0 rows=1) (actual time=40e-6..70e-6 rows=1 loops=1)\n\n",
+      "flags": []
+    },
+    {
+      "id": "product.in_20_sellable",
+      "source": "ProductRepository.findSellableByIds",
+      "workload": "catalog/checkout",
+      "sql": "SELECT product_id, product_name, price, quantity, creator_id, deleted_at FROM product WHERE product_id IN ('P00101','P00201','P00301','P00401','P00501','P00601','P00701','P00801','P00901','P01001','P01101','P01201','P01301','P01401','P01501','P01601','P01701','P01801','P01901','P02001') AND deleted_at IS NULL AND quantity > 0",
+      "median_ms": 0.073,
+      "const_lookup": false,
+      "min_ms": 0.0663,
+      "max_ms": 0.0912,
+      "rows_returned": 19,
+      "rows_read_approx": 19,
+      "explain": [
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "product",
+          "partitions": "NULL",
+          "type": "range",
+          "possible_keys": "PRIMARY",
+          "key": "PRIMARY",
+          "key_len": "82",
+          "ref": "NULL",
+          "rows": "20",
+          "filtered": "3.33",
+          "Extra": "Using where"
+        }
+      ],
+      "plan": "-> Filter: ((product.product_id in ('P00101','P00201','P00301','P00401','P00501','P00601','P00701','P00801','P00901','P01001','P01101','P01201','P01301','P01401','P01501','P01601','P01701','P01801','P01901','P02001')) and (product.deleted_at is null) and (product.quantity > 0))  (cost=9.02 rows=0.667) (actual time=0.0252..0.0722 rows=19 loops=1)\n    -> Index range scan on product using PRIMARY over (product_id = 'P00101') OR (product_id = 'P00201') OR (18 more)  (cost=9.02 rows=20) (actual time=0.0226..0.065 rows=19 loops=1)\n\n",
+      "flags": []
+    },
+    {
+      "id": "product.seller_page",
+      "source": "ProductRepository.findBySeller",
+      "workload": "seller-admin",
+      "sql": "SELECT product_id, product_name, price, quantity, creator_id, deleted_at FROM product WHERE creator_id = 'u3@example.com' ORDER BY product_id LIMIT 20 OFFSET 0",
+      "median_ms": 0.088,
+      "const_lookup": false,
+      "min_ms": 0.0639,
+      "max_ms": 0.239,
+      "rows_returned": 20,
+      "rows_read_approx": 20,
+      "explain": [
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "product",
+          "partitions": "NULL",
+          "type": "ref",
+          "possible_keys": "idx_product_creator",
+          "key": "idx_product_creator",
+          "key_len": "1022",
+          "ref": "const",
+          "rows": "40",
+          "filtered": "100.00",
+          "Extra": "NULL"
+        }
+      ],
+      "plan": "-> Limit: 20 row(s)  (cost=13.8 rows=20) (actual time=0.11..0.17 rows=20 loops=1)\n    -> Index lookup on product using idx_product_creator (creator_id='u3@example.com')  (cost=13.8 rows=40) (actual time=0.109..0.169 rows=20 loops=1)\n\n",
+      "flags": []
+    },
+    {
+      "id": "product.seller_search",
+      "source": "ProductRepository.search",
+      "workload": "seller-admin",
+      "sql": "SELECT product_id, product_name, price, quantity, creator_id, deleted_at FROM product WHERE creator_id = 'u3@example.com' AND (LOWER(product_id) LIKE '%chair%' ESCAPE '\\\\' OR LOWER(product_name) LIKE '%chair%' ESCAPE '\\\\') AND deleted_at IS NULL ORDER BY product_id LIMIT 20 OFFSET 0",
+      "median_ms": 0.122,
+      "const_lookup": false,
+      "min_ms": 0.0982,
+      "max_ms": 0.179,
+      "rows_returned": 0,
+      "rows_read_approx": 40,
+      "explain": [
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "product",
+          "partitions": "NULL",
+          "type": "ref",
+          "possible_keys": "idx_product_creator",
+          "key": "idx_product_creator",
+          "key_len": "1022",
+          "ref": "const",
+          "rows": "40",
+          "filtered": "10.00",
+          "Extra": "Using where"
+        }
+      ],
+      "plan": "-> Limit: 20 row(s)  (cost=10.2 rows=4) (actual time=0.122..0.122 rows=0 loops=1)\n    -> Filter: (((lower(product.product_id) like '%chair%' escape '\\\\') or (lower(product.product_name) like '%chair%' escape '\\\\')) and (product.deleted_at is null))  (cost=10.2 rows=4) (actual time=0.121..0.121 rows=0 loops=1)\n        -> Index lookup on product using idx_product_creator (creator_id='u3@example.com')  (cost=10.2 rows=40) (actual time=0.0338..0.104 rows=40 loops=1)\n\n",
+      "flags": []
+    },
+    {
+      "id": "product.seller_count",
+      "source": "ProductRepository.count",
+      "workload": "seller-admin",
+      "sql": "SELECT COUNT(*) FROM product WHERE creator_id = 'u3@example.com'",
+      "median_ms": 0.029,
+      "const_lookup": false,
+      "min_ms": 0.0259,
+      "max_ms": 0.0326,
+      "rows_returned": 1,
+      "rows_read_approx": 40,
+      "explain": [
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "product",
+          "partitions": "NULL",
+          "type": "ref",
+          "possible_keys": "idx_product_creator",
+          "key": "idx_product_creator",
+          "key_len": "1022",
+          "ref": "const",
+          "rows": "40",
+          "filtered": "100.00",
+          "Extra": "Using index"
+        }
+      ],
+      "plan": "-> Aggregate: count(0)  (cost=9.47 rows=1) (actual time=0.0259..0.0259 rows=1 loops=1)\n    -> Covering index lookup on product using idx_product_creator (creator_id='u3@example.com')  (cost=5.47 rows=40) (actual time=0.0118..0.0226 rows=40 loops=1)\n\n",
+      "flags": []
+    },
+    {
+      "id": "product.rating_all",
+      "source": "ProductRepository.ratingSummaries(all)",
+      "workload": "catalog",
+      "sql": "SELECT product_id, ROUND(AVG(rating), 2) average_rating, COUNT(*) review_count FROM product_review WHERE visibility = 'VISIBLE' GROUP BY product_id",
+      "median_ms": 10.7,
+      "const_lookup": false,
+      "min_ms": 10.5,
+      "max_ms": 11.0,
+      "rows_returned": 1800,
+      "rows_read_approx": 20000,
+      "explain": [
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "product_review",
+          "partitions": "NULL",
+          "type": "index",
+          "possible_keys": "uk_product_review_member_product,idx_product_review_public",
+          "key": "idx_product_review_public",
+          "key_len": "177",
+          "ref": "NULL",
+          "rows": "19592",
+          "filtered": "10.00",
+          "Extra": "Using where"
+        }
+      ],
+      "plan": "-> Group aggregate: avg(product_review.rating), count(0)  (cost=2195 rows=1959) (actual time=0.0734..11 rows=1800 loops=1)\n    -> Filter: (product_review.visibility = 'VISIBLE')  (cost=1999 rows=1959) (actual time=0.0674..9.58 rows=18000 loops=1)\n        -> Index scan on product_review using idx_product_review_public  (cost=1999 rows=19592) (actual time=0.0636..8.2 rows=20000 loops=1)\n\n",
+      "flags": []
+    },
+    {
+      "id": "product.rating_in_20",
+      "source": "ProductRepository.ratingSummaries(ids)",
+      "workload": "catalog",
+      "sql": "SELECT product_id, ROUND(AVG(rating), 2) average_rating, COUNT(*) review_count FROM product_review WHERE visibility = 'VISIBLE' AND product_id IN ('P00101','P00201','P00301','P00401','P00501','P00601','P00701','P00801','P00901','P01001','P01101','P01201','P01301','P01401','P01501','P01601','P01701','P01801','P01901','P02001') GROUP BY product_id",
+      "median_ms": 0.038,
+      "const_lookup": false,
+      "min_ms": 0.0329,
+      "max_ms": 0.0441,
+      "rows_returned": 0,
+      "rows_read_approx": 0,
+      "explain": [
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "product_review",
+          "partitions": "NULL",
+          "type": "range",
+          "possible_keys": "uk_product_review_member_product,idx_product_review_public",
+          "key": "idx_product_review_public",
+          "key_len": "164",
+          "ref": "NULL",
+          "rows": "20",
+          "filtered": "100.00",
+          "Extra": "Using index condition"
+        }
+      ],
+      "plan": "-> Group aggregate: avg(product_review.rating), count(0)  (cost=16 rows=20) (actual time=0.0379..0.0379 rows=0 loops=1)\n    -> Index range scan on product_review using idx_product_review_public over (product_id = 'P00101' AND visibility = 'VISIBLE') OR (product_id = 'P00201' AND visibility = 'VISIBLE') OR (18 more), with index condition: ((product_review.visibility = 'VISIBLE') and (product_review.product_id in ('P00101','P00201','P00301','P00401','P00501','P00601','P00701','P00801','P00901','P01001','P01101','P01201','P01301','P01401','P01501','P01601','P01701','P01801','P01901','P02001')))  (cost=14 rows=20) (actual time=0.0369..0.0369 rows=0 loops=1)\n\n",
+      "flags": []
+    },
+    {
+      "id": "product.images_in_20",
+      "source": "ProductRepository.imagesFor",
+      "workload": "catalog",
+      "sql": "SELECT product_id, image_url FROM product_image WHERE product_id IN ('P00101','P00201','P00301','P00401','P00501','P00601','P00701','P00801','P00901','P01001','P01101','P01201','P01301','P01401','P01501','P01601','P01701','P01801','P01901','P02001') ORDER BY product_id, display_order, image_id",
+      "median_ms": 0.143,
+      "const_lookup": false,
+      "min_ms": 0.119,
+      "max_ms": 0.196,
+      "rows_returned": 38,
+      "rows_read_approx": 38,
+      "explain": [
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "product_image",
+          "partitions": "NULL",
+          "type": "range",
+          "possible_keys": "idx_product_image_product",
+          "key": "idx_product_image_product",
+          "key_len": "82",
+          "ref": "NULL",
+          "rows": "39",
+          "filtered": "100.00",
+          "Extra": "Using index condition"
+        }
+      ],
+      "plan": "-> Index range scan on product_image using idx_product_image_product over (product_id = 'P00101') OR (product_id = 'P00201') OR (18 more), with index condition: (product_image.product_id in ('P00101','P00201','P00301','P00401','P00501','P00601','P00701','P00801','P00901','P01001','P01101','P01201','P01301','P01401','P01501','P01601','P01701','P01801','P01901','P02001'))  (cost=22.6 rows=39) (actual time=0.0228..0.143 rows=38 loops=1)\n\n",
+      "flags": []
+    },
+    {
+      "id": "order.member_page_hot",
+      "source": "OrderRepository.findByMember(hot)",
+      "workload": "buyer-orders",
+      "sql": "SELECT o.order_id, o.member_id, o.order_status, o.price, o.created_at, a.receiver_name, a.phone, CONCAT_WS(' ', a.postal_code, a.address) AS full_address, o.pay_status, o.coupon_id, o.coupon_code, o.discount_amount, (SELECT p.status FROM payment p WHERE p.order_id = o.order_id ORDER BY p.id DESC LIMIT 1) AS payment_status FROM shop_order o LEFT JOIN shipping_address a ON a.id = o.shipping_address_id WHERE o.member_id = 'u1@example.com' ORDER BY o.created_at DESC, o.order_id DESC LIMIT 20 OFFSET 0",
+      "median_ms": 0.503,
+      "const_lookup": false,
+      "min_ms": 0.475,
+      "max_ms": 0.85,
+      "rows_returned": 20,
+      "rows_read_approx": 40,
+      "explain": [
+        {
+          "id": "1",
+          "select_type": "PRIMARY",
+          "table": "o",
+          "partitions": "NULL",
+          "type": "ref",
+          "possible_keys": "idx_shop_order_member",
+          "key": "idx_shop_order_member",
+          "key_len": "402",
+          "ref": "const",
+          "rows": "1365",
+          "filtered": "100.00",
+          "Extra": "Backward index scan"
+        },
+        {
+          "id": "1",
+          "select_type": "PRIMARY",
+          "table": "a",
+          "partitions": "NULL",
+          "type": "eq_ref",
+          "possible_keys": "PRIMARY",
+          "key": "PRIMARY",
+          "key_len": "8",
+          "ref": "esun_perf.o.shipping_address_id",
+          "rows": "1",
+          "filtered": "100.00",
+          "Extra": "NULL"
+        },
+        {
+          "id": "2",
+          "select_type": "DEPENDENT SUBQUERY",
+          "table": "p",
+          "partitions": "NULL",
+          "type": "ref",
+          "possible_keys": "idx_payment_order",
+          "key": "idx_payment_order",
+          "key_len": "122",
+          "ref": "esun_perf.o.order_id",
+          "rows": "1",
+          "filtered": "100.00",
+          "Extra": "Using filesort"
+        }
+      ],
+      "plan": "-> Limit: 20 row(s)  (cost=1957 rows=20) (actual time=0.811..0.85 rows=20 loops=1)\n    -> Nested loop left join  (cost=1957 rows=1365) (actual time=0.811..0.849 rows=20 loops=1)\n        -> Index lookup on o using idx_shop_order_member (member_id='u1@example.com') (reverse)  (cost=1241 rows=1365) (actual time=0.79..0.796 rows=20 loops=1)\n        -> Single-row index lookup on a using PRIMARY (id=o.shipping_address_id)  (cost=0.425 rows=1) (actual time=0.00243..0.00245 rows=1 loops=20)\n-> Select #2 (subquery in projection; dependent)\n    -> Limit: 1 row(s)  (cost=0.35 rows=1) (actual time=0.00763..0.00765 rows=0.9 loops=20)\n        -> Sort: p.id DESC, limit input to 1 row(s) per chunk  (cost=0.35 rows=1) (actual time=0.00753..0.00753 rows=0.9 loops=20)\n            -> Index lookup on p using idx_payment_order (order_id=o.order_id)  (cost=0.35 rows=1) (actual time=0.00653..0.00677 rows=0.9 loops=20)\n\n",
+      "flags": [
+        "filesort"
+      ]
+    },
+    {
+      "id": "order.member_page_typical",
+      "source": "OrderRepository.findByMember(typical)",
+      "workload": "buyer-orders",
+      "sql": "SELECT o.order_id, o.member_id, o.order_status, o.price, o.created_at, a.receiver_name, a.phone, CONCAT_WS(' ', a.postal_code, a.address) AS full_address, o.pay_status, o.coupon_id, o.coupon_code, o.discount_amount, (SELECT p.status FROM payment p WHERE p.order_id = o.order_id ORDER BY p.id DESC LIMIT 1) AS payment_status FROM shop_order o LEFT JOIN shipping_address a ON a.id = o.shipping_address_id WHERE o.member_id = 'u1500@example.com' ORDER BY o.created_at DESC, o.order_id DESC LIMIT 20 OFFSET 0",
+      "median_ms": 0.169,
+      "const_lookup": false,
+      "min_ms": 0.151,
+      "max_ms": 0.229,
+      "rows_returned": 18,
+      "rows_read_approx": 36,
+      "explain": [
+        {
+          "id": "1",
+          "select_type": "PRIMARY",
+          "table": "o",
+          "partitions": "NULL",
+          "type": "ref",
+          "possible_keys": "idx_shop_order_member",
+          "key": "idx_shop_order_member",
+          "key_len": "402",
+          "ref": "const",
+          "rows": "18",
+          "filtered": "100.00",
+          "Extra": "Backward index scan"
+        },
+        {
+          "id": "1",
+          "select_type": "PRIMARY",
+          "table": "a",
+          "partitions": "NULL",
+          "type": "eq_ref",
+          "possible_keys": "PRIMARY",
+          "key": "PRIMARY",
+          "key_len": "8",
+          "ref": "esun_perf.o.shipping_address_id",
+          "rows": "1",
+          "filtered": "100.00",
+          "Extra": "NULL"
+        },
+        {
+          "id": "2",
+          "select_type": "DEPENDENT SUBQUERY",
+          "table": "p",
+          "partitions": "NULL",
+          "type": "ref",
+          "possible_keys": "idx_payment_order",
+          "key": "idx_payment_order",
+          "key_len": "122",
+          "ref": "esun_perf.o.order_id",
+          "rows": "1",
+          "filtered": "100.00",
+          "Extra": "Using filesort"
+        }
+      ],
+      "plan": "-> Limit: 20 row(s)  (cost=23.2 rows=18) (actual time=0.0575..0.229 rows=18 loops=1)\n    -> Nested loop left join  (cost=23.2 rows=18) (actual time=0.0568..0.228 rows=18 loops=1)\n        -> Index lookup on o using idx_shop_order_member (member_id='u1500@example.com') (reverse)  (cost=16 rows=18) (actual time=0.0497..0.156 rows=18 loops=1)\n        -> Single-row index lookup on a using PRIMARY (id=o.shipping_address_id)  (cost=0.306 rows=1) (actual time=0.00377..0.00379 rows=1 loops=18)\n-> Select #2 (subquery in projection; dependent)\n    -> Limit: 1 row(s)  (cost=0.35 rows=1) (actual time=0.00695..0.00697 rows=0.889 loops=18)\n        -> Sort: p.id DESC, limit input to 1 row(s) per chunk  (cost=0.35 rows=1) (actual time=0.00685..0.00685 rows=0.889 loops=18)\n            -> Index lookup on p using idx_payment_order (order_id=o.order_id)  (cost=0.35 rows=1) (actual time=0.0059..0.00612 rows=0.889 loops=18)\n\n",
+      "flags": [
+        "filesort"
+      ]
+    },
+    {
+      "id": "order.member_page_status",
+      "source": "OrderRepository.findByMember(status)",
+      "workload": "buyer-orders",
+      "sql": "SELECT o.order_id, o.member_id, o.order_status, o.price, o.created_at, a.receiver_name, a.phone, CONCAT_WS(' ', a.postal_code, a.address) AS full_address, o.pay_status, o.coupon_id, o.coupon_code, o.discount_amount, (SELECT p.status FROM payment p WHERE p.order_id = o.order_id ORDER BY p.id DESC LIMIT 1) AS payment_status FROM shop_order o LEFT JOIN shipping_address a ON a.id = o.shipping_address_id WHERE o.member_id = 'u1@example.com' AND o.order_status = 'DELIVERED' ORDER BY o.created_at DESC, o.order_id DESC LIMIT 20 OFFSET 0",
+      "median_ms": 0.483,
+      "const_lookup": false,
+      "min_ms": 0.47,
+      "max_ms": 1.25,
+      "rows_returned": 20,
+      "rows_read_approx": 99,
+      "explain": [
+        {
+          "id": "1",
+          "select_type": "PRIMARY",
+          "table": "o",
+          "partitions": "NULL",
+          "type": "ref",
+          "possible_keys": "idx_shop_order_member,idx_shop_order_status",
+          "key": "idx_shop_order_member",
+          "key_len": "402",
+          "ref": "const",
+          "rows": "1365",
+          "filtered": "50.00",
+          "Extra": "Using where; Backward index scan"
+        },
+        {
+          "id": "1",
+          "select_type": "PRIMARY",
+          "table": "a",
+          "partitions": "NULL",
+          "type": "eq_ref",
+          "possible_keys": "PRIMARY",
+          "key": "PRIMARY",
+          "key_len": "8",
+          "ref": "esun_perf.o.shipping_address_id",
+          "rows": "1",
+          "filtered": "100.00",
+          "Extra": "NULL"
+        },
+        {
+          "id": "2",
+          "select_type": "DEPENDENT SUBQUERY",
+          "table": "p",
+          "partitions": "NULL",
+          "type": "ref",
+          "possible_keys": "idx_payment_order",
+          "key": "idx_payment_order",
+          "key_len": "122",
+          "ref": "esun_perf.o.order_id",
+          "rows": "1",
+          "filtered": "100.00",
+          "Extra": "Using filesort"
+        }
+      ],
+      "plan": "-> Limit: 20 row(s)  (cost=1415 rows=20) (actual time=1.21..1.25 rows=20 loops=1)\n    -> Nested loop left join  (cost=1415 rows=682) (actual time=1.21..1.25 rows=20 loops=1)\n        -> Filter: (o.order_status = 'DELIVERED')  (cost=1142 rows=682) (actual time=1.21..1.22 rows=20 loops=1)\n            -> Index lookup on o using idx_shop_order_member (member_id='u1@example.com') (reverse)  (cost=1142 rows=1365) (actual time=1.2..1.22 rows=59 loops=1)\n        -> Single-row index lookup on a using PRIMARY (id=o.shipping_address_id)  (cost=0.3 rows=1) (actual time=0.00128..0.00131 rows=1 loops=20)\n-> Select #2 (subquery in projection; dependent)\n    -> Limit: 1 row(s)  (cost=0.35 rows=1) (actual time=0.0122..0.0122 rows=1 loops=20)\n        -> Sort: p.id DESC, limit input to 1 row(s) per chunk  (cost=0.35 rows=1) (actual time=0.0121..0.0121 rows=1 loops=20)\n            -> Index lookup on p using idx_payment_order (order_id=o.order_id)  (cost=0.35 rows=1) (actual time=0.0111..0.0114 rows=1 loops=20)\n\n",
+      "flags": [
+        "filesort"
+      ]
+    },
+    {
+      "id": "order.member_count_hot",
+      "source": "OrderRepository.countByMember",
+      "workload": "buyer-orders",
+      "sql": "SELECT COUNT(*) FROM shop_order o WHERE o.member_id = 'u1@example.com'",
+      "median_ms": 0.246,
+      "const_lookup": false,
+      "min_ms": 0.24,
+      "max_ms": 0.384,
+      "rows_returned": 1,
+      "rows_read_approx": 1365,
+      "explain": [
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "o",
+          "partitions": "NULL",
+          "type": "ref",
+          "possible_keys": "idx_shop_order_member",
+          "key": "idx_shop_order_member",
+          "key_len": "402",
+          "ref": "const",
+          "rows": "1365",
+          "filtered": "100.00",
+          "Extra": "Using index"
+        }
+      ],
+      "plan": "-> Aggregate: count(0)  (cost=344 rows=1) (actual time=0.24..0.24 rows=1 loops=1)\n    -> Covering index lookup on o using idx_shop_order_member (member_id='u1@example.com')  (cost=207 rows=1365) (actual time=0.0317..0.211 rows=1365 loops=1)\n\n",
+      "flags": []
+    },
+    {
+      "id": "order.seller_page",
+      "source": "OrderRepository.findBySeller",
+      "workload": "seller-orders",
+      "sql": "SELECT o.order_id, o.member_id, o.order_status, o.price, o.created_at, a.receiver_name, a.phone, CONCAT_WS(' ', a.postal_code, a.address) AS full_address, o.pay_status, o.coupon_id, o.coupon_code, o.discount_amount, (SELECT p.status FROM payment p WHERE p.order_id = o.order_id ORDER BY p.id DESC LIMIT 1) AS payment_status FROM shop_order o LEFT JOIN shipping_address a ON a.id = o.shipping_address_id WHERE EXISTS (SELECT 1 FROM order_detail d JOIN product p ON p.product_id = d.product_id WHERE d.order_id = o.order_id AND p.creator_id = 'u3@example.com') ORDER BY o.created_at DESC, o.order_id DESC LIMIT 20 OFFSET 0",
+      "median_ms": 42.7,
+      "const_lookup": false,
+      "min_ms": 40.5,
+      "max_ms": 50.4,
+      "rows_returned": 20,
+      "rows_read_approx": 24556,
+      "explain": [
+        {
+          "id": "1",
+          "select_type": "PRIMARY",
+          "table": "<subquery3>",
+          "partitions": "NULL",
+          "type": "ALL",
+          "possible_keys": "NULL",
+          "key": "NULL",
+          "key_len": "NULL",
+          "ref": "NULL",
+          "rows": "NULL",
+          "filtered": "100.00",
+          "Extra": "Using temporary; Using filesort"
+        },
+        {
+          "id": "1",
+          "select_type": "PRIMARY",
+          "table": "o",
+          "partitions": "NULL",
+          "type": "eq_ref",
+          "possible_keys": "PRIMARY",
+          "key": "PRIMARY",
+          "key_len": "122",
+          "ref": "<subquery3>.order_id",
+          "rows": "1",
+          "filtered": "100.00",
+          "Extra": "NULL"
+        },
+        {
+          "id": "1",
+          "select_type": "PRIMARY",
+          "table": "a",
+          "partitions": "NULL",
+          "type": "ALL",
+          "possible_keys": "PRIMARY",
+          "key": "NULL",
+          "key_len": "NULL",
+          "ref": "NULL",
+          "rows": "4854",
+          "filtered": "100.00",
+          "Extra": "Using where; Using join buffer (hash join)"
+        },
+        {
+          "id": "3",
+          "select_type": "MATERIALIZED",
+          "table": "p",
+          "partitions": "NULL",
+          "type": "ref",
+          "possible_keys": "PRIMARY,idx_product_creator",
+          "key": "idx_product_creator",
+          "key_len": "1022",
+          "ref": "const",
+          "rows": "40",
+          "filtered": "100.00",
+          "Extra": "Using index"
+        },
+        {
+          "id": "3",
+          "select_type": "MATERIALIZED",
+          "table": "d",
+          "partitions": "NULL",
+          "type": "ref",
+          "possible_keys": "fk_order_detail_order,idx_order_detail_product_order",
+          "key": "idx_order_detail_product_order",
+          "key_len": "82",
+          "ref": "esun_perf.p.product_id",
+          "rows": "130",
+          "filtered": "100.00",
+          "Extra": "Using index"
+        },
+        {
+          "id": "2",
+          "select_type": "DEPENDENT SUBQUERY",
+          "table": "p",
+          "partitions": "NULL",
+          "type": "ref",
+          "possible_keys": "idx_payment_order",
+          "key": "idx_payment_order",
+          "key_len": "122",
+          "ref": "esun_perf.o.order_id",
+          "rows": "1",
+          "filtered": "100.00",
+          "Extra": "Using filesort"
+        }
+      ],
+      "plan": "-> Limit: 20 row(s)  (actual time=42.7..42.7 rows=20 loops=1)\n    -> Sort: o.created_at DESC, o.order_id DESC, limit input to 20 row(s) per chunk  (actual time=42.7..42.7 rows=20 loops=1)\n        -> Stream results  (cost=2.53e+6 rows=25.3e+6) (actual time=3.64..38 rows=6458 loops=1)\n            -> Left hash join (a.id = o.shipping_address_id)  (cost=2.53e+6 rows=25.3e+6) (actual time=3.61..15.2 rows=6458 loops=1)\n                -> Nested loop inner join  (cost=8.11e+6 rows=5207) (actual time=2.45..11.3 rows=6458 loops=1)\n                    -> Table scan on <subquery3>  (cost=1155..1223 rows=5207) (actual time=2.44..3.17 rows=6458 loops=1)\n                        -> Materialize with deduplication  (cost=1155..1155 rows=5207) (actual time=2.44..2.44 rows=6458 loops=1)\n                            -> Nested loop inner join  (cost=635 rows=5207) (actual time=0.0328..1.54 rows=6587 loops=1)\n                                -> Covering index lookup on p using idx_product_creator (creator_id='u3@example.com')  (cost=5.47 rows=40) (actual time=0.00618..0.0166 rows=40 loops=1)\n                                -> Covering index lookup on d using idx_order_detail_product_order (product_id=p.product_id)  (cost=3.04 rows=130) (actual time=0.00687..0.0322 rows=165 loops=40)\n                    -> Single-row index lookup on o using PRIMARY (order_id=`<subquery3>`.order_id)  (cost=8.11e+6 rows=1) (actual time=0.00114..0.00116 rows=1 loops=6458)\n                -> Hash\n                    -> Table scan on a  (cost=493 rows=4854) (actual time=0.0261..0.723 rows=5000 loops=1)\n-> Select #2 (subquery in projection; dependent)\n    -> Limit: 1 row(s)  (cost=0.35 rows=1) (actual time=0.00278..0.00279 rows=0.916 loops=6458)\n        -> Sort: p.id DESC, limit input to 1 row(s) per chunk  (cost=0.35 rows=1) (actual time=0.0027..0.0027 rows=0.916 loops=6458)\n            -> Index lookup on p using idx_payment_order (order_id=o.order_id)  (cost=0.35 rows=1) (actual time=0.00224..0.00241 rows=0.916 loops=6458)\n\n",
+      "flags": [
+        "full_scan",
+        "filesort",
+        "temporary",
+        "no_key"
+      ]
+    },
+    {
+      "id": "order.seller_count",
+      "source": "OrderRepository.countBySeller",
+      "workload": "seller-orders",
+      "sql": "SELECT COUNT(*) FROM shop_order o WHERE EXISTS (SELECT 1 FROM order_detail d JOIN product p ON p.product_id = d.product_id WHERE d.order_id = o.order_id AND p.creator_id = 'u3@example.com')",
+      "median_ms": 8.43,
+      "const_lookup": false,
+      "min_ms": 8.07,
+      "max_ms": 8.98,
+      "rows_returned": 1,
+      "rows_read_approx": 13098,
+      "explain": [
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "<subquery2>",
+          "partitions": "NULL",
+          "type": "ALL",
+          "possible_keys": "NULL",
+          "key": "NULL",
+          "key_len": "NULL",
+          "ref": "NULL",
+          "rows": "NULL",
+          "filtered": "100.00",
+          "Extra": "NULL"
+        },
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "o",
+          "partitions": "NULL",
+          "type": "eq_ref",
+          "possible_keys": "PRIMARY",
+          "key": "PRIMARY",
+          "key_len": "122",
+          "ref": "<subquery2>.order_id",
+          "rows": "1",
+          "filtered": "100.00",
+          "Extra": "Using index"
+        },
+        {
+          "id": "2",
+          "select_type": "MATERIALIZED",
+          "table": "p",
+          "partitions": "NULL",
+          "type": "ref",
+          "possible_keys": "PRIMARY,idx_product_creator",
+          "key": "idx_product_creator",
+          "key_len": "1022",
+          "ref": "const",
+          "rows": "40",
+          "filtered": "100.00",
+          "Extra": "Using index"
+        },
+        {
+          "id": "2",
+          "select_type": "MATERIALIZED",
+          "table": "d",
+          "partitions": "NULL",
+          "type": "ref",
+          "possible_keys": "fk_order_detail_order,idx_order_detail_product_order",
+          "key": "idx_order_detail_product_order",
+          "key_len": "82",
+          "ref": "esun_perf.p.product_id",
+          "rows": "130",
+          "filtered": "100.00",
+          "Extra": "Using index"
+        }
+      ],
+      "plan": "-> Aggregate: count(0)  (cost=8.11e+6 rows=1) (actual time=8.98..8.98 rows=1 loops=1)\n    -> Nested loop inner join  (cost=8.11e+6 rows=5207) (actual time=3.23..8.81 rows=6458 loops=1)\n        -> Table scan on <subquery2>  (cost=1155..1223 rows=5207) (actual time=3.22..3.66 rows=6458 loops=1)\n            -> Materialize with deduplication  (cost=1155..1155 rows=5207) (actual time=3.22..3.22 rows=6458 loops=1)\n                -> Nested loop inner join  (cost=635 rows=5207) (actual time=0.0278..1.98 rows=6587 loops=1)\n                    -> Covering index lookup on p using idx_product_creator (creator_id='u3@example.com')  (cost=5.47 rows=40) (actual time=0.0114..0.0603 rows=40 loops=1)\n                    -> Covering index lookup on d using idx_order_detail_product_order (product_id=p.product_id)  (cost=3.04 rows=130) (actual time=0.0103..0.0407 rows=165 loops=40)\n        -> Single-row covering index lookup on o using PRIMARY (order_id=`<subquery2>`.order_id)  (cost=8.11e+6 rows=1) (actual time=688e-6..704e-6 rows=1 loops=6458)\n\n",
+      "flags": [
+        "full_scan",
+        "no_key"
+      ]
+    },
+    {
+      "id": "order.admin_status_page",
+      "source": "OrderRepository.findBySeller(admin,status)",
+      "workload": "admin-orders",
+      "sql": "SELECT o.order_id, o.member_id, o.order_status, o.price, o.created_at, a.receiver_name, a.phone, CONCAT_WS(' ', a.postal_code, a.address) AS full_address, o.pay_status, o.coupon_id, o.coupon_code, o.discount_amount, (SELECT p.status FROM payment p WHERE p.order_id = o.order_id ORDER BY p.id DESC LIMIT 1) AS payment_status FROM shop_order o LEFT JOIN shipping_address a ON a.id = o.shipping_address_id WHERE o.order_status = 'CREATED' ORDER BY o.created_at DESC, o.order_id DESC LIMIT 20 OFFSET 0",
+      "median_ms": 0.364,
+      "const_lookup": false,
+      "min_ms": 0.331,
+      "max_ms": 0.405,
+      "rows_returned": 20,
+      "rows_read_approx": 40,
+      "explain": [
+        {
+          "id": "1",
+          "select_type": "PRIMARY",
+          "table": "o",
+          "partitions": "NULL",
+          "type": "ref",
+          "possible_keys": "idx_shop_order_status",
+          "key": "idx_shop_order_status",
+          "key_len": "82",
+          "ref": "const",
+          "rows": "29182",
+          "filtered": "100.00",
+          "Extra": "Backward index scan"
+        },
+        {
+          "id": "1",
+          "select_type": "PRIMARY",
+          "table": "a",
+          "partitions": "NULL",
+          "type": "eq_ref",
+          "possible_keys": "PRIMARY",
+          "key": "PRIMARY",
+          "key_len": "8",
+          "ref": "esun_perf.o.shipping_address_id",
+          "rows": "1",
+          "filtered": "100.00",
+          "Extra": "NULL"
+        },
+        {
+          "id": "2",
+          "select_type": "DEPENDENT SUBQUERY",
+          "table": "p",
+          "partitions": "NULL",
+          "type": "ref",
+          "possible_keys": "idx_payment_order",
+          "key": "idx_payment_order",
+          "key_len": "122",
+          "ref": "esun_perf.o.order_id",
+          "rows": "1",
+          "filtered": "100.00",
+          "Extra": "Using filesort"
+        }
+      ],
+      "plan": "-> Limit: 20 row(s)  (cost=13541 rows=20) (actual time=0.325..0.386 rows=20 loops=1)\n    -> Nested loop left join  (cost=13541 rows=29182) (actual time=0.324..0.384 rows=20 loops=1)\n        -> Index lookup on o using idx_shop_order_status (order_status='CREATED') (reverse)  (cost=3327 rows=29182) (actual time=0.314..0.319 rows=20 loops=1)\n        -> Single-row index lookup on a using PRIMARY (id=o.shipping_address_id)  (cost=0.25 rows=1) (actual time=0.00303..0.00305 rows=1 loops=20)\n-> Select #2 (subquery in projection; dependent)\n    -> Limit: 1 row(s)  (cost=0.35 rows=1) (actual time=0.00651..0.00653 rows=0.85 loops=20)\n        -> Sort: p.id DESC, limit input to 1 row(s) per chunk  (cost=0.35 rows=1) (actual time=0.0064..0.0064 rows=0.85 loops=20)\n            -> Index lookup on p using idx_payment_order (order_id=o.order_id)  (cost=0.35 rows=1) (actual time=0.00541..0.00566 rows=0.85 loops=20)\n\n",
+      "flags": [
+        "filesort"
+      ]
+    },
+    {
+      "id": "order.lines_in_20",
+      "source": "OrderRepository.findLines",
+      "workload": "buyer-orders",
+      "sql": "SELECT d.order_id, d.product_id, p.product_name, d.quantity, d.unit_price, d.item_price, p.creator_id FROM order_detail d JOIN product p ON p.product_id = d.product_id WHERE d.order_id IN ('O00050000','O00050001','O00050002','O00050003','O00050004','O00050005','O00050006','O00050007','O00050008','O00050009','O00050010','O00050011','O00050012','O00050013','O00050014','O00050015','O00050016','O00050017','O00050018','O00050019') ORDER BY d.order_id, d.product_id",
+      "median_ms": 0.255,
+      "const_lookup": false,
+      "min_ms": 0.236,
+      "max_ms": 0.373,
+      "rows_returned": 42,
+      "rows_read_approx": 84,
+      "explain": [
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "d",
+          "partitions": "NULL",
+          "type": "range",
+          "possible_keys": "fk_order_detail_order,idx_order_detail_product_order",
+          "key": "fk_order_detail_order",
+          "key_len": "122",
+          "ref": "NULL",
+          "rows": "42",
+          "filtered": "100.00",
+          "Extra": "Using index condition; Using filesort"
+        },
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "p",
+          "partitions": "NULL",
+          "type": "eq_ref",
+          "possible_keys": "PRIMARY",
+          "key": "PRIMARY",
+          "key_len": "82",
+          "ref": "esun_perf.d.product_id",
+          "rows": "1",
+          "filtered": "100.00",
+          "Extra": "NULL"
+        }
+      ],
+      "plan": "-> Nested loop inner join  (cost=73.7 rows=42) (actual time=0.207..0.276 rows=42 loops=1)\n    -> Sort: d.order_id, d.product_id  (cost=59 rows=42) (actual time=0.198..0.199 rows=42 loops=1)\n        -> Index range scan on d using fk_order_detail_order over (order_id = 'O00050000') OR (order_id = 'O00050001') OR (18 more), with index condition: (d.order_id in ('O00050000','O00050001','O00050002','O00050003','O00050004','O00050005','O00050006','O00050007','O00050008','O00050009','O00050010','O00050011','O00050012','O00050013','O00050014','O00050015','O00050016','O00050017','O00050018','O00050019'))  (cost=59 rows=42) (actual time=0.0324..0.162 rows=42 loops=1)\n    -> Single-row index lookup on p using PRIMARY (product_id=d.product_id)  (cost=0.252 rows=1) (actual time=0.00167..0.00169 rows=1 loops=42)\n\n",
+      "flags": [
+        "filesort"
+      ]
+    },
+    {
+      "id": "order.history_in_20",
+      "source": "OrderRepository.findHistory",
+      "workload": "buyer-orders",
+      "sql": "SELECT order_id, from_status, to_status, actor_role, created_at FROM order_status_history WHERE order_id IN ('O00050000','O00050001','O00050002','O00050003','O00050004','O00050005','O00050006','O00050007','O00050008','O00050009','O00050010','O00050011','O00050012','O00050013','O00050014','O00050015','O00050016','O00050017','O00050018','O00050019') ORDER BY order_id, id",
+      "median_ms": 0.118,
+      "const_lookup": false,
+      "min_ms": 0.0876,
+      "max_ms": 0.169,
+      "rows_returned": 40,
+      "rows_read_approx": 40,
+      "explain": [
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "order_status_history",
+          "partitions": "NULL",
+          "type": "range",
+          "possible_keys": "idx_order_status_history_order",
+          "key": "idx_order_status_history_order",
+          "key_len": "122",
+          "ref": "NULL",
+          "rows": "40",
+          "filtered": "100.00",
+          "Extra": "Using index condition"
+        }
+      ],
+      "plan": "-> Index range scan on order_status_history using idx_order_status_history_order over (order_id = 'O00050000') OR (order_id = 'O00050001') OR (18 more), with index condition: (order_status_history.order_id in ('O00050000','O00050001','O00050002','O00050003','O00050004','O00050005','O00050006','O00050007','O00050008','O00050009','O00050010','O00050011','O00050012','O00050013','O00050014','O00050015','O00050016','O00050017','O00050018','O00050019'))  (cost=23 rows=40) (actual time=0.028..0.13 rows=40 loops=1)\n\n",
+      "flags": []
+    },
+    {
+      "id": "order.header_lock",
+      "source": "OrderRepository.findHeaderForUpdate",
+      "workload": "order-status",
+      "sql": "SELECT o.order_id, o.member_id, o.order_status, o.price, o.created_at, a.receiver_name, a.phone, CONCAT_WS(' ', a.postal_code, a.address) AS full_address, o.pay_status, o.coupon_id, o.coupon_code, o.discount_amount, (SELECT p.status FROM payment p WHERE p.order_id = o.order_id ORDER BY p.id DESC LIMIT 1) AS payment_status FROM shop_order o LEFT JOIN shipping_address a ON a.id = o.shipping_address_id WHERE o.order_id = 'O00050000' FOR UPDATE OF o",
+      "median_ms": 0.0,
+      "const_lookup": true,
+      "min_ms": 0.0,
+      "max_ms": 0.0,
+      "rows_returned": -1,
+      "rows_read_approx": 1,
+      "explain": [
+        {
+          "id": "1",
+          "select_type": "PRIMARY",
+          "table": "o",
+          "partitions": "NULL",
+          "type": "const",
+          "possible_keys": "PRIMARY",
+          "key": "PRIMARY",
+          "key_len": "122",
+          "ref": "const",
+          "rows": "1",
+          "filtered": "100.00",
+          "Extra": "NULL"
+        },
+        {
+          "id": "1",
+          "select_type": "PRIMARY",
+          "table": "a",
+          "partitions": "NULL",
+          "type": "const",
+          "possible_keys": "PRIMARY",
+          "key": "PRIMARY",
+          "key_len": "8",
+          "ref": "const",
+          "rows": "1",
+          "filtered": "100.00",
+          "Extra": "NULL"
+        },
+        {
+          "id": "2",
+          "select_type": "DEPENDENT SUBQUERY",
+          "table": "p",
+          "partitions": "NULL",
+          "type": "ref",
+          "possible_keys": "idx_payment_order",
+          "key": "idx_payment_order",
+          "key_len": "122",
+          "ref": "const",
+          "rows": "1",
+          "filtered": "100.00",
+          "Extra": "Backward index scan"
+        }
+      ],
+      "plan": "-> Rows fetched before execution  (cost=0..0 rows=1) (actual time=80e-6..130e-6 rows=1 loops=1)\n-> Select #2 (subquery in projection; dependent)\n    -> Limit: 1 row(s)  (cost=0.35 rows=1) (actual time=0.0116..0.0117 rows=1 loops=1)\n        -> Index lookup on p using idx_payment_order (order_id='O00050000') (reverse)  (cost=0.35 rows=1) (actual time=0.0111..0.0111 rows=1 loops=1)\n\n",
+      "flags": []
+    },
+    {
+      "id": "order.request_by_pk",
+      "source": "OrderRepository.findRequest",
+      "workload": "checkout",
+      "sql": "SELECT request_id, order_id, member_id FROM order_request WHERE request_id = 'R00050000'",
+      "median_ms": 0.0,
+      "const_lookup": true,
+      "min_ms": 0.0,
+      "max_ms": 0.0,
+      "rows_returned": -1,
+      "rows_read_approx": 0,
+      "explain": [
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "order_request",
+          "partitions": "NULL",
+          "type": "const",
+          "possible_keys": "PRIMARY",
+          "key": "PRIMARY",
+          "key_len": "258",
+          "ref": "const",
+          "rows": "1",
+          "filtered": "100.00",
+          "Extra": "NULL"
+        }
+      ],
+      "plan": "-> Rows fetched before execution  (cost=0..0 rows=1) (actual time=50e-6..80e-6 rows=1 loops=1)\n\n",
+      "flags": []
+    },
+    {
+      "id": "payment.by_trade_no",
+      "source": "PaymentRepository.findByTradeNo",
+      "workload": "payment-callback",
+      "sql": "SELECT id, order_id, merchant_trade_no, provider, amount, status, failure_reason, created_at, paid_at FROM payment WHERE merchant_trade_no = 'T50000'",
+      "median_ms": 0.0,
+      "const_lookup": true,
+      "min_ms": 0.0,
+      "max_ms": 0.0,
+      "rows_returned": -1,
+      "rows_read_approx": 0,
+      "explain": [
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "payment",
+          "partitions": "NULL",
+          "type": "const",
+          "possible_keys": "uq_payment_trade_no",
+          "key": "uq_payment_trade_no",
+          "key_len": "162",
+          "ref": "const",
+          "rows": "1",
+          "filtered": "100.00",
+          "Extra": "NULL"
+        }
+      ],
+      "plan": "-> Rows fetched before execution  (cost=0..0 rows=1) (actual time=40e-6..80e-6 rows=1 loops=1)\n\n",
+      "flags": []
+    },
+    {
+      "id": "payment.initiated_for_order",
+      "source": "PaymentRepository.findInitiated",
+      "workload": "payment",
+      "sql": "SELECT id, order_id, merchant_trade_no, provider, amount, status, failure_reason, created_at, paid_at FROM payment WHERE order_id = 'O00050000' AND status = 'INITIATED'",
+      "median_ms": 0.024,
+      "const_lookup": false,
+      "min_ms": 0.0216,
+      "max_ms": 0.0261,
+      "rows_returned": 0,
+      "rows_read_approx": 1,
+      "explain": [
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "payment",
+          "partitions": "NULL",
+          "type": "ref",
+          "possible_keys": "idx_payment_order",
+          "key": "idx_payment_order",
+          "key_len": "122",
+          "ref": "const",
+          "rows": "1",
+          "filtered": "10.00",
+          "Extra": "Using where"
+        }
+      ],
+      "plan": "-> Filter: (payment.`status` = 'INITIATED')  (cost=0.26 rows=0.1) (actual time=0.0251..0.0251 rows=0 loops=1)\n    -> Index lookup on payment using idx_payment_order (order_id='O00050000')  (cost=0.26 rows=1) (actual time=0.0214..0.023 rows=1 loops=1)\n\n",
+      "flags": []
+    },
+    {
+      "id": "payment.order_lock",
+      "source": "PaymentRepository.lockOrder",
+      "workload": "payment-callback",
+      "sql": "SELECT order_id, member_id, order_status, pay_status, price FROM shop_order WHERE order_id = 'O00050000' FOR UPDATE",
+      "median_ms": 0.0,
+      "const_lookup": true,
+      "min_ms": 0.0,
+      "max_ms": 0.0,
+      "rows_returned": -1,
+      "rows_read_approx": 0,
+      "explain": [
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "shop_order",
+          "partitions": "NULL",
+          "type": "const",
+          "possible_keys": "PRIMARY",
+          "key": "PRIMARY",
+          "key_len": "122",
+          "ref": "const",
+          "rows": "1",
+          "filtered": "100.00",
+          "Extra": "NULL"
+        }
+      ],
+      "plan": "-> Rows fetched before execution  (cost=0..0 rows=1) (actual time=40e-6..70e-6 rows=1 loops=1)\n\n",
+      "flags": []
+    },
+    {
+      "id": "reco.co_purchase",
+      "source": "RecommendationRepository.coPurchased",
+      "workload": "recommendation",
+      "sql": "SELECT b.product_id, COUNT(DISTINCT o.member_id) AS score FROM order_detail a JOIN shop_order o ON o.order_id = a.order_id AND o.order_status <> 'CANCELLED' JOIN order_detail b ON b.order_id = a.order_id JOIN product p ON p.product_id = b.product_id AND p.deleted_at IS NULL AND p.quantity > 0 WHERE a.product_id IN ('P00001') AND b.product_id NOT IN ('P00001') GROUP BY b.product_id HAVING COUNT(DISTINCT o.member_id) >= 2 ORDER BY score DESC, b.product_id ASC LIMIT 8",
+      "median_ms": 387.0,
+      "const_lookup": false,
+      "min_ms": 380.0,
+      "max_ms": 404.0,
+      "rows_returned": 8,
+      "rows_read_approx": 205688,
+      "explain": [
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "p",
+          "partitions": "NULL",
+          "type": "range",
+          "possible_keys": "PRIMARY",
+          "key": "PRIMARY",
+          "key_len": "82",
+          "ref": "NULL",
+          "rows": "1001",
+          "filtered": "3.33",
+          "Extra": "Using where; Using temporary; Using filesort"
+        },
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "b",
+          "partitions": "NULL",
+          "type": "ref",
+          "possible_keys": "fk_order_detail_order,idx_order_detail_product_order",
+          "key": "idx_order_detail_product_order",
+          "key_len": "82",
+          "ref": "esun_perf.p.product_id",
+          "rows": "130",
+          "filtered": "100.00",
+          "Extra": "Using index"
+        },
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "a",
+          "partitions": "NULL",
+          "type": "ref",
+          "possible_keys": "fk_order_detail_order,idx_order_detail_product_order",
+          "key": "idx_order_detail_product_order",
+          "key_len": "204",
+          "ref": "const,esun_perf.b.order_id",
+          "rows": "1",
+          "filtered": "100.00",
+          "Extra": "Using index"
+        },
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "o",
+          "partitions": "NULL",
+          "type": "eq_ref",
+          "possible_keys": "PRIMARY,idx_shop_order_status",
+          "key": "PRIMARY",
+          "key_len": "122",
+          "ref": "esun_perf.b.order_id",
+          "rows": "1",
+          "filtered": "50.00",
+          "Extra": "Using where"
+        }
+      ],
+      "plan": "-> Limit: 8 row(s)  (actual time=384..384 rows=8 loops=1)\n    -> Sort: score DESC, b.product_id  (actual time=384..384 rows=8 loops=1)\n        -> Filter: (`count(distinct shop_order.member_id)` >= 2)  (actual time=382..384 rows=1299 loops=1)\n            -> Stream results  (actual time=382..384 rows=1511 loops=1)\n                -> Group aggregate: count(distinct shop_order.member_id), count(distinct shop_order.member_id)  (actual time=382..383 rows=1511 loops=1)\n                    -> Sort: b.product_id  (actual time=382..382 rows=6679 loops=1)\n                        -> Stream results  (cost=3752 rows=2172) (actual time=0.0504..372 rows=6679 loops=1)\n                            -> Nested loop inner join  (cost=3752 rows=2172) (actual time=0.0494..370 rows=6679 loops=1)\n                                -> Nested loop inner join  (cost=2231 rows=4343) (actual time=0.0437..361 rows=7012 loops=1)\n                                    -> Nested loop inner join  (cost=673 rows=4343) (actual time=0.0395..43.7 rows=196222 loops=1)\n                                        -> Filter: ((p.product_id <> 'P00001') and (p.deleted_at is null) and (p.quantity > 0))  (cost=201 rows=33.4) (actual time=0.0292..0.796 rows=1599 loops=1)\n                                            -> Index range scan on p using PRIMARY over (product_id < 'P00001') OR ('P00001' < product_id)  (cost=201 rows=1001) (actual time=0.0274..0.437 rows=1999 loops=1)\n                                        -> Covering index lookup on b using idx_order_detail_product_order (product_id=p.product_id)  (cost=1.51 rows=130) (actual time=0.00381..0.0223 rows=123 loops=1599)\n                                    -> Covering index lookup on a using idx_order_detail_product_order (product_id='P00001', order_id=b.order_id)  (cost=0.259 rows=1) (actual time=0.00155..0.00156 rows=0.0357 loops=196222)\n                                -> Filter: (o.order_status <> 'CANCELLED')  (cost=0.25 rows=0.5) (actual time=0.00116..0.00121 rows=0.953 loops=7012)\n                                    -> Single-row index lookup on o using PRIMARY (order_id=b.order_id)  (cost=0.25 rows=1) (actual time=0.00105..0.00107 rows=1 loops=7012)\n\n",
+      "flags": [
+        "filesort",
+        "temporary"
+      ]
+    },
+    {
+      "id": "reco.popular",
+      "source": "RecommendationRepository.popular",
+      "workload": "recommendation",
+      "sql": "SELECT d.product_id, COUNT(DISTINCT o.member_id) AS score FROM order_detail d JOIN shop_order o ON o.order_id = d.order_id AND o.order_status <> 'CANCELLED' JOIN product p ON p.product_id = d.product_id AND p.deleted_at IS NULL AND p.quantity > 0 WHERE 1 = 1 GROUP BY d.product_id HAVING COUNT(DISTINCT o.member_id) >= 2 ORDER BY score DESC, d.product_id ASC LIMIT 8",
+      "median_ms": 515.0,
+      "const_lookup": false,
+      "min_ms": 493.0,
+      "max_ms": 654.0,
+      "rows_returned": 8,
+      "rows_read_approx": 203600,
+      "explain": [
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "p",
+          "partitions": "NULL",
+          "type": "ALL",
+          "possible_keys": "PRIMARY",
+          "key": "NULL",
+          "key_len": "NULL",
+          "ref": "NULL",
+          "rows": "2000",
+          "filtered": "3.33",
+          "Extra": "Using where; Using temporary; Using filesort"
+        },
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "d",
+          "partitions": "NULL",
+          "type": "ref",
+          "possible_keys": "fk_order_detail_order,idx_order_detail_product_order",
+          "key": "idx_order_detail_product_order",
+          "key_len": "82",
+          "ref": "esun_perf.p.product_id",
+          "rows": "130",
+          "filtered": "100.00",
+          "Extra": "Using index"
+        },
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "o",
+          "partitions": "NULL",
+          "type": "eq_ref",
+          "possible_keys": "PRIMARY,idx_shop_order_status",
+          "key": "PRIMARY",
+          "key_len": "122",
+          "ref": "esun_perf.d.order_id",
+          "rows": "1",
+          "filtered": "50.00",
+          "Extra": "Using where"
+        }
+      ],
+      "plan": "-> Limit: 8 row(s)  (actual time=493..493 rows=8 loops=1)\n    -> Sort: score DESC, d.product_id  (actual time=493..493 rows=8 loops=1)\n        -> Filter: (`count(distinct shop_order.member_id)` >= 2)  (actual time=415..492 rows=1600 loops=1)\n            -> Stream results  (actual time=415..492 rows=1600 loops=1)\n                -> Group aggregate: count(distinct shop_order.member_id), count(distinct shop_order.member_id)  (actual time=415..491 rows=1600 loops=1)\n                    -> Sort: d.product_id  (actual time=412..421 rows=191800 loops=1)\n                        -> Stream results  (cost=4183 rows=4339) (actual time=0.0506..247 rows=191800 loops=1)\n                            -> Nested loop inner join  (cost=4183 rows=4339) (actual time=0.0497..220 rows=191800 loops=1)\n                                -> Nested loop inner join  (cost=1145 rows=8678) (actual time=0.0427..45.4 rows=201844 loops=1)\n                                    -> Filter: ((p.deleted_at is null) and (p.quantity > 0))  (cost=203 rows=66.7) (actual time=0.0274..0.671 rows=1600 loops=1)\n                                        -> Table scan on p  (cost=203 rows=2000) (actual time=0.0261..0.406 rows=2000 loops=1)\n                                    -> Covering index lookup on d using idx_order_detail_product_order (product_id=p.product_id)  (cost=1.31 rows=130) (actual time=0.00431..0.0235 rows=126 loops=1600)\n                                -> Filter: (o.order_status <> 'CANCELLED')  (cost=0.25 rows=0.5) (actual time=728e-6..777e-6 rows=0.95 loops=201844)\n                                    -> Single-row index lookup on o using PRIMARY (order_id=d.order_id)  (cost=0.25 rows=1) (actual time=629e-6..646e-6 rows=1 loops=201844)\n\n",
+      "flags": [
+        "full_scan",
+        "filesort",
+        "temporary",
+        "no_key"
+      ]
+    },
+    {
+      "id": "reco.new_arrival",
+      "source": "RecommendationRepository.newArrivals",
+      "workload": "recommendation",
+      "sql": "SELECT p.product_id FROM product p WHERE p.deleted_at IS NULL AND p.quantity > 0 ORDER BY p.created_at DESC, p.product_id ASC LIMIT 8",
+      "median_ms": 0.935,
+      "const_lookup": false,
+      "min_ms": 0.891,
+      "max_ms": 1.04,
+      "rows_returned": 8,
+      "rows_read_approx": 2000,
+      "explain": [
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "p",
+          "partitions": "NULL",
+          "type": "ALL",
+          "possible_keys": "NULL",
+          "key": "NULL",
+          "key_len": "NULL",
+          "ref": "NULL",
+          "rows": "2000",
+          "filtered": "3.33",
+          "Extra": "Using where; Using filesort"
+        }
+      ],
+      "plan": "-> Limit: 8 row(s)  (cost=203 rows=8) (actual time=1.04..1.04 rows=8 loops=1)\n    -> Sort: p.created_at DESC, p.product_id, limit input to 8 row(s) per chunk  (cost=203 rows=2000) (actual time=1.03..1.04 rows=8 loops=1)\n        -> Filter: ((p.deleted_at is null) and (p.quantity > 0))  (cost=203 rows=2000) (actual time=0.0372..0.459 rows=1600 loops=1)\n            -> Table scan on p  (cost=203 rows=2000) (actual time=0.0352..0.345 rows=2000 loops=1)\n\n",
+      "flags": [
+        "full_scan",
+        "filesort",
+        "no_key"
+      ]
+    },
+    {
+      "id": "reco.member_purchases",
+      "source": "RecommendationRepository.purchasedBy",
+      "workload": "recommendation",
+      "sql": "SELECT DISTINCT d.product_id FROM order_detail d JOIN shop_order o ON o.order_id = d.order_id WHERE o.member_id = 'u1@example.com' AND o.order_status <> 'CANCELLED' ORDER BY d.product_id",
+      "median_ms": 13.6,
+      "const_lookup": false,
+      "min_ms": 11.5,
+      "max_ms": 18.6,
+      "rows_returned": 1446,
+      "rows_read_approx": 2811,
+      "explain": [
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "o",
+          "partitions": "NULL",
+          "type": "ref",
+          "possible_keys": "PRIMARY,idx_shop_order_member,idx_shop_order_status",
+          "key": "idx_shop_order_member",
+          "key_len": "402",
+          "ref": "const",
+          "rows": "1365",
+          "filtered": "50.00",
+          "Extra": "Using where; Using temporary; Using filesort"
+        },
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "d",
+          "partitions": "NULL",
+          "type": "ref",
+          "possible_keys": "fk_order_detail_order,idx_order_detail_product_order",
+          "key": "fk_order_detail_order",
+          "key_len": "122",
+          "ref": "esun_perf.o.order_id",
+          "rows": "2",
+          "filtered": "100.00",
+          "Extra": "NULL"
+        }
+      ],
+      "plan": "-> Sort: d.product_id  (actual time=18.6..18.6 rows=1446 loops=1)\n    -> Table scan on <temporary>  (cost=1181..1204 rows=1632) (actual time=17.7..17.8 rows=1446 loops=1)\n        -> Temporary table with deduplication  (cost=1181..1181 rows=1632) (actual time=17.7..17.7 rows=1446 loops=1)\n            -> Nested loop inner join  (cost=1018 rows=1632) (actual time=0.241..17.1 rows=3238 loops=1)\n                -> Filter: (o.order_status <> 'CANCELLED')  (cost=410 rows=683) (actual time=0.225..1.3 rows=1301 loops=1)\n                    -> Index lookup on o using idx_shop_order_member (member_id='u1@example.com')  (cost=410 rows=1365) (actual time=0.224..1.21 rows=1365 loops=1)\n                -> Index lookup on d using fk_order_detail_order (order_id=o.order_id)  (cost=0.653 rows=2.39) (actual time=0.0117..0.012 rows=2.49 loops=1301)\n\n",
+      "flags": [
+        "filesort",
+        "temporary"
+      ]
+    },
+    {
+      "id": "reco.member_cart",
+      "source": "RecommendationRepository.carted",
+      "workload": "recommendation",
+      "sql": "SELECT c.product_id FROM shopping_cart c JOIN member m ON m.id = c.member_id WHERE m.email = 'u1500@example.com' ORDER BY c.product_id",
+      "median_ms": 0.007,
+      "const_lookup": false,
+      "min_ms": 0.00626,
+      "max_ms": 0.00825,
+      "rows_returned": 4,
+      "rows_read_approx": 4,
+      "explain": [
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "m",
+          "partitions": "NULL",
+          "type": "const",
+          "possible_keys": "PRIMARY,email",
+          "key": "email",
+          "key_len": "1022",
+          "ref": "const",
+          "rows": "1",
+          "filtered": "100.00",
+          "Extra": "Using index"
+        },
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "c",
+          "partitions": "NULL",
+          "type": "ref",
+          "possible_keys": "uk_shopping_cart_member_product,idx_shopping_cart_member",
+          "key": "uk_shopping_cart_member_product",
+          "key_len": "8",
+          "ref": "const",
+          "rows": "4",
+          "filtered": "100.00",
+          "Extra": "Using index"
+        }
+      ],
+      "plan": "-> Covering index lookup on c using uk_shopping_cart_member_product (member_id='1500')  (cost=0.659 rows=4) (actual time=0.00517..0.00825 rows=4 loops=1)\n\n",
+      "flags": []
+    },
+    {
+      "id": "review.public_page",
+      "source": "ProductReviewRepository.findVisible",
+      "workload": "reviews",
+      "sql": "SELECT pr.id, pr.product_id, pr.member_id, COALESCE(NULLIF(m.display_name, ''), 'x') reviewer_name, pr.rating, pr.content, pr.visibility, pr.created_at, pr.updated_at FROM product_review pr JOIN member m ON m.id = pr.member_id WHERE pr.product_id = 'P00003' AND pr.visibility = 'VISIBLE' ORDER BY pr.created_at DESC, pr.id DESC LIMIT 10 OFFSET 0",
+      "median_ms": 0.066,
+      "const_lookup": false,
+      "min_ms": 0.0659,
+      "max_ms": 0.0765,
+      "rows_returned": 10,
+      "rows_read_approx": 20,
+      "explain": [
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "pr",
+          "partitions": "NULL",
+          "type": "ref",
+          "possible_keys": "uk_product_review_member_product,idx_product_review_public",
+          "key": "idx_product_review_public",
+          "key_len": "164",
+          "ref": "const,const",
+          "rows": "10",
+          "filtered": "100.00",
+          "Extra": "Backward index scan"
+        },
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "m",
+          "partitions": "NULL",
+          "type": "eq_ref",
+          "possible_keys": "PRIMARY",
+          "key": "PRIMARY",
+          "key_len": "8",
+          "ref": "esun_perf.pr.member_id",
+          "rows": "1",
+          "filtered": "100.00",
+          "Extra": "NULL"
+        }
+      ],
+      "plan": "-> Limit: 10 row(s)  (cost=10.9 rows=10) (actual time=0.0309..0.066 rows=10 loops=1)\n    -> Nested loop inner join  (cost=10.9 rows=10) (actual time=0.0305..0.0652 rows=10 loops=1)\n        -> Index lookup on pr using idx_product_review_public (product_id='P00003', visibility='VISIBLE') (reverse)  (cost=3.5 rows=10) (actual time=0.0222..0.0378 rows=10 loops=1)\n        -> Single-row index lookup on m using PRIMARY (id=pr.member_id)  (cost=0.651 rows=1) (actual time=0.0025..0.00252 rows=1 loops=10)\n\n",
+      "flags": []
+    },
+    {
+      "id": "review.public_count",
+      "source": "ProductReviewRepository.countVisible",
+      "workload": "reviews",
+      "sql": "SELECT COUNT(*) FROM product_review WHERE product_id = 'P00003' AND visibility = 'VISIBLE'",
+      "median_ms": 0.021,
+      "const_lookup": false,
+      "min_ms": 0.0188,
+      "max_ms": 0.023,
+      "rows_returned": 1,
+      "rows_read_approx": 10,
+      "explain": [
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "product_review",
+          "partitions": "NULL",
+          "type": "ref",
+          "possible_keys": "idx_product_review_public",
+          "key": "idx_product_review_public",
+          "key_len": "164",
+          "ref": "const,const",
+          "rows": "10",
+          "filtered": "100.00",
+          "Extra": "Using index"
+        }
+      ],
+      "plan": "-> Aggregate: count(0)  (cost=2.3 rows=1) (actual time=0.0217..0.0218 rows=1 loops=1)\n    -> Covering index lookup on product_review using idx_product_review_public (product_id='P00003', visibility='VISIBLE')  (cost=1.3 rows=10) (actual time=0.0142..0.0188 rows=10 loops=1)\n\n",
+      "flags": []
+    },
+    {
+      "id": "review.public_avg",
+      "source": "ProductReviewRepository.averageVisible",
+      "workload": "reviews",
+      "sql": "SELECT ROUND(AVG(rating), 2) FROM product_review WHERE product_id = 'P00003' AND visibility = 'VISIBLE'",
+      "median_ms": 0.038,
+      "const_lookup": false,
+      "min_ms": 0.0354,
+      "max_ms": 0.0389,
+      "rows_returned": 1,
+      "rows_read_approx": 10,
+      "explain": [
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "product_review",
+          "partitions": "NULL",
+          "type": "ref",
+          "possible_keys": "idx_product_review_public",
+          "key": "idx_product_review_public",
+          "key_len": "164",
+          "ref": "const,const",
+          "rows": "10",
+          "filtered": "100.00",
+          "Extra": "NULL"
+        }
+      ],
+      "plan": "-> Aggregate: avg(product_review.rating)  (cost=4.5 rows=1) (actual time=0.0364..0.0365 rows=1 loops=1)\n    -> Index lookup on product_review using idx_product_review_public (product_id='P00003', visibility='VISIBLE')  (cost=3.5 rows=10) (actual time=0.0204..0.0326 rows=10 loops=1)\n\n",
+      "flags": []
+    },
+    {
+      "id": "review.verified_purchase",
+      "source": "ProductReviewRepository.hasPurchased",
+      "workload": "reviews",
+      "sql": "SELECT COUNT(*) FROM shop_order o JOIN order_detail d ON d.order_id = o.order_id JOIN member m ON m.email = o.member_id WHERE m.id = 1500 AND d.product_id = 'P00001'",
+      "median_ms": 0.073,
+      "const_lookup": false,
+      "min_ms": 0.0655,
+      "max_ms": 0.0993,
+      "rows_returned": 1,
+      "rows_read_approx": 18,
+      "explain": [
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "m",
+          "partitions": "NULL",
+          "type": "const",
+          "possible_keys": "PRIMARY,email",
+          "key": "PRIMARY",
+          "key_len": "8",
+          "ref": "const",
+          "rows": "1",
+          "filtered": "100.00",
+          "Extra": "NULL"
+        },
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "o",
+          "partitions": "NULL",
+          "type": "ref",
+          "possible_keys": "PRIMARY,idx_shop_order_member",
+          "key": "idx_shop_order_member",
+          "key_len": "402",
+          "ref": "const",
+          "rows": "18",
+          "filtered": "100.00",
+          "Extra": "Using where; Using index"
+        },
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "d",
+          "partitions": "NULL",
+          "type": "ref",
+          "possible_keys": "fk_order_detail_order,idx_order_detail_product_order",
+          "key": "idx_order_detail_product_order",
+          "key_len": "204",
+          "ref": "const,esun_perf.o.order_id",
+          "rows": "1",
+          "filtered": "100.00",
+          "Extra": "Using index"
+        }
+      ],
+      "plan": "-> Aggregate: count(0)  (cost=12.4 rows=1) (actual time=0.0765..0.0766 rows=1 loops=1)\n    -> Nested loop inner join  (cost=10.5 rows=18.8) (actual time=0.0751..0.0751 rows=0 loops=1)\n        -> Filter: ('u1500@example.com' = o.member_id)  (cost=3.81 rows=18.8) (actual time=0.0124..0.0216 rows=18 loops=1)\n            -> Covering index lookup on o using idx_shop_order_member (member_id='u1500@example.com')  (cost=3.81 rows=18.8) (actual time=0.0115..0.0174 rows=18 loops=1)\n        -> Covering index lookup on d using idx_order_detail_product_order (product_id='P00001', order_id=o.order_id)  (cost=0.264 rows=1) (actual time=0.00284..0.00284 rows=0 loops=18)\n\n",
+      "flags": []
+    },
+    {
+      "id": "review.seller_moderation",
+      "source": "ProductReviewRepository.findForSeller",
+      "workload": "reviews",
+      "sql": "SELECT pr.id, pr.product_id, pr.member_id, COALESCE(NULLIF(m.display_name, ''), 'x') reviewer_name, pr.rating, pr.content, pr.visibility, pr.created_at, pr.updated_at FROM product_review pr JOIN member m ON m.id = pr.member_id JOIN product p ON p.product_id = pr.product_id WHERE p.creator_id = 'u3@example.com' ORDER BY pr.created_at DESC, pr.id DESC LIMIT 20 OFFSET 0",
+      "median_ms": 1.13,
+      "const_lookup": false,
+      "min_ms": 1.13,
+      "max_ms": 1.19,
+      "rows_returned": 20,
+      "rows_read_approx": 440,
+      "explain": [
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "p",
+          "partitions": "NULL",
+          "type": "ref",
+          "possible_keys": "PRIMARY,idx_product_creator",
+          "key": "idx_product_creator",
+          "key_len": "1022",
+          "ref": "const",
+          "rows": "40",
+          "filtered": "100.00",
+          "Extra": "Using index; Using temporary; Using filesort"
+        },
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "pr",
+          "partitions": "NULL",
+          "type": "ref",
+          "possible_keys": "uk_product_review_member_product,idx_product_review_public",
+          "key": "idx_product_review_public",
+          "key_len": "82",
+          "ref": "esun_perf.p.product_id",
+          "rows": "9",
+          "filtered": "100.00",
+          "Extra": "NULL"
+        },
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "m",
+          "partitions": "NULL",
+          "type": "eq_ref",
+          "possible_keys": "PRIMARY",
+          "key": "PRIMARY",
+          "key_len": "8",
+          "ref": "esun_perf.pr.member_id",
+          "rows": "1",
+          "filtered": "100.00",
+          "Extra": "NULL"
+        }
+      ],
+      "plan": "-> Limit: 20 row(s)  (actual time=1.16..1.16 rows=20 loops=1)\n    -> Sort: pr.created_at DESC, pr.id DESC, limit input to 20 row(s) per chunk  (actual time=1.16..1.16 rows=20 loops=1)\n        -> Stream results  (cost=282 rows=392) (actual time=0.0401..1.08 rows=400 loops=1)\n            -> Nested loop inner join  (cost=282 rows=392) (actual time=0.0356..0.901 rows=400 loops=1)\n                -> Nested loop inner join  (cost=145 rows=392) (actual time=0.0303..0.581 rows=400 loops=1)\n                    -> Covering index lookup on p using idx_product_creator (creator_id='u3@example.com')  (cost=7.67 rows=40) (actual time=0.0125..0.0222 rows=40 loops=1)\n                    -> Index lookup on pr using idx_product_review_public (product_id=p.product_id)  (cost=2.47 rows=9.8) (actual time=0.00546..0.0135 rows=10 loops=40)\n                -> Single-row index lookup on m using PRIMARY (id=pr.member_id)  (cost=0.25 rows=1) (actual time=669e-6..690e-6 rows=1 loops=400)\n\n",
+      "flags": [
+        "filesort",
+        "temporary"
+      ]
+    },
+    {
+      "id": "review.admin_all",
+      "source": "ProductReviewRepository.findForAdmin",
+      "workload": "reviews",
+      "sql": "SELECT pr.id, pr.product_id, pr.member_id, COALESCE(NULLIF(m.display_name, ''), 'x') reviewer_name, pr.rating, pr.content, pr.visibility, pr.created_at, pr.updated_at FROM product_review pr JOIN member m ON m.id = pr.member_id ORDER BY pr.created_at DESC, pr.id DESC LIMIT 20 OFFSET 0",
+      "median_ms": 6.71,
+      "const_lookup": false,
+      "min_ms": 6.31,
+      "max_ms": 6.94,
+      "rows_returned": 20,
+      "rows_read_approx": 20020,
+      "explain": [
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "pr",
+          "partitions": "NULL",
+          "type": "ALL",
+          "possible_keys": "uk_product_review_member_product",
+          "key": "NULL",
+          "key_len": "NULL",
+          "ref": "NULL",
+          "rows": "19592",
+          "filtered": "100.00",
+          "Extra": "Using filesort"
+        },
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "m",
+          "partitions": "NULL",
+          "type": "eq_ref",
+          "possible_keys": "PRIMARY",
+          "key": "PRIMARY",
+          "key_len": "8",
+          "ref": "esun_perf.pr.member_id",
+          "rows": "1",
+          "filtered": "100.00",
+          "Extra": "NULL"
+        }
+      ],
+      "plan": "-> Limit: 20 row(s)  (cost=8857 rows=20) (actual time=6.91..6.94 rows=20 loops=1)\n    -> Nested loop inner join  (cost=8857 rows=19592) (actual time=6.91..6.94 rows=20 loops=1)\n        -> Sort: pr.created_at DESC, pr.id DESC  (cost=1999 rows=19592) (actual time=6.9..6.9 rows=20 loops=1)\n            -> Table scan on pr  (cost=1999 rows=19592) (actual time=0.0333..3.71 rows=20000 loops=1)\n        -> Single-row index lookup on m using PRIMARY (id=pr.member_id)  (cost=0.25 rows=1) (actual time=0.00171..0.00173 rows=1 loops=20)\n\n",
+      "flags": [
+        "full_scan",
+        "filesort",
+        "no_key"
+      ]
+    },
+    {
+      "id": "audit.latest",
+      "source": "AuditLogRepository.find(no filter)",
+      "workload": "audit",
+      "sql": "SELECT id, actor, actor_role, action, target_type, target_id, before_state, after_state, created_at FROM audit_log ORDER BY id DESC LIMIT 50 OFFSET 0",
+      "median_ms": 0.049,
+      "const_lookup": false,
+      "min_ms": 0.0428,
+      "max_ms": 0.0616,
+      "rows_returned": 50,
+      "rows_read_approx": 50,
+      "explain": [
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "audit_log",
+          "partitions": "NULL",
+          "type": "index",
+          "possible_keys": "NULL",
+          "key": "PRIMARY",
+          "key_len": "8",
+          "ref": "NULL",
+          "rows": "50",
+          "filtered": "100.00",
+          "Extra": "Backward index scan"
+        }
+      ],
+      "plan": "-> Limit: 50 row(s)  (cost=0.0952 rows=50) (actual time=0.0316..0.0616 rows=50 loops=1)\n    -> Index scan on audit_log using PRIMARY (reverse)  (cost=0.0952 rows=50) (actual time=0.0305..0.0584 rows=50 loops=1)\n\n",
+      "flags": []
+    },
+    {
+      "id": "audit.by_actor",
+      "source": "AuditLogRepository.find(actor)",
+      "workload": "audit",
+      "sql": "SELECT id, actor, actor_role, action, target_type, target_id, before_state, after_state, created_at FROM audit_log WHERE actor = 'u3@example.com' ORDER BY id DESC LIMIT 50 OFFSET 0",
+      "median_ms": 0.137,
+      "const_lookup": false,
+      "min_ms": 0.0993,
+      "max_ms": 0.284,
+      "rows_returned": 50,
+      "rows_read_approx": 50,
+      "explain": [
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "audit_log",
+          "partitions": "NULL",
+          "type": "ref",
+          "possible_keys": "idx_audit_log_actor",
+          "key": "idx_audit_log_actor",
+          "key_len": "1022",
+          "ref": "const",
+          "rows": "2000",
+          "filtered": "100.00",
+          "Extra": "Backward index scan"
+        }
+      ],
+      "plan": "-> Limit: 50 row(s)  (cost=700 rows=50) (actual time=0.0213..0.0993 rows=50 loops=1)\n    -> Index lookup on audit_log using idx_audit_log_actor (actor='u3@example.com') (reverse)  (cost=700 rows=2000) (actual time=0.0208..0.0957 rows=50 loops=1)\n\n",
+      "flags": []
+    },
+    {
+      "id": "audit.by_target",
+      "source": "AuditLogRepository.find(target)",
+      "workload": "audit",
+      "sql": "SELECT id, actor, actor_role, action, target_type, target_id, before_state, after_state, created_at FROM audit_log WHERE target_type = 'PRODUCT' AND target_id = 'P00001' ORDER BY id DESC LIMIT 50 OFFSET 0",
+      "median_ms": 0.12,
+      "const_lookup": false,
+      "min_ms": 0.113,
+      "max_ms": 0.226,
+      "rows_returned": 33,
+      "rows_read_approx": 33,
+      "explain": [
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "audit_log",
+          "partitions": "NULL",
+          "type": "ref",
+          "possible_keys": "idx_audit_log_target",
+          "key": "idx_audit_log_target",
+          "key_len": "524",
+          "ref": "const,const",
+          "rows": "33",
+          "filtered": "100.00",
+          "Extra": "Backward index scan"
+        }
+      ],
+      "plan": "-> Limit: 50 row(s)  (cost=11.6 rows=33) (actual time=0.0215..0.125 rows=33 loops=1)\n    -> Index lookup on audit_log using idx_audit_log_target (target_type='PRODUCT', target_id='P00001') (reverse)  (cost=11.6 rows=33) (actual time=0.0209..0.123 rows=33 loops=1)\n\n",
+      "flags": []
+    },
+    {
+      "id": "audit.action_window",
+      "source": "AuditLogRepository.find(action+time)",
+      "workload": "audit",
+      "sql": "SELECT id, actor, actor_role, action, target_type, target_id, before_state, after_state, created_at FROM audit_log WHERE action = 'PRODUCT_UPDATE' AND created_at >= NOW() - INTERVAL 7 DAY ORDER BY id DESC LIMIT 50 OFFSET 0",
+      "median_ms": 2.52,
+      "const_lookup": false,
+      "min_ms": 2.47,
+      "max_ms": 2.7,
+      "rows_returned": 50,
+      "rows_read_approx": 2563,
+      "explain": [
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "audit_log",
+          "partitions": "NULL",
+          "type": "range",
+          "possible_keys": "idx_audit_log_created,idx_audit_log_action",
+          "key": "idx_audit_log_action",
+          "key_len": "162",
+          "ref": "NULL",
+          "rows": "28302",
+          "filtered": "1.94",
+          "Extra": "Using index condition; Using where; Backward index scan"
+        }
+      ],
+      "plan": "-> Limit: 50 row(s)  (cost=866 rows=50) (actual time=0.0862..2.47 rows=50 loops=1)\n    -> Filter: (audit_log.created_at >= <cache>((now() - interval 7 day)))  (cost=866 rows=548) (actual time=0.0857..2.47 rows=50 loops=1)\n        -> Index range scan on audit_log using idx_audit_log_action over (action = 'PRODUCT_UPDATE') (reverse), with index condition: (audit_log.`action` = 'PRODUCT_UPDATE')  (cost=866 rows=28302) (actual time=0.0185..2.38 rows=2563 loops=1)\n\n",
+      "flags": []
+    },
+    {
+      "id": "audit.count_action_window",
+      "source": "AuditLogRepository.count",
+      "workload": "audit",
+      "sql": "SELECT COUNT(*) FROM audit_log WHERE action = 'PRODUCT_UPDATE' AND created_at >= NOW() - INTERVAL 7 DAY",
+      "median_ms": 3.94,
+      "const_lookup": false,
+      "min_ms": 2.17,
+      "max_ms": 4.08,
+      "rows_returned": 1,
+      "rows_read_approx": 1923,
+      "explain": [
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "audit_log",
+          "partitions": "NULL",
+          "type": "range",
+          "possible_keys": "idx_audit_log_created,idx_audit_log_action",
+          "key": "idx_audit_log_created",
+          "key_len": "7",
+          "ref": "NULL",
+          "rows": "1923",
+          "filtered": "28.49",
+          "Extra": "Using index condition; Using where"
+        }
+      ],
+      "plan": "-> Aggregate: count(0)  (cost=920 rows=1) (actual time=2.17..2.17 rows=1 loops=1)\n    -> Filter: (audit_log.`action` = 'PRODUCT_UPDATE')  (cost=866 rows=548) (actual time=0.148..2.16 rows=300 loops=1)\n        -> Index range scan on audit_log using idx_audit_log_created over ('2026-09-22 03:54:18.000' <= created_at), with index condition: (audit_log.created_at >= <cache>((now() - interval 7 day)))  (cost=866 rows=1923) (actual time=0.146..2.04 rows=1923 loops=1)\n\n",
+      "flags": []
+    },
+    {
+      "id": "cart.items_by_email",
+      "source": "CartRepository.findItems",
+      "workload": "cart",
+      "sql": "SELECT c.id, c.product_id, p.product_name, p.price, p.quantity AS stock FROM shopping_cart c JOIN member m ON m.id = c.member_id JOIN product p ON p.product_id = c.product_id WHERE m.email = 'u1500@example.com' ORDER BY c.id",
+      "median_ms": 0.029,
+      "const_lookup": false,
+      "min_ms": 0.0276,
+      "max_ms": 0.0325,
+      "rows_returned": 4,
+      "rows_read_approx": 8,
+      "explain": [
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "m",
+          "partitions": "NULL",
+          "type": "const",
+          "possible_keys": "PRIMARY,email",
+          "key": "email",
+          "key_len": "1022",
+          "ref": "const",
+          "rows": "1",
+          "filtered": "100.00",
+          "Extra": "Using index; Using filesort"
+        },
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "c",
+          "partitions": "NULL",
+          "type": "ref",
+          "possible_keys": "uk_shopping_cart_member_product,fk_shopping_cart_product,idx_shopping_cart_member",
+          "key": "uk_shopping_cart_member_product",
+          "key_len": "8",
+          "ref": "const",
+          "rows": "4",
+          "filtered": "100.00",
+          "Extra": "Using index"
+        },
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "p",
+          "partitions": "NULL",
+          "type": "eq_ref",
+          "possible_keys": "PRIMARY",
+          "key": "PRIMARY",
+          "key_len": "82",
+          "ref": "esun_perf.c.product_id",
+          "rows": "1",
+          "filtered": "100.00",
+          "Extra": "NULL"
+        }
+      ],
+      "plan": "-> Nested loop inner join  (cost=2.06 rows=4) (actual time=0.0237..0.0304 rows=4 loops=1)\n    -> Sort: c.id  (cost=0.659 rows=4) (actual time=0.0154..0.0156 rows=4 loops=1)\n        -> Index lookup on c using uk_shopping_cart_member_product (member_id='1500')  (cost=0.659 rows=4) (actual time=0.00533..0.00794 rows=4 loops=1)\n    -> Single-row index lookup on p using PRIMARY (product_id=c.product_id)  (cost=0.275 rows=1) (actual time=0.0032..0.00322 rows=1 loops=4)\n\n",
+      "flags": [
+        "filesort"
+      ]
+    },
+    {
+      "id": "cart.member_lock",
+      "source": "CartRepository.lockMember",
+      "workload": "cart/checkout",
+      "sql": "SELECT id FROM member WHERE email = 'u1500@example.com' FOR UPDATE",
+      "median_ms": 0.0,
+      "const_lookup": true,
+      "min_ms": 0.0,
+      "max_ms": 0.0,
+      "rows_returned": -1,
+      "rows_read_approx": 0,
+      "explain": [
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "member",
+          "partitions": "NULL",
+          "type": "const",
+          "possible_keys": "email",
+          "key": "email",
+          "key_len": "1022",
+          "ref": "const",
+          "rows": "1",
+          "filtered": "100.00",
+          "Extra": "Using index"
+        }
+      ],
+      "plan": "-> Rows fetched before execution  (cost=0..0 rows=1) (actual time=50e-6..80e-6 rows=1 loops=1)\n\n",
+      "flags": []
+    },
+    {
+      "id": "coupon.by_code",
+      "source": "CouponRepository.findByCode",
+      "workload": "coupon",
+      "sql": "SELECT * FROM coupon WHERE code = 'SAVE5'",
+      "median_ms": 0.0,
+      "const_lookup": true,
+      "min_ms": 0.0,
+      "max_ms": 0.0,
+      "rows_returned": -1,
+      "rows_read_approx": 0,
+      "explain": [
+        {
+          "id": "1",
+          "select_type": "SIMPLE",
+          "table": "coupon",
+          "partitions": "NULL",
+          "type": "const",
+          "possible_keys": "uq_coupon_code",
+          "key": "uq_coupon_code",
+          "key_len": "130",
+          "ref": "const",
+          "rows": "1",
+          "filtered": "100.00",
+          "Extra": "NULL"
+        }
+      ],
+      "plan": "-> Rows fetched before execution  (cost=0..0 rows=1) (actual time=40e-6..70e-6 rows=1 loops=1)\n\n",
+      "flags": []
+    }
+  ],
+  "explain_only": [
+    {
+      "id": "product.update_seller_pk",
+      "source": "ProductRepository.update",
+      "sql": "UPDATE product SET product_name = 'x', price = 10 WHERE product_id = 'P01200' AND creator_id = 'u3@example.com' AND deleted_at IS NULL",
+      "explain": [
+        {
+          "id": "1",
+          "select_type": "UPDATE",
+          "table": "product",
+          "partitions": "NULL",
+          "type": "range",
+          "possible_keys": "PRIMARY,idx_product_creator",
+          "key": "PRIMARY",
+          "key_len": "82",
+          "ref": "const",
+          "rows": "1",
+          "filtered": "100.00",
+          "Extra": "Using where"
+        }
+      ]
+    },
+    {
+      "id": "product.restock_pk",
+      "source": "ProductRepository.restock",
+      "sql": "UPDATE product SET quantity = quantity + 5 WHERE product_id = 'P01200' AND creator_id = 'u3@example.com' AND deleted_at IS NULL",
+      "explain": [
+        {
+          "id": "1",
+          "select_type": "UPDATE",
+          "table": "product",
+          "partitions": "NULL",
+          "type": "range",
+          "possible_keys": "PRIMARY,idx_product_creator",
+          "key": "PRIMARY",
+          "key_len": "82",
+          "ref": "const",
+          "rows": "1",
+          "filtered": "100.00",
+          "Extra": "Using where"
+        }
+      ]
+    },
+    {
+      "id": "order.status_cas",
+      "source": "OrderRepository.updateStatus",
+      "sql": "UPDATE shop_order SET order_status = 'CONFIRMED' WHERE order_id = 'O00050000' AND order_status = 'CREATED'",
+      "explain": [
+        {
+          "id": "1",
+          "select_type": "UPDATE",
+          "table": "shop_order",
+          "partitions": "NULL",
+          "type": "range",
+          "possible_keys": "PRIMARY,idx_shop_order_status",
+          "key": "PRIMARY",
+          "key_len": "122",
+          "ref": "const",
+          "rows": "1",
+          "filtered": "100.00",
+          "Extra": "Using where"
+        }
+      ]
+    },
+    {
+      "id": "payment.cas",
+      "source": "PaymentRepository.update",
+      "sql": "UPDATE payment SET status = 'SUCCEEDED' WHERE id = 5 AND status = 'INITIATED'",
+      "explain": [
+        {
+          "id": "1",
+          "select_type": "UPDATE",
+          "table": "payment",
+          "partitions": "NULL",
+          "type": "range",
+          "possible_keys": "PRIMARY",
+          "key": "PRIMARY",
+          "key_len": "8",
+          "ref": "const",
+          "rows": "1",
+          "filtered": "100.00",
+          "Extra": "Using where"
+        }
+      ]
+    }
+  ]
+}

@@ -31,13 +31,14 @@ public class OrderRepository {
     public record ItemRow(String orderId, String productId, String productName, int quantity,
                           BigDecimal unitPrice, BigDecimal itemPrice, String creatorId) { }
 
-    private static final String HEADER_SELECT = """
+    private static final String HEADER_COLUMNS = """
             SELECT o.order_id, o.member_id, o.order_status, o.price, o.created_at,
                    a.receiver_name, a.phone, CONCAT_WS(' ', a.postal_code, a.address) AS full_address,
                    o.pay_status, o.coupon_id, o.coupon_code, o.discount_amount,
                    (SELECT p.status FROM payment p WHERE p.order_id = o.order_id ORDER BY p.id DESC LIMIT 1) AS payment_status
-            FROM shop_order o LEFT JOIN shipping_address a ON a.id = o.shipping_address_id
             """;
+    private static final String HEADER_SELECT = HEADER_COLUMNS
+            + "FROM shop_order o LEFT JOIN shipping_address a ON a.id = o.shipping_address_id ";
     /** Seller scope: the order contains at least one product created by the seller. */
     private static final String SELLER_SCOPE = """
             EXISTS (SELECT 1 FROM order_detail d JOIN product p ON p.product_id = d.product_id
@@ -130,10 +131,14 @@ public class OrderRepository {
     /** {@code sellerId == null} means unrestricted (admin). */
     public List<OrderHeader> findHeadersForSeller(String sellerId, String status, int limit, int offset) {
         List<Object> args = new ArrayList<>();
-        String sql = HEADER_SELECT + sellerWhere(sellerId, status, args)
+        // Page the matching orders first and join the header columns afterwards: joining every matching order before
+        // sorting was ~2.6x slower for a seller with thousands of orders (docs/tasks/062). Same rows, same order.
+        String page = "SELECT o.* FROM shop_order o" + sellerWhere(sellerId, status, args)
                 + " ORDER BY o.created_at DESC, o.order_id DESC LIMIT ? OFFSET ?";
         args.add(limit);
         args.add(offset);
+        String sql = HEADER_COLUMNS + "FROM (" + page + ") o LEFT JOIN shipping_address a ON a.id = o.shipping_address_id "
+                + "ORDER BY o.created_at DESC, o.order_id DESC";
         return jdbcTemplate.query(sql, (rs, n) -> mapHeader(rs), args.toArray());
     }
 
