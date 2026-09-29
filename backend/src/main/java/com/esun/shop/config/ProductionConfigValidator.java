@@ -111,6 +111,7 @@ public class ProductionConfigValidator {
             boolean httpScheme = "http".equals(uri.getScheme()) || "https".equals(uri.getScheme());
             String path = uri.getPath();
             return httpScheme && uri.getHost() != null && !uri.getHost().contains("*")
+                    && uri.getRawUserInfo() == null
                     && (path == null || path.isEmpty()) && uri.getQuery() == null && uri.getFragment() == null;
         } catch (IllegalArgumentException ex) {
             return false;

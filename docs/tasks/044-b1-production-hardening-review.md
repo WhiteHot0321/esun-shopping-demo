@@ -1,5 +1,17 @@
 # 044 審查合約 — Phase 3.3 #18 B1 正式部署程式碼硬化
 
+## 044-C1 correction — 2026-09-29 Asia/Taipei
+
+Baseline: advanced-v2 @ 429346d94b8995d9025fb27ab1d722d9c764cee1. Implementer: Codex; independent reviewer: Claude Code (static correction PASS). MODE: IMPLEMENT uses the user's earlier explicit authorization; the preceding read-only review ended before this correction. Scope: ProductionConfigValidator.java, ProductionConfigValidatorTest.java and this record only; preserve all pre-existing changes. No commit/push/merge/deploy.
+
+The current-tree static review found that isPlainOrigin accepted user-info URLs such as https://user@shop.example.com. Correction adds a getRawUserInfo() == null requirement. The malformed-origin cases now include username, username/password, empty user-info and a mixed valid/invalid list; existing valid single/multiple-origin cases remain.
+
+Executed: `mvn '-Dtest=ProductionConfigValidatorTest' '-Djacoco.skip=true' test` from backend — exit 0, 19/19, 0 failures/errors/skips, total 9.318 seconds. JaCoCo explicitly skipped; no Docker/full-suite/browser/deployment verification. Evidence: backend/target/surefire-reports/com.esun.shop.config.ProductionConfigValidatorTest.txt; command log in the OS temp directory esun-044-c1-test.log. One target command, no repair round. Independent correction review pending. This is not full B1/B2/B3 acceptance; historical health-only expectations below must be read alongside the subsequently accepted MON-01 health/metrics policy.
+
+Independent review: PASS for 044-C1 only, no edits/tests. Report: `.git/codex-claude-runs/58eb324f-774a-494e-9e8d-60931e1e1e69/result.json`. Reviewer inspected the two core files; executed evidence was checked separately by Codex (19/19, exit0). This does not complete the broader B1/production acceptance.
+
+Remaining #18 requirements: B2 Compose/Caddy/frontend image/non-root container and local-stack acceptance; B3 external VM prerequisites and deployment/rollback; C integrated independent acceptance. User selected Ollama and plans Ubuntu VM; DNS/secrets/real deployment availability are not proven. Proposed B2 expansion to eight files is awaiting response. Overall elapsed time/context/token/cost unknown.
+
 **審查方式**：唯讀靜態與行為分析。審查者不修改程式碼、不執行測試、不部署。  
 **審查者**：Codex（由 Claude Code 實作）  
 **實作者**：Claude Code  

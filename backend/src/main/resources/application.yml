@@ -2,6 +2,11 @@ server:
   port: ${SERVER_PORT:8080}
 
 spring:
+  flyway:
+    # Legacy development/Testcontainers fixtures still use initdb.d. Production Compose enables
+    # this explicitly after the B2 topology is in place; automatic baselining is never allowed.
+    enabled: ${FLYWAY_ENABLED:false}
+    baseline-on-migrate: false
   servlet:
     multipart:
       max-file-size: 5MB

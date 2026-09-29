@@ -144,7 +144,9 @@ class ProductionConfigValidatorTest {
     @Test
     void corsOrigins_missingWildcardOrMalformed_areRejected() {
         for (String bad : List.of("", "*", "https://*.example.com", "shop.example.com",
-                "https://shop.example.com/app", "ftp://shop.example.com", "https://ok.example.com,*")) {
+                "https://shop.example.com/app", "ftp://shop.example.com", "https://ok.example.com,*",
+                "https://user@shop.example.com", "https://user:password@shop.example.com",
+                "https://@shop.example.com", "https://ok.example.com,https://user@shop.example.com")) {
             assertThat(violations(valid().withProperty("cors.allowed-origins", bad)))
                     .as("origins [%s]", bad)
                     .anyMatch(v -> v.contains("CORS_ALLOWED_ORIGINS"));
