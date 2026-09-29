@@ -103,6 +103,8 @@ this section if they're added later.
 
 ## Documentation template
 
+⚠️ **Before writing to Notion, read the "AI 寫入規範" page to avoid formatting corruption.**
+
 After each Phase 1 item, produce this block (pasteable into Notion):
 
 ```markdown
