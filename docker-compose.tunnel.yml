@@ -1,0 +1,15 @@
+# Tunnel mode: run the production stack on this machine and expose it through a tunnel
+# (cloudflared quick tunnel / Tailscale Funnel) instead of a rented VM. The tunnel terminates
+# TLS, so Caddy serves plain HTTP on loopback only — nothing is published on 80/443.
+#
+#   cloudflared tunnel --url http://127.0.0.1:8088        # prints https://<random>.trycloudflare.com
+#   # put that origin in .env.prod as CORS_ALLOWED_ORIGINS (and ECPAY_* URLs if used), then:
+#   docker compose -p esun-tunnel -f docker-compose.prod.yml -f docker-compose.tunnel.yml --env-file .env.prod up -d --build
+#
+# `-p esun-tunnel` keeps this stack's named volumes separate from any earlier local acceptance run.
+services:
+  caddy:
+    environment:
+      DOMAIN: "http://:80"
+    ports: !override
+      - "127.0.0.1:8088:80"
