@@ -1,6 +1,9 @@
 FROM maven:3.9-eclipse-temurin-17 AS build
 WORKDIR /app
 COPY pom.xml .
+# Dependencies in their own layer: a source-only change no longer re-downloads them from Maven Central
+# (which rate-limits repeated full downloads with HTTP 429).
+RUN mvn -B dependency:go-offline
 COPY src ./src
 RUN mvn -B -DskipTests clean package
 

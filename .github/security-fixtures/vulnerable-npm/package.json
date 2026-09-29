@@ -1,0 +1,7 @@
+{
+  "name": "vulnerable-fixture",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Deliberately vulnerable dependency used ONLY to prove the CI vulnerability gate fails. Never installed or shipped.",
+  "dependencies": { "lodash": "4.17.15" }
+}

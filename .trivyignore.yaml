@@ -1,0 +1,9 @@
+# Vulnerability exceptions for the CI supply-chain gate (docs/tasks/063). The gate fails on HIGH/CRITICAL findings that
+# have a fix available; an entry here is the ONLY way to accept one, and every entry must state why, who owns it, and
+# an expiry so it cannot become permanent by accident:
+#
+# vulnerabilities:
+#   - id: CVE-YYYY-NNNNN
+#     statement: "Not reachable because ...; owner: <name>; tracking: <issue link>"
+#     expired_at: 2026-12-31
+vulnerabilities: []

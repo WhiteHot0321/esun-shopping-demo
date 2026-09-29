@@ -60,6 +60,10 @@ jobs:
       - name: Install dependencies
         working-directory: frontend
         run: npm ci
+      # Runtime dependencies only: vite/vitest tooling is build-time and is not shipped. Blocking at high and above.
+      - name: Audit frontend runtime dependencies
+        working-directory: frontend
+        run: npm audit --omit=dev --audit-level=high
       - name: Test frontend
         working-directory: frontend
         run: npm test
@@ -67,8 +71,33 @@ jobs:
         working-directory: frontend
         run: npm run build
 
+  # Supply-chain gate (docs/tasks/063). Pinned by commit SHA because it is third-party code that runs with our repo checked
+  # out. The self-test proves the gate still fails on a known-vulnerable fixture, so a scanner that silently stops
+  # working cannot turn this job green. Exceptions live in .trivyignore.yaml and need an owner and an expiry.
+  supply-chain-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
+        with:
+          version: v0.74.0
+      - name: Gate self-test (the known-vulnerable fixture must be rejected)
+        run: |
+          if trivy fs --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 --quiet .github/security-fixtures/vulnerable-npm; then
+            echo "::error::the vulnerability gate did not fail on the known-vulnerable fixture"
+            exit 1
+          fi
+      # backend/pom.xml is skipped here on purpose: Trivy would resolve it against Maven Central (rate limited);
+      # backend dependencies are gated through the image scan below, which reads the built jar.
+      - name: Scan repository for vulnerabilities and secrets
+        run: >
+          trivy fs --scanners vuln,secret --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1
+          --ignorefile .trivyignore.yaml --skip-files backend/pom.xml
+          --skip-dirs .github/security-fixtures --skip-dirs node_modules --skip-dirs backend/target .
+
   docker-build:
-    needs: [backend-test, frontend-build]
+    needs: [backend-test, frontend-build, supply-chain-gate]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -81,9 +110,18 @@ jobs:
           context: backend
           file: backend/Dockerfile
           push: false
+          load: true
           tags: esun-shopping-backend:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      - uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
+        with:
+          version: v0.74.0
+      # Reads OS packages and the jars inside the image, so this is also the backend (Maven) dependency gate.
+      - name: Scan backend image (blocking on fixable HIGH/CRITICAL)
+        run: >
+          trivy image --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1
+          --ignorefile .trivyignore.yaml esun-shopping-backend:${{ github.sha }}
 
   # Publishes to GHCR with the built-in GITHUB_TOKEN (no stored secret). Runs only after every
   # gate above is green, and only for pushes to main / advanced-v2 or a v* tag - never for
@@ -112,13 +150,37 @@ jobs:
             type=ref,event=branch
             type=semver,pattern={{version}}
             type=sha,format=long
+      # sbom + provenance attach BuildKit attestations to the pushed manifest, so they travel with the digest.
       - name: Build and push backend image
+        id: push
         uses: docker/build-push-action@v6
         with:
           context: backend
           file: backend/Dockerfile
           push: true
+          sbom: true
+          provenance: mode=max
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      - uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
+        with:
+          version: v0.74.0
+      # Scan the digest that can actually be promoted, not a separate rebuild. A failure here means this digest must not
+      # be deployed even though its tags already exist; deploy tooling must promote only digests whose run is green.
+      - name: Scan the published digest
+        run: >
+          trivy image --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1
+          --ignorefile .trivyignore.yaml ${{ env.IMAGE }}@${{ steps.push.outputs.digest }}
+      - name: Generate CycloneDX SBOM for the digest
+        run: >
+          trivy image --format cyclonedx --output sbom.cdx.json ${{ env.IMAGE }}@${{ steps.push.outputs.digest }}
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-${{ steps.push.outputs.digest }}
+          path: sbom.cdx.json
+          retention-days: 90
+      - name: Record digest
+        run: echo "Published ${{ env.IMAGE }}@${{ steps.push.outputs.digest }}" >> "$GITHUB_STEP_SUMMARY"

@@ -28,6 +28,11 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+    networks: [data]
+    # The image starts as root, fixes data-dir ownership, then drops to the mysql user: keep only what that needs.
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID]
+    security_opt: ["no-new-privileges:true"]
     restart: unless-stopped
 
   redis:
@@ -42,12 +47,19 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+    networks: [data]
+    cap_drop: [ALL]
+    cap_add: [CHOWN, SETUID, SETGID]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 256m
     restart: unless-stopped
 
   ollama:
     image: ollama/ollama:latest
     volumes:
       - ollama-data:/root/.ollama
+    networks: [data]
+    security_opt: ["no-new-privileges:true"]
     restart: unless-stopped
     # Pull the configured models once after first boot (not automated here):
     #   docker compose -f docker-compose.prod.yml exec ollama ollama pull llama3.1
@@ -81,6 +93,15 @@ services:
       OLLAMA_EMBED_MODEL: ${OLLAMA_EMBED_MODEL:-nomic-embed-text}
     volumes:
       - product-images:/app/uploads
+    networks: [edge, data]
+    # Non-root already (see backend/Dockerfile); also no capabilities and a read-only root filesystem. The JVM and
+    # Tomcat write only to /tmp (tmpfs) and the uploads volume.
+    read_only: true
+    tmpfs: ["/tmp"]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 1g
+    pids_limit: 512
     depends_on:
       mysql:
         condition: service_healthy
@@ -100,15 +121,28 @@ services:
     image: ${FRONTEND_IMAGE:-esun-shopping-frontend:local}
     environment:
       DOMAIN: ${DOMAIN:-localhost}
+      HSTS_MAX_AGE: ${HSTS_MAX_AGE:-0}
     ports:
       - "80:80"
       - "443:443"
     volumes:
       - caddy-data:/data
       - caddy-config:/config
+    networks: [edge]
+    read_only: true
+    tmpfs: ["/tmp"]
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 256m
     depends_on:
       - backend
     restart: unless-stopped
+
+# edge: Caddy <-> backend only. data: backend <-> MySQL/Redis/Ollama. Caddy cannot reach the data services.
+networks:
+  edge:
+  data:
 
 volumes:
   mysql-data:
