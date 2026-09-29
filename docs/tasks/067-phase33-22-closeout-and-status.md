@@ -74,3 +74,9 @@ Executor: Claude Code. Setup: personal-account Tailscale, Funnel enabled by the 
 Notes: the task brief named `GET /api/products` as a public endpoint; that route is POST-only (405) and product listing is `/api/products/available`. The embedded Claude browser pane blocked the page's sub-resources (`ERR_BLOCKED_BY_CLIENT`, a client-side restriction; curl and Playwright load them fine).
 
 Not covered: real ECPay stage payment and inbound callback, load, long-running stability, off-host backup, independent review of this acceptance. Stage stays below "complete".
+
+### Independent review of the public smoke slice (Codex, review-only, 2026-09-29)
+
+Outcome: **PASS** at baseline `advanced-v2 @ 80d862d`. Codex confirmed the recorded smoke evidence, that #22 is documented as not complete, that `.env.prod` is ignored/untracked, and that no Funnel hostname appears in the five files it was allowed to read. It confirmed `HSTS max-age=0` and judged it consistent with the documented unstable-domain policy, and accepted the stale "school tailnet" sentence in `docs/project-state.md` as explicitly superseded. It ran no live curl (the hostname is intentionally not recorded) and changed nothing in the repository.
+
+Owner decision (2026-09-29): close out #22 on this evidence without the real ECPay stage callback. #22 therefore stays at acceptance stage, **not complete**, until a real ECPay stage payment with an inbound callback is recorded.
