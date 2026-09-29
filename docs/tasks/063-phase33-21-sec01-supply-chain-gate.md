@@ -52,8 +52,8 @@ Date: 2026-09-29 (Asia/Taipei). Executor: Claude Code. Branch: `advanced-v2`. Sc
 ## Not covered
 
 - Behaviour of the upgraded stack was tested by the automated suite only; no browser/E2E pass on Spring Boot 3.5 and no k6 rerun.
-- The published-digest scan, SBOM upload and BuildKit attestations execute only on a push to `advanced-v2`/`main`/`v*`; they were linted, not run
-  locally. Whether GHCR's package settings allow reading the attestations was not checked.
+- The published-digest scan, SBOM upload and BuildKit attestations executed for real in GitHub Actions run #100 (all six jobs green, an `sbom-<commit>` artifact was produced). Whether GHCR's package settings
+  allow reading the attestations was not checked, and the digest scan runs after the tags already exist (a failure marks the digest as not deployable; it does not unpublish it).
 - Trivy's vulnerability database changes daily, so a green run today can turn red tomorrow without any code change; that is the intended behaviour
   but it needs an owner (exceptions need an expiry, see `.trivyignore.yaml`).
 - The `tomcat.version`/`jackson-bom.version`/`netty.version` overrides must be removed once the Boot BOM catches up; nothing enforces that.
