@@ -1,0 +1,29 @@
+# DOMAIN defaults to localhost for local docker-compose.prod.yml acceptance (Caddy then
+# uses its internal, self-signed CA instead of trying real ACME/Let's Encrypt). Set the
+# DOMAIN environment variable to a real public hostname (e.g. whitehot0321.duckdns.org)
+# for an actual deployment, and Caddy automatically requests a real certificate instead.
+{$DOMAIN:localhost} {
+	encode gzip
+
+	header {
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+
+	# Full path (including the /api or /uploads/products prefix) is forwarded as-is —
+	# the backend itself serves both under those prefixes on its main port.
+	handle /api/* {
+		reverse_proxy backend:8080
+	}
+
+	handle /uploads/products/* {
+		reverse_proxy backend:8080
+	}
+
+	handle {
+		root * /usr/share/caddy
+		try_files {path} /index.html
+		file_server
+	}
+}

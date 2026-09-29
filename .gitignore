@@ -10,6 +10,7 @@ frontend/.vite/
 
 # Environment
 .env
+.env.prod
 *.log
 
 # Local DB backups (contain real member/order data; never commit dump content)
