@@ -167,15 +167,18 @@ jobs:
       - uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
         with:
           version: v0.74.0
+      # A registry reference must be lowercase; github.repository keeps the owner's capitalisation (docker/metadata-action lowercases its tags).
+      - name: Resolve the pushed digest reference
+        run: echo "IMAGE_REF=${IMAGE,,}@${{ steps.push.outputs.digest }}" >> "$GITHUB_ENV"
       # Scan the digest that can actually be promoted, not a separate rebuild. A failure here means this digest must not
       # be deployed even though its tags already exist; deploy tooling must promote only digests whose run is green.
       - name: Scan the published digest
         run: >
           trivy image --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1
-          --ignorefile .trivyignore.yaml ${{ env.IMAGE }}@${{ steps.push.outputs.digest }}
+          --ignorefile .trivyignore.yaml "$IMAGE_REF"
       - name: Generate CycloneDX SBOM for the digest
         run: >
-          trivy image --format cyclonedx --output sbom.cdx.json ${{ env.IMAGE }}@${{ steps.push.outputs.digest }}
+          trivy image --format cyclonedx --output sbom.cdx.json "$IMAGE_REF"
       - name: Upload SBOM
         uses: actions/upload-artifact@v4
         with:
@@ -183,4 +186,4 @@ jobs:
           path: sbom.cdx.json
           retention-days: 90
       - name: Record digest
-        run: echo "Published ${{ env.IMAGE }}@${{ steps.push.outputs.digest }}" >> "$GITHUB_STEP_SUMMARY"
+        run: echo "Published $IMAGE_REF" >> "$GITHUB_STEP_SUMMARY"
