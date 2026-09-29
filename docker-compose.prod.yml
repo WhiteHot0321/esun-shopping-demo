@@ -19,10 +19,14 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
       MYSQL_DATABASE: ${DB_NAME}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?set APP_DB_PASSWORD in .env.prod}
+      BACKUP_DB_PASSWORD: ${BACKUP_DB_PASSWORD:-}
     volumes:
       - mysql-data:/var/lib/mysql
-    # No docker-entrypoint-initdb.d mount here on purpose: Flyway (FLYWAY_ENABLED=true below)
-    # owns schema creation/migration in this topology, not the legacy backend/DB/*.sql chain.
+      # Only the runtime-user script is mounted. The legacy backend/DB/*.sql chain is deliberately NOT: the `migrate`
+      # service below owns schema creation/migration in this topology.
+      - ./scripts/mysql-init/10-app-user.sh:/docker-entrypoint-initdb.d/10-app-user.sh:ro
+      - ./scripts/mysql-init/20-backup-user.sh:/docker-entrypoint-initdb.d/20-backup-user.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "MYSQL_PWD=$$MYSQL_ROOT_PASSWORD mysqladmin ping -h 127.0.0.1 --silent"]
       interval: 10s
@@ -65,6 +69,27 @@ services:
     #   docker compose -f docker-compose.prod.yml exec ollama ollama pull llama3.1
     #   docker compose -f docker-compose.prod.yml exec ollama ollama pull nomic-embed-text
 
+  # One-shot schema migration as root (Flyway CLI, same versioned SQL the application ships). The long-running backend
+  # below connects as the data-only `esun_app` user and never holds DDL credentials.
+  migrate:
+    image: flyway/flyway:11-alpine
+    command: migrate
+    environment:
+      FLYWAY_URL: jdbc:mysql://mysql:3306/${DB_NAME}?allowPublicKeyRetrieval=true&useSSL=false
+      FLYWAY_USER: root
+      FLYWAY_PASSWORD: ${DB_PASSWORD}
+      FLYWAY_LOCATIONS: filesystem:/flyway/sql
+      FLYWAY_CONNECT_RETRIES: "10"
+    volumes:
+      - ./backend/src/main/resources/db/migration:/flyway/sql:ro
+    networks: [data]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: "no"
+
   backend:
     build:
       context: ./backend
@@ -75,8 +100,8 @@ services:
       DB_HOST: mysql
       DB_PORT: 3306
       DB_NAME: ${DB_NAME}
-      DB_USERNAME: root
-      DB_PASSWORD: ${DB_PASSWORD}
+      DB_USERNAME: esun_app
+      DB_PASSWORD: ${APP_DB_PASSWORD:?set APP_DB_PASSWORD in .env.prod}
       DB_USE_SSL: "false"
       REDIS_HOST: redis
       REDIS_PASSWORD: ${REDIS_PASSWORD}
@@ -86,7 +111,7 @@ services:
       PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-none}
       PAYMENT_CALLBACK_SECRET: ${PAYMENT_CALLBACK_SECRET:-}
       API_DOCS_ENABLED: "false"
-      FLYWAY_ENABLED: "true"
+      FLYWAY_ENABLED: "false"
       LLM_PROVIDER: ollama
       OLLAMA_BASE_URL: http://ollama:11434
       OLLAMA_CHAT_MODEL: ${OLLAMA_CHAT_MODEL:-llama3.1}
@@ -103,8 +128,8 @@ services:
     mem_limit: 1g
     pids_limit: 512
     depends_on:
-      mysql:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
     healthcheck:

@@ -30,3 +30,6 @@ Thumbs.db
 
 # Seller-uploaded product images (runtime data)
 uploads/
+
+# Backup encryption passphrase for scripts/mysql-backup.sh (a secret; never commit)
+.backup-passphrase

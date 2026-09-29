@@ -82,6 +82,41 @@ public class StockCacheService {
         productRepository.findAllStock().forEach(p -> redis.opsForValue().setIfAbsent(key(p.getProductId()), String.valueOf(p.getQuantity())));
     }
 
+    /**
+     * Seeds the counter of a product created after startup. Never overwrites an existing counter, which may already
+     * hold reservations from in-flight orders. Call only after the creating transaction has committed.
+     */
+    public void seed(String productId, int quantity) {
+        if (!enabled) return;
+        try {
+            redis.opsForValue().setIfAbsent(key(productId), String.valueOf(quantity));
+        } catch (RuntimeException ex) {
+            degraded.set(true);
+            log.warn("Redis stock seed failed for {}; using DB-only mode", productId, ex);
+        }
+    }
+
+    /**
+     * Applies a committed restock. INCRBY keeps the counter equal to the database modulo in-flight reservations; when the
+     * counter is missing it is seeded from the database instead (which already includes this restock). Failure latches
+     * the DB-only mode, exactly like a failed reservation.
+     */
+    public void increase(String productId, int amount) {
+        if (!enabled) return;
+        try {
+            String k = key(productId);
+            if (Boolean.TRUE.equals(redis.hasKey(k))) {
+                redis.opsForValue().increment(k, amount);
+            } else {
+                Product product = productRepository.findIncludingDeletedById(productId);
+                if (product != null) redis.opsForValue().setIfAbsent(k, String.valueOf(product.getQuantity()));
+            }
+        } catch (RuntimeException ex) {
+            degraded.set(true);
+            log.warn("Redis stock restock sync failed for {}; using DB-only mode", productId, ex);
+        }
+    }
+
     public Reservation tryDecrease(List<OrderItemRequest> items) {
         if (!enabled || degraded.get()) return Reservation.BYPASSED;
         List<String> keys = items.stream().map(i -> key(i.getProductId())).toList();

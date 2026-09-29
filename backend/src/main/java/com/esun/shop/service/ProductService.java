@@ -35,30 +35,33 @@ public class ProductService {
     private final AuditLogService auditLogService;
 
     private final TransactionOperations transactions;
+    /** Null in isolated unit tests; when the Redis stock path is disabled its methods are no-ops. */
+    private final StockCacheService stockCache;
 
     @Autowired
     public ProductService(ProductRepository productRepository, EmbeddingIndexService embeddingIndexService,
                           ProductImageStorageService imageStorageService, AuditLogService auditLogService,
-                          PlatformTransactionManager transactionManager) {
+                          PlatformTransactionManager transactionManager, StockCacheService stockCache) {
         this(productRepository, embeddingIndexService, imageStorageService, auditLogService,
-                new TransactionTemplate(transactionManager));
+                new TransactionTemplate(transactionManager), stockCache);
     }
 
     /** 單元測試用：不開真實交易。 */
     ProductService(ProductRepository productRepository, EmbeddingIndexService embeddingIndexService,
                    ProductImageStorageService imageStorageService, AuditLogService auditLogService) {
         this(productRepository, embeddingIndexService, imageStorageService, auditLogService,
-                TransactionOperations.withoutTransaction());
+                TransactionOperations.withoutTransaction(), null);
     }
 
     private ProductService(ProductRepository productRepository, EmbeddingIndexService embeddingIndexService,
                            ProductImageStorageService imageStorageService, AuditLogService auditLogService,
-                           TransactionOperations transactions) {
+                           TransactionOperations transactions, StockCacheService stockCache) {
         this.productRepository = productRepository;
         this.embeddingIndexService = embeddingIndexService;
         this.imageStorageService = imageStorageService;
         this.auditLogService = auditLogService;
         this.transactions = transactions;
+        this.stockCache = stockCache;
     }
 
     public void createProduct(CreateProductRequest request) {
@@ -86,6 +89,8 @@ public class ProductService {
             auditLogService.record(creatorId, null, AuditAction.PRODUCT_CREATE, productId, null, snapshot(product));
         });
 
+        // Redis 庫存只在啟動時預載：交易提交後為新商品補種，否則第一張訂單會讓整個服務退回 DB-only。
+        if (stockCache != null) stockCache.seed(productId, product.getQuantity());
         // 讓 AI 客服立即查得到新商品，不必等下次應用程式啟動才重新索引。
         embeddingIndexService.indexProduct(productId);
     }
@@ -165,6 +170,8 @@ public class ProductService {
             after.put("restockAmount", amount);
             auditLogService.record(creatorId, null, AuditAction.PRODUCT_RESTOCK, productId, before, after);
         });
+        // 補貨必須反映到 Redis，否則賣光的商品補貨後仍會被 Redis 判定為庫存不足（409）直到重啟。
+        if (stockCache != null) stockCache.increase(productId, amount);
         embeddingIndexService.indexProduct(productId);
     }
 
@@ -213,6 +220,7 @@ public class ProductService {
         });
         // 向量索引（可能呼叫 LLM 並寫入資料庫）在交易提交之後才更新：rollback 時索引不會與資料不一致，
         // 也不會在持有商品列鎖的交易內等待外部服務。
+        if (!delete && stockCache != null) ids.forEach(id -> stockCache.increase(id, request.getAmount()));
         ids.forEach(delete ? embeddingIndexService::removeProduct : embeddingIndexService::indexProduct);
     }
 
