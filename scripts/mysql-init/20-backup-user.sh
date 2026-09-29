@@ -9,9 +9,11 @@ set -eu
 case "$BACKUP_DB_PASSWORD" in
   *"'"*|*'\'*) echo "BACKUP_DB_PASSWORD must not contain quotes or backslashes" >&2; exit 1;;
 esac
+# In GRANT, `_` in a schema name is a wildcard; escape it so the grant matches exactly this schema.
+DB_ESCAPED="$(printf '%s' "$MYSQL_DATABASE" | sed 's/_/\\_/g')"
 MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot <<SQL
 CREATE USER IF NOT EXISTS 'esun_backup'@'%' IDENTIFIED BY '$BACKUP_DB_PASSWORD';
 ALTER USER 'esun_backup'@'%' IDENTIFIED BY '$BACKUP_DB_PASSWORD';
-GRANT SELECT, SHOW VIEW, TRIGGER, EVENT ON \`${MYSQL_DATABASE}\`.* TO 'esun_backup'@'%';
+GRANT SELECT, SHOW VIEW, TRIGGER, EVENT ON \`${DB_ESCAPED}\`.* TO 'esun_backup'@'%';
 GRANT SHOW_ROUTINE ON *.* TO 'esun_backup'@'%';
 SQL

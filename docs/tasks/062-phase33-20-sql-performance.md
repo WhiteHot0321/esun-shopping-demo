@@ -39,7 +39,7 @@ backward scan of `idx_shop_order_member`, so those pages are healthy.
 
 | Candidate | Result | Decision |
 |---|---|---|
-| Deferred header join for the seller/admin order page (page the `shop_order` rows first, join header columns afterwards) | 41.6 → 15.4 ms (ranges 41.0-42.7 vs 15.1-15.6 ms); small seller 28 → 10 ms; seller with no orders unchanged; identical rows and order (checksum equal) | **Accepted** — `OrderRepository.findHeadersForSeller`; new integration test `sellerOrderListPagesInDatabaseOrderAndKeepsScopeAndStatusFilter`. |
+| Deferred header join for the seller/admin order page (page the `shop_order` rows first, join header columns afterwards) | 41.6 → 15.4 ms (ranges 41.0-42.7 vs 15.1-15.6 ms); small seller 28 → 10 ms; seller with no orders unchanged; identical rows and order (an ad-hoc checksum comparison of the ordered ids for one seller/page; the command was not kept, and `OrderStatusIntegrationTest` now asserts paging order against the database) | **Accepted** — `OrderRepository.findHeadersForSeller`; new integration test `sellerOrderListPagesInDatabaseOrderAndKeepsScopeAndStatusFilter`. |
 | Index `shop_order(created_at, order_id)` plus `NO_SEMIJOIN` (early-exit scan) | Big seller 13 → 3.6 ms, but a seller with no matching orders 0.04 → **117 ms** (scans all 100k orders) | **Rejected** — a 3x typical gain is not worth a ~3000x worst case. |
 | Covering index `shop_order(order_id, order_status, member_id)` for `reco.popular` | 500-630 ms, no gain | **Rejected**. |
 | `JOIN_ORDER` hint for `reco.popular` | ~500 → ~380 ms (-25%) | **Rejected** — brittle and still 380 ms; it does not remove the O(lines) work. |
@@ -74,6 +74,7 @@ Capacity model (assumptions: current schema; 1 order ≈ 2.5 lines, 2 history ro
 
 ## Not covered
 
+- `bench/sqlperf/capture.py` holds hand-copied SQL for each shape; it can drift from the repositories, and nothing checks that it still matches them.
 - No application-level load test was run (k6 workloads were not re-run; historical numbers are context only). Lock-duration and Hikari
   wait were not measured under concurrency.
 - The dataset is synthetic; real skew, `member`/`product` growth and MySQL statistics on a production host may differ. Numbers come from

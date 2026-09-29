@@ -102,3 +102,170 @@ tests:
       - eval_time: 12m
         alertname: HighHttp5xxRatio
         exp_alerts: []
+
+  - interval: 1m
+    name: order failure ratio needs both a high ratio and at least five failures
+    input_series:
+      - series: 'shop_orders_success_total'
+        values: '0+1x25'
+      - series: 'shop_orders_failure_total'
+        values: '0+2x25'
+    alert_rule_test:
+      - eval_time: 22m
+        alertname: OrderFailureRatioHigh
+        exp_alerts:
+          - exp_labels: {severity: warning}
+            exp_annotations:
+              summary: "More than 20% of order attempts are failing"
+              description: "Failures include business rejections (e.g. sold out) as well as errors; check the split before acting."
+              runbook: "docs/runbook-incident.md#orderfailureratiohigh"
+
+  - interval: 1m
+    name: a low failure ratio does not raise the order alert
+    input_series:
+      - series: 'shop_orders_success_total'
+        values: '0+10x25'
+      - series: 'shop_orders_failure_total'
+        values: '0+1x25'
+    alert_rule_test:
+      - eval_time: 22m
+        alertname: OrderFailureRatioHigh
+        exp_alerts: []
+
+  - interval: 1m
+    name: p95 above one second for ten minutes raises the latency warning
+    input_series:
+      - series: 'http_server_requests_seconds_bucket{uri="/api/orders",le="0.5"}'
+        values: '0+0x30'
+      - series: 'http_server_requests_seconds_bucket{uri="/api/orders",le="1"}'
+        values: '0+0x30'
+      - series: 'http_server_requests_seconds_bucket{uri="/api/orders",le="2"}'
+        values: '0+60x30'
+      - series: 'http_server_requests_seconds_bucket{uri="/api/orders",le="+Inf"}'
+        values: '0+60x30'
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: HighP95Latency
+        exp_alerts:
+          - exp_labels: {severity: warning}
+            exp_annotations:
+              summary: "p95 request latency above 1s for 10 minutes"
+              description: "p95 is 1.95s."
+              runbook: "docs/runbook-incident.md#highp95latency"
+
+  - interval: 1m
+    name: fast requests do not raise the latency warning
+    input_series:
+      - series: 'http_server_requests_seconds_bucket{uri="/api/orders",le="0.5"}'
+        values: '0+60x30'
+      - series: 'http_server_requests_seconds_bucket{uri="/api/orders",le="1"}'
+        values: '0+60x30'
+      - series: 'http_server_requests_seconds_bucket{uri="/api/orders",le="+Inf"}'
+        values: '0+60x30'
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: HighP95Latency
+        exp_alerts: []
+
+  - interval: 1m
+    name: five verified payment declines in fifteen minutes fire immediately
+    input_series:
+      - series: 'shop_payments_failure_total'
+        values: '0 0 1 2 3 4 5 5 5 5'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: PaymentFailuresElevated
+        exp_alerts: []
+      - eval_time: 8m
+        alertname: PaymentFailuresElevated
+        exp_alerts:
+          - exp_labels: {severity: warning}
+            exp_annotations:
+              summary: "5 or more verified payment declines in 15 minutes"
+              description: "Counts provider-verified declines only; unverified callbacks are rejected before this counter."
+              runbook: "docs/runbook-incident.md#paymentfailureselevated"
+
+  - interval: 1m
+    name: elevated lock retries warn only when sustained above the threshold
+    input_series:
+      - series: 'shop_orders_lock_retry_total'
+        values: '0+5x30'
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: OrderLockRetriesElevated
+        exp_alerts:
+          - exp_labels: {severity: warning}
+            exp_annotations:
+              summary: "Order deadlock/lock-wait retries are elevated"
+              description: "More than 20 internal retries in 10 minutes; lock contention on hot products is likely."
+              runbook: "docs/runbook-incident.md#orderlockretrieselevated"
+
+  - interval: 1m
+    name: a trickle of lock retries stays quiet
+    input_series:
+      - series: 'shop_orders_lock_retry_total'
+        values: '0+1x30'
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: OrderLockRetriesElevated
+        exp_alerts: []
+
+  - interval: 1m
+    name: heap above ninety percent for ten minutes warns
+    input_series:
+      - series: 'jvm_memory_used_bytes{area="heap",id="G1 Old Gen"}'
+        values: '950+0x30'
+      - series: 'jvm_memory_max_bytes{area="heap",id="G1 Old Gen"}'
+        values: '1000+0x30'
+    alert_rule_test:
+      - eval_time: 9m
+        alertname: JvmHeapHigh
+        exp_alerts: []
+      - eval_time: 12m
+        alertname: JvmHeapHigh
+        exp_alerts:
+          - exp_labels: {severity: warning}
+            exp_annotations:
+              summary: "JVM heap above 90% for 10 minutes"
+              description: "Heap usage 95%."
+              runbook: "docs/runbook-incident.md#jvmheaphigh"
+
+  - interval: 1m
+    name: a saturated connection pool warns after three minutes
+    input_series:
+      - series: 'hikaricp_connections_active{pool="HikariPool-1"}'
+        values: '10+0x15'
+      - series: 'hikaricp_connections_max{pool="HikariPool-1"}'
+        values: '10+0x15'
+      - series: 'hikaricp_connections_pending{pool="HikariPool-1"}'
+        values: '0+0x15'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: DbPoolSaturated
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: DbPoolSaturated
+        exp_alerts:
+          - exp_labels: {severity: warning}
+            exp_annotations:
+              summary: "Database connection pool is saturated or has waiters"
+              description: "Active/max above 90% or requests are waiting for a connection."
+              runbook: "docs/runbook-incident.md#dbpoolsaturated"
+
+  - interval: 1m
+    name: a missing backend target raises the absence alert after five minutes
+    input_series:
+      - series: 'up{job="something-else"}'
+        values: '1+0x15'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: BackendMetricsAbsent
+        exp_alerts: []
+      - eval_time: 8m
+        alertname: BackendMetricsAbsent
+        exp_alerts:
+          - exp_labels: {severity: critical, job: esun-backend}
+            exp_annotations:
+              summary: "No backend target is being scraped at all"
+              description: "The esun-backend job has no series; the scrape configuration or the stack is broken."
+              runbook: "docs/runbook-incident.md#backenddown"

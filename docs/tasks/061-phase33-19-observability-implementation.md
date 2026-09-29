@@ -44,5 +44,5 @@ Date: 2026-09-29 (Asia/Taipei). Executor: Claude Code. Branch: `advanced-v2`. Sc
 - Alerts for dependency health (Ollama/Redis connectivity) rely on the Redis degradation gauge only; there is no metric for
   Ollama availability. Thresholds are untuned starting points; the HTTP panels were empty because no traffic ran.
 - A real Redis-outage or deadlock-driven firing of `StockCacheDegraded`/`OrderLockRetries*` was not run live; those rules are covered by
-  rule unit tests, and the counters by `OrderRetryTest`.
+  rule unit tests, and the counters by `OrderRetryTest`. (An independent review found only 4 of the 11 rules had unit tests at first; all 11 now do, with negative cases for the ratio and latency rules.)
 - No log/metric export or long-term retention; single-host only.

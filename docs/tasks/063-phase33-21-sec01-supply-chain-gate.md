@@ -40,6 +40,15 @@ Date: 2026-09-29 (Asia/Taipei). Executor: Claude Code. Branch: `advanced-v2`. Sc
   (run after the version overrides; an earlier run on plain 3.5.16 was also 303/303).
 - `actionlint` on the workflow: no findings. The workflow itself was not run locally; its first real run is the push that contains it.
 
+## What the first real CI runs showed
+
+- Run for the SEC-01 commit: `supply-chain-gate` (including the fixture self-test), `backend-test`, `frontend-build` and the blocking image scan in `docker-build` were green on the runner,
+  but `publish-image` failed at "Scan the published digest": `github.repository` keeps the owner's capitalisation, which is not a valid registry reference (docker/metadata-action
+  lowercases its own tags, the hand-built `image@digest` did not). Fixed by lowercasing the reference. An independent review then spotted the next step would also have failed:
+  artifact names cannot contain `:`, so the SBOM artifact is now named after the commit and the digest is in the file name.
+- The self-test now requires an actual `CVE-` finding, so a scanner crash (also a non-zero exit) cannot satisfy it. A `config-validate` job runs `docker compose config` for each overlay
+  and `caddy validate`, so a Compose or Caddyfile regression fails CI.
+
 ## Not covered
 
 - Behaviour of the upgraded stack was tested by the automated suite only; no browser/E2E pass on Spring Boot 3.5 and no k6 rerun.

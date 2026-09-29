@@ -26,7 +26,8 @@ ENV_FILE="${ENV_FILE:-./.env.prod}"
 : "${MYSQL_CONTAINER:?set MYSQL_CONTAINER to the running mysql container name}"
 
 die() { echo "error: $*" >&2; exit 1; }
-envval() { grep -E "^$1=" "$ENV_FILE" | head -1 | cut -d= -f2-; }
+# Reads KEY from the env file the way Compose does: drops a trailing " # comment", surrounding quotes and CR. Values must not contain " #".
+envval() { { grep -E "^$1=" "$ENV_FILE" || true; } | head -1 | cut -d= -f2- | sed -E -e 's/\r$//' -e 's/[[:space:]]+#.*$//' -e 's/[[:space:]]+$//' -e 's/^"(.*)"$/\1/' -e "s/^'(.*)'\$/\\1/"; }
 [ -r "$ENV_FILE" ] || die "cannot read $ENV_FILE"
 DB_NAME="$(envval DB_NAME)"; ROOT_PW="$(envval DB_PASSWORD)"; BACKUP_PW="$(envval BACKUP_DB_PASSWORD || true)"
 [ -n "$DB_NAME" ] && [ -n "$ROOT_PW" ] || die "DB_NAME/DB_PASSWORD missing in $ENV_FILE"
@@ -37,18 +38,26 @@ check_passphrase() {
   # POSIX permission bits are meaningless on Windows filesystems (Git Bash), so only enforce them elsewhere.
   case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) ;; *) case "$(stat -c '%a' "$PASSFILE" 2>/dev/null || echo 600)" in 600|400) ;; *) die "$PASSFILE must be mode 600";; esac;; esac
 }
-rootsql() { docker exec -i -e MYSQL_PWD="$ROOT_PW" "$MYSQL_CONTAINER" mysql -uroot "$@"; }
+# Passwords reach the container through the docker CLI's environment (`-e MYSQL_PWD` without a value), never in its argv,
+# so they do not show up in `ps` on a shared host.
+rootsql() { MYSQL_PWD="$ROOT_PW" docker exec -i -e MYSQL_PWD "$MYSQL_CONTAINER" mysql -uroot "$@"; }
 
 do_backup() {
   check_passphrase; mkdir -p "$BACKUP_DIR"
   local ts out user pw
   ts="$(date -u +%Y%m%dT%H%M%SZ)"; out="$BACKUP_DIR/${DB_NAME}-$ts.sql.gz.enc"
   if [ -n "$BACKUP_PW" ]; then user=esun_backup; pw="$BACKUP_PW"; else user=root; pw="$ROOT_PW"; echo "note: BACKUP_DB_PASSWORD not set, dumping as root" >&2; fi
-  docker exec -e MYSQL_PWD="$pw" "$MYSQL_CONTAINER" mysqldump -u"$user" --single-transaction --routines --triggers --events \
+  # Write to a temporary name: a failing mysqldump (bad credentials, container down) must not leave a plausible-looking file behind.
+  if ! MYSQL_PWD="$pw" docker exec -e MYSQL_PWD "$MYSQL_CONTAINER" mysqldump -u"$user" --single-transaction --routines --triggers --events \
       --no-tablespaces --set-gtid-purged=OFF --default-character-set=utf8mb4 "$DB_NAME" \
-    | gzip -9 | openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -pass "file:$PASSFILE" -out "$out"
-  [ -s "$out" ] || { rm -f "$out"; die "backup produced an empty file"; }
+    | gzip -9 | openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -pass "file:$PASSFILE" -out "$out.partial"; then
+    rm -f "$out.partial"; die "mysqldump failed (credentials or container?); no backup was written"
+  fi
+  mv "$out.partial" "$out"
   ( cd "$BACKUP_DIR" && sha256sum "$(basename "$out")" > "$(basename "$out").sha256" )
+  # An empty or truncated dump would still encrypt fine; require real content before the generation counts.
+  local tables; tables="$(verify_and_decrypt "$out" | grep -c 'CREATE TABLE' || true)"
+  [ "${tables:-0}" -gt 0 ] || { rm -f "$out" "$out.sha256"; die "the dump contains no tables; backup discarded"; }
   echo "backup: $out ($(wc -c < "$out") bytes)"
   if [ -n "${BACKUP_OFFHOST_CMD:-}" ]; then
     bash -c "$BACKUP_OFFHOST_CMD" _ "$out" && echo "off-host command succeeded for $(basename "$out")" || die "off-host command failed"
@@ -67,7 +76,8 @@ do_prune() {
 verify_and_decrypt() { # <file> -> plaintext SQL on stdout
   local f="$1"; check_passphrase
   [ -f "$f" ] || die "no such file: $f"
-  if [ -f "$f.sha256" ]; then ( cd "$(dirname "$f")" && sha256sum -c "$(basename "$f").sha256" >/dev/null ) || die "sha256 mismatch: $f is corrupt or tampered"; else echo "warning: no sha256 sidecar for $f" >&2; fi
+  [ -f "$f.sha256" ] || die "no sha256 sidecar for $f; refusing to use an unverified backup"
+  ( cd "$(dirname "$f")" && sha256sum -c "$(basename "$f").sha256" >/dev/null ) || die "sha256 mismatch: $f is corrupt or altered"
   openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -pass "file:$PASSFILE" -in "$f" 2>/dev/null | gunzip 2>/dev/null \
     || die "decryption failed: wrong passphrase or corrupt file"
 }
@@ -88,7 +98,7 @@ tables_and_counts() { # <db>
    | while read -r t; do printf '%s=%s\n' "$t" "$(rootsql -N -e "SELECT COUNT(*) FROM \`$1\`.\`$t\`" < /dev/null)"; done  # </dev/null: docker exec -i would swallow the loop's input
 }
 data_hash() { # <db>
-  docker exec -e MYSQL_PWD="$ROOT_PW" "$MYSQL_CONTAINER" mysqldump -uroot --no-create-info --skip-comments --skip-extended-insert \
+  MYSQL_PWD="$ROOT_PW" docker exec -e MYSQL_PWD "$MYSQL_CONTAINER" mysqldump -uroot --no-create-info --skip-comments --skip-extended-insert \
       --order-by-primary --no-tablespaces --set-gtid-purged=OFF --default-character-set=utf8mb4 "$1" | sha256sum | cut -d' ' -f1
 }
 
@@ -98,12 +108,15 @@ do_drill() {
   local before_t before_h; before_t="$(tables_and_counts "$DB_NAME")"; before_h="$(data_hash "$DB_NAME")"
   do_restore "$file" "$scratch" --force
   local after_t after_h; after_t="$(tables_and_counts "$scratch")"; after_h="$(data_hash "$scratch")"
-  local routines; routines="$(rootsql -N -e "SELECT COUNT(*) FROM information_schema.routines WHERE routine_schema='$scratch'")"
+  local routines src_routines
+  routines="$(rootsql -N -e "SELECT COUNT(*) FROM information_schema.routines WHERE routine_schema='$scratch'")"
+  src_routines="$(rootsql -N -e "SELECT COUNT(*) FROM information_schema.routines WHERE routine_schema='$DB_NAME'")"
   rootsql -e "DROP DATABASE \`$scratch\`"; end=$(date +%s)
   local left; left="$(rootsql -N -e "SELECT COUNT(*) FROM information_schema.schemata WHERE schema_name='$scratch'")"
   [ "$left" = 0 ] || die "scratch database was not removed"
   [ "$before_t" = "$after_t" ] || { echo "--- before"; echo "$before_t"; echo "--- after"; echo "$after_t"; die "table list or row counts differ after restore"; }
   [ "$before_h" = "$after_h" ] || die "data hash differs after restore"
+  [ "$routines" = "$src_routines" ] || die "stored routines differ after restore (source $src_routines, restored $routines)"
   echo "DRILL_OK tables=$(echo "$before_t" | wc -l) routines=$routines rows_and_data_hash_match=yes restore_seconds=$((end - start)) scratch_removed=yes"
 }
 

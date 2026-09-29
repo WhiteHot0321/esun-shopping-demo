@@ -164,7 +164,9 @@ services:
       - backend
     restart: unless-stopped
 
-# edge: Caddy <-> backend only. data: backend <-> MySQL/Redis/Ollama. Caddy cannot reach the data services.
+# edge: Caddy <-> backend (the monitoring overlay also attaches Prometheus, Alertmanager and Grafana). data: backend <-> MySQL/Redis/Ollama.
+# Caddy cannot reach the data services. The backend sits on both networks, so with the monitoring overlay (management port bound to 0.0.0.0
+# inside the container) the unauthenticated management port is reachable from every container on either network, and from nowhere else.
 networks:
   edge:
   data:

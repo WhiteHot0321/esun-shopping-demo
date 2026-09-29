@@ -50,4 +50,8 @@ A buyer whose only order was **cancelled** can still post a product review (201)
 - Rotation of `REDIS_PASSWORD`, `PAYMENT_CALLBACK_SECRET` and ECPay values, and automatic expiry/alerting for secret age, were not exercised.
 - The Flyway image is pinned to the `11-alpine` tag, not a digest.
 - Redis sync covers create and restock; soft delete and price/name updates intentionally do not touch counters (the database rejects deleted products and a rejected reservation is compensated).
-- No independent review.
+- Known residual races in the Redis sync (found by the independent review, not fixed): an order that arrives between a product's commit and its post-commit seed still sees a missing
+  counter and latches DB-only mode (narrow window); two concurrent restocks of a product whose counter is *missing* can double-count one of them (the seed already includes the
+  other); a transient Redis error while seeding or syncing latches DB-only mode until reconciliation, by design. The 60 s stock audit logs any drift that results.
+- Independent review findings applied afterwards: the two init scripts are now git-executable (Linux sources non-executable init scripts, and `exit 0` in the optional backup-user script
+  would have ended the MySQL entrypoint mid-initialisation), and grants escape the `_` wildcard in the schema name.

@@ -90,8 +90,15 @@ Meaning: at least one order failed after three attempts and the buyer received a
 Meaning: the Redis stock path latched to DB-only after a Redis failure. Orders still succeed against MySQL (correct,
 slower); the latch never clears by itself.
 1. Restore Redis: `$C ps redis`, `$C logs --tail 50 redis`, `$C restart redis` if needed.
-2. Reconcile Redis stock with the database (maintenance), then restart the backend so it returns to the Redis path:
-   `$C restart backend`.
+2. Reconcile the counters with the database. Do this with the backend stopped so no order is in flight, because the counters are
+   only re-seeded from MySQL when they are missing (`setIfAbsent` at startup), so a drifted counter would otherwise survive the restart:
+   ```bash
+   $C stop backend
+   $C exec redis sh -c 'redis-cli -a "$REDIS_PASSWORD" --no-auth-warning --scan --pattern "stock:*" | xargs -r redis-cli -a "$REDIS_PASSWORD" --no-auth-warning DEL'
+   $C start backend      # startup re-seeds every counter from the database
+   ```
+   The backend logs `Stock audit: no drift` on its next audit cycle (default every 60 s) when the counters match.
+   Products created or restocked through the API keep their counters in sync since task 065; direct SQL changes to `product.quantity` do not, and are the usual cause of drift.
 Recovery check: `shop_stock_cache_degraded` is 0 after the restart and stays 0.
 
 ## JvmHeapHigh

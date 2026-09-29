@@ -36,6 +36,16 @@ jobs:
       - name: Run backend tests + coverage gate
         working-directory: backend
         run: mvn -B test
+      # Run logs need a signed-in viewer, annotations do not: surface each failing test class with its first lines of output.
+      - name: Surface failing tests as annotations
+        if: failure()
+        run: |
+          for f in backend/target/surefire-reports/*.txt; do
+            [ -e "$f" ] || continue
+            grep -q -E 'FAILURE!|ERROR!' "$f" || continue
+            msg=$(head -c 1800 "$f" | tr -d '\r' | sed ':a;N;$!ba;s/%/%25/g;s/\n/%0A/g')
+            echo "::error title=Failing test class $(basename "$f" .txt)::$msg"
+          done
       - name: Upload backend reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -84,10 +94,15 @@ jobs:
           version: v0.74.0
       - name: Gate self-test (the known-vulnerable fixture must be rejected)
         run: |
-          if trivy fs --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 --quiet .github/security-fixtures/vulnerable-npm; then
-            echo "::error::the vulnerability gate did not fail on the known-vulnerable fixture"
-            exit 1
+          set +e
+          out=$(trivy fs --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 .github/security-fixtures/vulnerable-npm 2>&1)
+          rc=$?
+          set -e
+          if [ "$rc" -eq 0 ]; then
+            echo "::error::the vulnerability gate did not fail on the known-vulnerable fixture"; exit 1
           fi
+          # A crash also exits non-zero: require an actual finding so a broken scanner cannot pass this self-test.
+          echo "$out" | grep -q "CVE-" || { echo "$out"; echo "::error::gate failed but reported no CVE finding (scanner error?)"; exit 1; }
       # backend/pom.xml is skipped here on purpose: Trivy would resolve it against Maven Central (rate limited);
       # backend dependencies are gated through the image scan below, which reads the built jar.
       - name: Scan repository for vulnerabilities and secrets
@@ -96,8 +111,34 @@ jobs:
           --ignorefile .trivyignore.yaml --skip-files backend/pom.xml
           --skip-dirs .github/security-fixtures --skip-dirs node_modules --skip-dirs backend/target .
 
+  # Static validation of the deployment files (docs/tasks/064): Compose merges cleanly with every overlay and the Caddyfile parses.
+  config-validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Compose files (dummy, non-secret values)
+        run: |
+          cat > ci.env <<'EOF'
+          DB_NAME=ci
+          DB_PASSWORD=ci-not-a-secret
+          APP_DB_PASSWORD=ci-not-a-secret
+          REDIS_PASSWORD=ci-not-a-secret
+          JWT_SECRET=ci-not-a-secret
+          CORS_ALLOWED_ORIGINS=https://ci.example.com
+          PAYMENT_PROVIDER=none
+          GRAFANA_ADMIN_PASSWORD=ci-not-a-secret
+          EOF
+          docker compose -f docker-compose.prod.yml --env-file ci.env config -q
+          docker compose -f docker-compose.prod.yml -f docker-compose.tunnel.yml --env-file ci.env config -q
+          docker compose -f docker-compose.prod.yml -f docker-compose.tunnel.yml -f docker-compose.monitoring.yml --env-file ci.env config -q
+      - name: Validate the Caddyfile
+        run: >
+          docker run --rm -v "$PWD/frontend/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2-alpine
+          caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+
   docker-build:
-    needs: [backend-test, frontend-build, supply-chain-gate]
+    needs: [backend-test, frontend-build, supply-chain-gate, config-validate]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -176,14 +217,16 @@ jobs:
         run: >
           trivy image --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1
           --ignorefile .trivyignore.yaml "$IMAGE_REF"
+      # Artifact names cannot contain ':', so the name carries the commit and the file name carries the digest.
       - name: Generate CycloneDX SBOM for the digest
-        run: >
-          trivy image --format cyclonedx --output sbom.cdx.json "$IMAGE_REF"
+        run: |
+          digest="${{ steps.push.outputs.digest }}"
+          trivy image --format cyclonedx --output "sbom-${digest#sha256:}.cdx.json" "$IMAGE_REF"
       - name: Upload SBOM
         uses: actions/upload-artifact@v4
         with:
-          name: sbom-${{ steps.push.outputs.digest }}
-          path: sbom.cdx.json
+          name: sbom-${{ github.sha }}
+          path: sbom-*.cdx.json
           retention-days: 90
       - name: Record digest
         run: echo "Published $IMAGE_REF" >> "$GITHUB_STEP_SUMMARY"

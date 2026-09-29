@@ -13,7 +13,7 @@ The existing `scripts/mysql-backup-restore.ps1` (task 024) proves dump/restore c
   `restore` needs `--force`, refuses the source database name, verifies the sha256 and proves the passphrase *before* it drops/creates the target. `drill` does
   backup → restore into a random scratch database → compares the table list with per-table row counts and a data-only dump hash → drops the scratch database and checks it is gone.
 - `scripts/mysql-init/20-backup-user.sh` (optional, mounted by compose): user `esun_backup` with `SELECT, SHOW VIEW, TRIGGER, EVENT` on the schema and `SHOW_ROUTINE` globally — enough
-  for the dump, nothing that writes. The dump uses it when `BACKUP_DB_PASSWORD` is set (otherwise root, with a warning); restores always use root.
+  for the dump. It cannot change data or tables, although `TRIGGER` and `EVENT` (needed by the dump) also allow creating triggers and events. The dump uses it when `BACKUP_DB_PASSWORD` is set (otherwise root, with a warning); restores always use root.
 - `.gitignore`: `.backup-passphrase`.
 
 ## Verification (local stack with real data, 2026-09-29)
@@ -33,6 +33,6 @@ The existing `scripts/mysql-backup-restore.ps1` (task 024) proves dump/restore c
 
 - No off-host storage, no upload from the VM under a separate identity, no recovery from a downloaded off-host copy, no lifecycle/expiry policy on a remote, no backup scheduling (cron/systemd timer).
 - RPO/RTO are not measured: the drill dataset is a few rows and the 17 s "restore_seconds" includes the backup and is not representative. Encryption is AES-CBC (not authenticated), so integrity relies on the
-  sha256 sidecar; a keyed hash or `age` would be stronger. The passphrase must be stored somewhere other than the host that holds the backups, which this task does not arrange.
+  sha256 sidecar, which sits next to the file: it detects corruption and accidental change, not an attacker who can also rewrite the sidecar; a keyed hash or `age` would be stronger. The passphrase must be stored somewhere other than the host that holds the backups, which this task does not arrange.
 - On Windows filesystems the "passphrase file must be mode 600" check is skipped (Git Bash cannot set permission bits).
 - No independent review.
