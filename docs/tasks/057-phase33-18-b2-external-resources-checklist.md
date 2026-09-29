@@ -26,6 +26,16 @@ Baseline: advanced-v2 @ 1f18fde（已含 B1 044-C1 CORS 修正與 B2 Flyway adop
 
 本清單要解決的是「G7/G8/未來 G9 開工前，使用者要先準備什麼」，不是 G7/G8 本身。
 
+## 0. 決策結果（2026-09-29，使用者裁定）
+
+| 決策 | 結果 |
+|---|---|
+| 1.1 AI 客服 provider | **維持自架 Ollama**（非停用、非切 Claude）——VM 規格必須預留模型記憶體，見第 2 節 |
+| 1.2 GHCR 映像可見度 | **Public** |
+| 1.3 正式網域 | **DuckDNS**，網域為 `whitehot0321.duckdns.org`（使用者已自行完成 DuckDNS 註冊；DuckDNS 的 update token 是機密，只存放在未來 VM 本機的動態更新腳本裡，不進 repo/Notion/對話紀錄）。目前該網域尚未綁定任何 IP（VM 還不存在），等 VM 有公網 IP 後才需要手動或用排程腳本更新。 |
+
+以下 1.1-1.3 的取捨分析保留作為決策依據紀錄；決策本身以上表為準。
+
 ## 1. 待決策（B2 開始前，使用者裁定）
 
 ### 1.1 正式環境 AI 客服（RAG）provider
@@ -62,11 +72,9 @@ Caddy 的自動 HTTPS（`Caddyfile`）與 DNS A/AAAA 記錄都需要先有一個
 
 ## 2. 實體基礎設施（需使用者提供或建立）
 
-- [ ] **Ubuntu LTS VM 一台**（單機拓撲，已定案於 043）。規格取決於 1.1 的 AI provider 決策：
-  - 若停用客服或改用 Claude API：MySQL + Redis + backend + frontend 靜態檔 + Caddy 的組合，一般入門級 VM（2 vCPU / 4GB RAM 上下）應足夠起步，實際數字仍建議在 B2 本機驗收階段用 `docker stats` 量測後再定。
-  - 若自架 Ollama：需額外預留模型常駐記憶體，實際需求隨選用模型而定，應視為完全不同量級的規格需求。
+- [ ] **Ubuntu LTS VM 一台**（單機拓撲，已定案於 043）。**已確定維持自架 Ollama**，規格必須把模型常駐記憶體算進去，不能只算 MySQL/Redis/backend/frontend/Caddy 的入門級規格；實際選用模型與對應記憶體需求待 B2 本機驗收（用 `docker stats` 量測）時再定案，選 VM 方案時要抓比純 web 服務更高一級的記憶體。
 - [ ] **對外防火牆/安全群組只開放 80/443**（呼應 `docs/tasks/056-phase33-21-production-security-scoping.md` 已定案的最終拓撲限制：MySQL/Redis/Ollama/backend app port/management port 一律只留在內部 Docker network，不對外）。
-- [ ] **網域名稱 + DNS A（或 AAAA）記錄**，指向該 VM 的公網 IP，供 Caddy 自動 HTTPS 使用。
+- [x] ~~網域名稱~~——**已定案**：DuckDNS `whitehot0321.duckdns.org`。仍待辦：VM 建好、拿到公網 IP 後，把 A 記錄指過去（手動填 DuckDNS 網頁，或在 VM 上排程呼叫 DuckDNS 更新 API）；此為 B3 工作。
 - [ ] **部署用 SSH 金鑰對**：私鑰存放位置由使用者決定（建議之後作為 B3 的 GitHub Environment secret），公鑰裝到 VM 的 `authorized_keys`。
 - [ ] **SSH 存取限制**（若雲端平台支援）：只允許特定來源 IP 或至少不對整個網際網路開放密碼登入。
 
@@ -82,11 +90,11 @@ Caddy 的自動 HTTPS（`Caddyfile`）與 DNS A/AAAA 記錄都需要先有一個
 | 資料庫密碼 | `DB_PASSWORD`（非空、非常見預設） | 使用者產生 | 同上 | 同上 |
 | 資料庫連線資訊 | `DB_HOST` / `DB_NAME` / `DB_USERNAME` | 依 compose 內部拓撲決定（通常是 compose service 名稱，非密鑰） | 同上 | B2 |
 | Redis 密碼 | `REDIS_PASSWORD` | 使用者產生 | 同上（僅 `STOCK_REDIS_ENABLED=true` 時 `ProductionConfigValidator` 強制要求非空） | 若啟用 Redis 庫存快取才需要 |
-| CORS 白名單 | `CORS_ALLOWED_ORIGINS`（純 http(s) origin，逗號分隔，禁止 `*`/路徑/user-info/query） | 依 1.3 決定的正式網域 | 同上 | B2（可先用暫定網域測試） |
+| CORS 白名單 | `CORS_ALLOWED_ORIGINS`（純 http(s) origin，逗號分隔，禁止 `*`/路徑/user-info/query） | `https://whitehot0321.duckdns.org`（已定案網域，DuckDNS 免費子網域） | 同上 | B2（B2 本機驗收若還沒有真實 VM/憑證，可先用 localhost 測試，B3 才需要真的對到這個網域） |
 | 金流模式 | `PAYMENT_PROVIDER`（`none` 或 `ecpay`，`ProductionConfigValidator` 拒絕 `sandbox`） | 決策 | 同上 | **B2 本機驗收建議先用 `none`**，避免把 ECPay 真實憑證需求提前綁進 B2 |
 | 金流回呼密鑰 | `PAYMENT_CALLBACK_SECRET` | 使用者產生 | 同上 | 僅 `provider=ecpay` 時必填 |
 | ECPay 商店設定（六項） | `ECPAY_MERCHANT_ID` / `ECPAY_HASH_KEY` / `ECPAY_HASH_IV` / `ECPAY_PAYMENT_URL` / `ECPAY_CALLBACK_URL` / `ECPAY_RETURN_URL`（`application.yml:94-100`，皆為空字串預設） | 向 ECPay 申請正式商店取得 | 同上 | **只在 #22 上線驗收（真實入站回調）才需要真值**；B2/B3 都可以維持 `PAYMENT_PROVIDER=none` |
-| （若選 1.1 的 Claude provider）Anthropic 金鑰 | `ANTHROPIC_API_KEY` | Anthropic 帳號 | 同上 | 僅選定 Claude provider 且已補上 `ClaudeLlmClient` 實作後才需要 |
+| ~~（若選 1.1 的 Claude provider）Anthropic 金鑰~~ | `ANTHROPIC_API_KEY` | Anthropic 帳號 | 不適用 | **不需要**——1.1 已定案維持自架 Ollama，此列僅保留作為決策依據紀錄 |
 | （若選 1.2 的 GHCR private）映像拉取憑證 | 無固定環境變數名（VM 本機 `docker login` 用） | GitHub PAT（`read:packages`）或等效 token | VM-local，不進 repo，不進 GitHub Environment（因為是 VM 拉取用，不是應用程式讀取） | 若決定 private 才需要 |
 
 有預設值但安全相關、不算「需要使用者提供的秘密」，僅供對照：`DB_PORT`(3306)、`DB_USE_SSL`(false，僅同私網安全)、`API_DOCS_ENABLED`(false)、`MANAGEMENT_ADDRESS`(127.0.0.1)、`MANAGEMENT_PORT`(8081)。
