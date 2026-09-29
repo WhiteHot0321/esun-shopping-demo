@@ -57,3 +57,20 @@ Only Caddy publishes a port (loopback in tunnel mode). The backend never holds D
 3. Configure a real alert destination and an off-host backup target; run the drills against them.
 4. Run the real ECPay stage payment once the callback URL is public, and record the inbound callback.
 5. Review the observation in 065 (a review can be posted after a cancelled order) and the open Redis-sync races.
+
+## Public smoke through Tailscale Funnel (2026-09-29, Asia/Taipei)
+
+Executor: Claude Code. Setup: personal-account Tailscale, Funnel enabled by the owner, `tailscale funnel --bg 8088` -> Caddy on `127.0.0.1:8088` (tunnel mode, `docker-compose.tunnel.yml`). Stack recreated with fresh volumes, newly generated random secrets in the git-ignored `.env.prod`, `CORS_ALLOWED_ORIGINS` set to the Funnel origin, `PAYMENT_PROVIDER=none`. The hostname is intentionally not recorded here.
+
+| Check | Result |
+|---|---|
+| Stack health | mysql, redis, backend (healthy), caddy, ollama up; Flyway v1 applied |
+| `GET /` and `/assets/*` via Funnel | 200, HTML/JS/CSS served |
+| Headless browser (Playwright) on Funnel URL | SPA renders, console 0 errors, in-page `GET /api/products/available` 200 |
+| `GET /api/products/available` | 200 without auth (empty list: fresh DB, no seed data) |
+| `POST /api/auth/register` + login | success |
+| `/actuator/health` via Funnel | returns the SPA fallback, i.e. not exposed publicly |
+
+Notes: the task brief named `GET /api/products` as a public endpoint; that route is POST-only (405) and product listing is `/api/products/available`. The embedded Claude browser pane blocked the page's sub-resources (`ERR_BLOCKED_BY_CLIENT`, a client-side restriction; curl and Playwright load them fine).
+
+Not covered: real ECPay stage payment and inbound callback, load, long-running stability, off-host backup, independent review of this acceptance. Stage stays below "complete".
