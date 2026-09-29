@@ -38,6 +38,14 @@ like a failed reservation. New `RedisProductSyncIntegrationTest` (real MySQL + R
 bulk restock, missing counter seeded from the database. A mutation check (removing the restock sync) fails the test (`expected "5" but was "0"`). Live re-run of the
 reproduction after rebuilding the image: counter seeded (3), first order 200 with gauge 0, restock DB 5 / Redis 5, next order 200, no ERROR in the log.
 
+## CI-only failure caused by the new test, and how it was found
+
+The full suite passed locally (Windows/Java 21) and in a Linux/Java 17 container, but `backend-test` failed on GitHub for two commits. Run logs need a signed-in viewer, so a CI step now
+publishes failing test classes as annotations (readable without signing in); the next run named the cause: the pre-existing `AuditLogIntegrationTest.auditRowAndBusinessChangeRollBackTogether`
+adds `CHECK (action <> 'PRODUCT_RESTOCK')` to the **shared** `audit_log` table, which MySQL validates against existing rows, so it fails whenever another test class has already written a
+restock audit entry. The new Redis sync tests restock, and the runner happened to execute them first. Reproduced locally with `-Dsurefire.runOrder=reversealphabetical`; fixed by scoping
+the constraint to the product under test (`... OR target_id <> '<id>'`); both classes then pass in the adverse order. Lesson recorded: a test that passes only in one class order is a defect in the test.
+
 ## Observation for the owner (not changed)
 
 A buyer whose only order was **cancelled** can still post a product review (201): the verified-purchase check counts orders regardless of status.

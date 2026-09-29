@@ -200,7 +200,9 @@ class AuditLogIntegrationTest extends AbstractMySqlIntegrationTest {
         createProduct(token, id, 10, 4).andExpect(status().isOk());
 
         // Make the audit insert fail, then prove the restock it describes did not survive on its own.
-        jdbc.execute("ALTER TABLE audit_log ADD CONSTRAINT chk_audit_fail CHECK (action <> 'PRODUCT_RESTOCK')");
+        // Scoped to this product: the audit table is shared with other test classes, and a constraint over every row fails
+        // as soon as any of them has already written a PRODUCT_RESTOCK entry (test order must not matter).
+        jdbc.execute("ALTER TABLE audit_log ADD CONSTRAINT chk_audit_fail CHECK (action <> 'PRODUCT_RESTOCK' OR target_id <> '" + id + "')");
         try {
             mvc.perform(post("/api/admin/products/{id}/restock", id).param("amount", "3")
                     .header("Authorization", bearer(token))).andExpect(status().is5xxServerError());
