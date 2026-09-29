@@ -1,16 +1,31 @@
-# ESUN Shopping Demo
+# ESUN Shopping Demo — Advanced Edition
 
 [![CI](https://github.com/WhiteHot0321/esun-shopping-demo/actions/workflows/ci.yml/badge.svg?branch=advanced-v2)](https://github.com/WhiteHot0321/esun-shopping-demo/actions/workflows/ci.yml)
 
-本專案依照玉山銀行 Java 後端實作題需求，提供一個簡易電商購物中心系統，包含：
+本專案起初依照玉山銀行 2026 年 Java 後端實作題需求設計，提供簡易電商購物中心系統。現已演進至 **Phase 3 深度工程基礎版本**，專注於事務一致性、並行控制、Redis 降級、測試自動化、與生產部署：
 
-- 新增商品
-- 顯示庫存大於 0 的商品
-- 建立訂單
-- 更新商品庫存
-- 使用 Stored Procedure
-- 使用 Transaction 確保下單一致性
-- Vue.js 前後端整合
+**Phase 3 核心交付**（2026-09 現況）：
+- ✅ 多商品訂單、庫存管理、Stored Procedure、Transaction 一致性（原題需求）
+- ✅ JWT 認證（BUYER / SELLER / ADMIN）、個人資料、地址簿、密碼重設
+- ✅ 購物車持久化 + 冪等防重送 + 死鎖自動重試（固定加鎖順序）
+- ✅ 優惠券系統（PERCENT / FIXED、額度控制、per-member 限制）
+- ✅ 支付系統（ECPay 整合、防重複、REFUND_REQUIRED 處理）
+- ✅ 商品評論（驗證購買、DB 層防重、賣家審核）
+- ✅ 推薦系統（讀取快照隔離、冷啟動、privacy floor）
+- ✅ 操作稽核日誌 + 訂單狀態流程 + 賣家商品管理
+- ✅ Redis 庫存預扣 + 故障自動降級為 DB only
+- ✅ k6 負載測試（正常/死鎖壓力/缺貨/優惠券）+ 并发正確性驗證
+- ✅ 商品 AI 客服（Ollama RAG + 可切換 Claude API）
+- ✅ Swagger/OpenAPI 文件 + GitHub Actions CI/CD + GHCR 映像發布
+- ✅ 生產環境配置檢查（非預設 JWT 密鑰、secure CORS、管理埠隔離）
+
+**Phase 3.3 進行中**（基礎工程升級）：
+- ✅ #18 B1：生產環境硬化 （management port + CORS 驗證 + 設定檢查）
+- 🔄 #18 B2：Flyway 遷移檢查表 + 容器拓撲（Compose / Caddy / 無根容器）
+- 📋 #19：可觀測性 & 告警（Prometheus + Grafana + 相關日誌 + 故障指標）
+- 📋 #20：SQL 性能基準 + 索引有效性 + 容量模型
+- 📋 #21：生產安全硬化 （防火牆 / SSH / secrets 輪轉 / 映像掃描 / SBOM）
+- 📋 #22：上線驗收 & 組合檔案
 
 ---
 
