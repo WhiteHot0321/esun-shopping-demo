@@ -3,6 +3,10 @@
 Updated: 2026-09-27 (2026-09-27 batch merged: PRs #7-#11; strategy: engineering depth)
 Baseline: advanced-v2 @ 11c60b6 (merge of PR #11)
 
+## Phase 3.3 #18 B2 external-resource checklist — 2026-09-29 Asia/Taipei
+
+Produced a B2 external-resource checklist (decisions, infrastructure, credential/secret-name mapping to no-default env vars, GHCR access decision, explicit non-goals) at `docs/tasks/057-phase33-18-b2-external-resources-checklist.md`. No VM, DNS, secret value, or GitHub Environment setting was created or gathered in this session — the checklist is the user's own to-do list for those out-of-session actions. `.env.prod.example` intentionally deferred to the B2 implementation task (043 §3 bundles it with docker-compose.prod.yml / backend Dockerfile non-root work). B2 itself (frontend Dockerfile, Caddyfile, docker-compose.prod.yml) remains unstarted; the checklist exists so the user can gather AI-provider decision, GHCR visibility decision, domain name, and eventual VM/DNS/SSH/secrets while B2 implementation is separately scoped.
+
 ## Phase 3.3 #18 closeout sync — 2026-09-29 Asia/Taipei
 
 This entry reconciles two already-PASS but previously unsynced #18 corrections against `docs/project-state.md`; both were re-verified in this session against the current working tree (still uncommitted on `advanced-v2` @ `429346d`), not just read from their task docs.
