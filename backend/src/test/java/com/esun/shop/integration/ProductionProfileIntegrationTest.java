@@ -4,6 +4,7 @@ import com.esun.shop.model.Member;
 import com.esun.shop.security.JwtService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.actuate.observability.AutoConfigureObservability;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalManagementPort;
@@ -25,6 +26,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * the main port neither serves health nor the API docs.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@AutoConfigureObservability // tests disable metrics export by default; the prod scrape endpoint is what is under test
 @ActiveProfiles("prod")
 @TestPropertySource(properties = {
         "MANAGEMENT_PORT=0", // resolved by application-prod.yml; proves the prod profile itself moves health off the main port
@@ -97,6 +99,40 @@ class ProductionProfileIntegrationTest extends AbstractMySqlIntegrationTest {
 
         assertThat(health.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
         assertThat(metrics.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void prometheusScrapeIsServedOnlyOnTheManagementPort_withBusinessMetricsAtZero() {
+        ResponseEntity<String> scrape = get(managementPort, "/actuator/prometheus");
+
+        assertThat(scrape.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(scrape.getBody())
+                .contains("jvm_memory_used_bytes")
+                .contains("shop_orders_success_total")
+                .contains("shop_orders_failure_total")
+                .contains("shop_orders_lock_retry_total")
+                .contains("shop_orders_lock_exhausted_total")
+                .contains("shop_payments_failure_total")
+                .contains("shop_stock_cache_degraded")
+                .doesNotContain("password").doesNotContain("jwt");
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(jwtService.generateToken("admin@example.com", Member.Role.ADMIN));
+        ResponseEntity<String> mainPort = rest.exchange("http://localhost:" + serverPort + "/actuator/prometheus",
+                HttpMethod.GET, new HttpEntity<>(headers), String.class);
+        assertThat(mainPort.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void everyResponseCarriesACorrelationId_andASafeCallerIdIsEchoed() {
+        HttpHeaders supplied = new HttpHeaders();
+        supplied.set("X-Correlation-Id", "smoke-test-123");
+        ResponseEntity<String> echoed = rest.exchange("http://localhost:" + serverPort + "/api/products/available",
+                HttpMethod.GET, new HttpEntity<>(supplied), String.class);
+        ResponseEntity<String> generated = get(serverPort, "/api/products/available");
+
+        assertThat(echoed.getHeaders().getFirst("X-Correlation-Id")).isEqualTo("smoke-test-123");
+        assertThat(generated.getHeaders().getFirst("X-Correlation-Id")).matches("[0-9a-f-]{36}");
     }
 
     @Test

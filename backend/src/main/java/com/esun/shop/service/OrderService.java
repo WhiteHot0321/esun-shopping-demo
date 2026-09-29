@@ -59,6 +59,7 @@ public class OrderService {
         var retryContext = RetrySynchronizationManager.getContext();
         if (retryContext != null && retryContext.getRetryCount() > 0) {
             retryCount.incrementAndGet();
+            record("shop.orders.lock.retry");
             log.info("Order retry requestId={} attempt={}", request.getRequestId(), retryContext.getRetryCount() + 1);
         }
         List<com.esun.shop.dto.OrderItemRequest> items = request.getItems();
@@ -108,6 +109,7 @@ public class OrderService {
 
     private String recoverLockContention(Throwable cause, CreateOrderRequest request) {
         log.warn("Order retries exhausted requestId={}", request.getRequestId());
+        record("shop.orders.lock.exhausted");
         recordFailure();
         throw new ConcurrentOrderException(request.getRequestId(), cause);
     }

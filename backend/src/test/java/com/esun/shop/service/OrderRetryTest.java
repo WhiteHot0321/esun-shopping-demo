@@ -64,6 +64,8 @@ class OrderRetryTest {
     void deadlockIsRetriedOutsideTransactionAndEventuallySucceeds() {
         long retriesBefore = orderService.getRetryCount();
         double successesBefore = metricCount("shop.orders.success");
+        double lockRetriesBefore = metricCount("shop.orders.lock.retry");
+        double lockExhaustedBefore = metricCount("shop.orders.lock.exhausted");
         CreateOrderRequest request = request("00000000-0000-4000-8000-000000000099");
         when(transactionService.createOrderWithResult(any()))
                 .thenThrow(new DeadlockLoserDataAccessException("deadlock", null))
@@ -74,11 +76,15 @@ class OrderRetryTest {
         verify(transactionService, times(3)).createOrderWithResult(any());
         assertThat(orderService.getRetryCount() - retriesBefore).isEqualTo(2);
         assertThat(metricCount("shop.orders.success") - successesBefore).isEqualTo(1.0);
+        assertThat(metricCount("shop.orders.lock.retry") - lockRetriesBefore).isEqualTo(2.0);
+        assertThat(metricCount("shop.orders.lock.exhausted") - lockExhaustedBefore).isZero();
     }
 
     @Test
     void exhaustedDeadlockRetriesAreCappedAtThree() {
         double failuresBefore = metricCount("shop.orders.failure");
+        double lockRetriesBefore = metricCount("shop.orders.lock.retry");
+        double lockExhaustedBefore = metricCount("shop.orders.lock.exhausted");
         CreateOrderRequest request = request("00000000-0000-4000-8000-000000000100");
         when(transactionService.createOrderWithResult(any()))
                 .thenThrow(new DeadlockLoserDataAccessException("deadlock", null));
@@ -87,6 +93,8 @@ class OrderRetryTest {
                 .isInstanceOf(ConcurrentOrderException.class);
         verify(transactionService, times(3)).createOrderWithResult(any());
         assertThat(metricCount("shop.orders.failure") - failuresBefore).isEqualTo(1.0);
+        assertThat(metricCount("shop.orders.lock.retry") - lockRetriesBefore).isEqualTo(2.0);
+        assertThat(metricCount("shop.orders.lock.exhausted") - lockExhaustedBefore).isEqualTo(1.0);
     }
 
     @Test

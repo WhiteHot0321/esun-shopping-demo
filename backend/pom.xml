@@ -31,10 +31,21 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
-        <!-- Phase 3.3 #18: health probes only (see management.* in application.yml); metrics/tracing are #19. -->
+        <!-- Phase 3.3 #18/#19: health probes and metrics (see management.* in application.yml). -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <!-- #19 OBS-01: Prometheus scrape format, served only from the management listener. -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
+        <!-- #19 OBS-01: one-JSON-object-per-line logs in the prod profile (see logback-spring.xml). -->
+        <dependency>
+            <groupId>net.logstash.logback</groupId>
+            <artifactId>logstash-logback-encoder</artifactId>
+            <version>8.0</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
