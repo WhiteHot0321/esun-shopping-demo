@@ -65,8 +65,7 @@ public class PaymentController {
      * the money movement is already recorded, retrying would change nothing.
      */
     @Operation(summary = "綠界 ECPay 伺服器回呼（公開，以 CheckMacValue 驗證，回應 1|OK）")
-    @PostMapping(value = "/api/payments/ecpay/callback", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE,
-            produces = MediaType.TEXT_PLAIN_VALUE)
+    @PostMapping(value = "/api/payments/ecpay/callback", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
     public ResponseEntity<String> ecpayCallback(@RequestParam MultiValueMap<String, String> formParameters) {
         Map<String, String> parameters = new LinkedHashMap<>();
         for (Map.Entry<String, List<String>> entry : formParameters.entrySet()) {

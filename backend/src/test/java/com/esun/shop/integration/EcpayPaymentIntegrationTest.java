@@ -151,6 +151,22 @@ class EcpayPaymentIntegrationTest extends AbstractMySqlIntegrationTest {
     }
 
     @Test
+    void aValidCallbackIsAcceptedWhateverAcceptHeaderEcpaySends() throws Exception {
+        Fixture f = fixture(1, 100);
+        String tradeNo = start(f).path("data").path("merchantTradeNo").asText();
+
+        // ECPay's server does not ask for text/plain; a route that insists on it never reaches the handler.
+        Map<String, String> values = callback(tradeNo, "100", "1", "2401010000000009");
+        MockHttpServletRequestBuilder request = post("/api/payments/ecpay/callback")
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED).accept(MediaType.TEXT_HTML, MediaType.APPLICATION_JSON);
+        values.forEach(request::param);
+        mvc.perform(request).andExpect(status().isOk()).andExpect(content().string("1|OK"));
+
+        assertThat(paymentStatus(tradeNo)).isEqualTo("SUCCEEDED");
+        assertThat(count("SELECT pay_status FROM shop_order WHERE order_id = ?", f.orderId)).isEqualTo(1);
+    }
+
+    @Test
     void aDeclinedCardClosesTheAttemptAndTheBuyerCanRetryWithANewTradeNo() throws Exception {
         Fixture f = fixture(1, 100);
         String first = start(f).path("data").path("merchantTradeNo").asText();
