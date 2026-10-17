@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import com.esun.shop.dto.ApiResponse;
 import com.esun.shop.dto.RecommendationItem;
 import com.esun.shop.exception.BusinessException;
+import com.esun.shop.service.PublicRecommendationCache;
 import com.esun.shop.service.RecommendationService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
@@ -23,9 +24,11 @@ import java.util.List;
 @RestController
 public class RecommendationController {
     private final RecommendationService service;
+    private final PublicRecommendationCache publicCache;
 
-    public RecommendationController(RecommendationService service) {
+    public RecommendationController(RecommendationService service, PublicRecommendationCache publicCache) {
         this.service = service;
+        this.publicCache = publicCache;
     }
 
     @Operation(summary = "買過此商品的人也買了（公開，僅聚合資料）")
@@ -33,7 +36,7 @@ public class RecommendationController {
     public ApiResponse<List<RecommendationItem>> forProduct(
             @PathVariable String productId,
             @RequestParam(defaultValue = "6") int limit) {
-        return ApiResponse.ok(service.forProduct(productId, limit));
+        return ApiResponse.ok(publicCache.forProduct(productId, limit));
     }
 
     @Operation(summary = "為你推薦（依登入會員購買紀錄）")

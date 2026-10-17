@@ -3,6 +3,10 @@
 Updated: 2026-09-27 (2026-09-27 batch merged: PRs #7-#11; strategy: engineering depth)
 Baseline: advanced-v2 @ 11c60b6 (merge of PR #11)
 
+## Phase 3.3 #20 recommendation endpoint mitigation — 2026-10-17
+
+Owner accepted the recommended option: `PublicRecommendationCache` puts a 30 s in-process, single-flight cache (`recommendation.cache-ttl-seconds`, 0 disables) in front of the public per-product list; failures are not cached, map capped at 2000. This **changes the #15 contract**: a response may be up to the TTL old. Verified: new `PublicRecommendationCacheTest` 6/6, full backend `mvn clean test` **314/314** with JaCoCo gates met. Not done: rate limiting (no trusted-proxy config, so per-IP would be meaningless behind Caddy), load measurement with the cache, independent review. #22's real ECPay stage payment still needs the owner's stage values and payment: `docs/tasks/072-phase33-22-ecpay-stage-runbook.md`. Evidence: `docs/tasks/071-phase33-20-recommendation-cache.md`.
+
 ## Phase 3.0 #2 order history — payment-status filter closed — 2026-10-17
 
 The only unreconciled gap in #2 (order-history overlap with #11 was otherwise covered by the merged order-status-flow) was the payment-status filter. `GET /api/orders` now accepts `payStatus` (`all`/`PENDING`/`PAID`/`SHIPPED`, case-insensitive, invalid -> 400), combinable with `status`, applied to both page and total count; the buyer `OrdersPanel` has a payment filter (absent in seller mode; `payStatus` omitted when "all"). Verified: `OrderStatusIntegrationTest` 7/7 (real MySQL, new filter assertions), `OrdersPanel.spec.js` 17/17. Seller/admin lists unchanged; full backend suite and independent review not run. The stale `phase31-closure` worktree is superseded and should not be merged wholesale.

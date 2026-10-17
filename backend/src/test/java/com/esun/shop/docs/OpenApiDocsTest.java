@@ -26,6 +26,7 @@ import com.esun.shop.service.PaymentCallbackService;
 import com.esun.shop.service.PaymentService;
 import com.esun.shop.service.ProductReviewService;
 import com.esun.shop.service.ProductService;
+import com.esun.shop.service.PublicRecommendationCache;
 import com.esun.shop.service.RecommendationService;
 import com.esun.shop.service.ShippingAddressService;
 import com.esun.shop.service.SupportService;
@@ -92,6 +93,7 @@ class OpenApiDocsTest {
     @MockBean private ProductService productService;
     @MockBean private ProductReviewService productReviewService;
     @MockBean private RecommendationService recommendationService;
+    @MockBean private PublicRecommendationCache publicRecommendationCache;
     @MockBean private ShippingAddressService shippingAddressService;
     @MockBean private SupportService supportService;
 

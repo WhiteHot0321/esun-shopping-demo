@@ -35,6 +35,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 class RecommendationIntegrationTest extends AbstractMySqlIntegrationTest {
     @Autowired MockMvc mvc;
+    @Autowired com.esun.shop.service.PublicRecommendationCache publicCache;
     @Autowired ObjectMapper mapper;
     @Autowired JdbcTemplate jdbc;
     @Autowired javax.sql.DataSource dataSource;
@@ -262,6 +263,7 @@ class RecommendationIntegrationTest extends AbstractMySqlIntegrationTest {
     // ---- helpers -------------------------------------------------------------------------------------------------
 
     private JsonNode call(String url, String token, int expectedStatus) throws Exception {
+        publicCache.clear(); // these tests assert live data; cache behaviour has its own unit test
         var request = get(url);
         if (token != null) request = request.header("Authorization", "Bearer " + token);
         String body = mvc.perform(request).andExpect(status().is(expectedStatus)).andReturn().getResponse()
