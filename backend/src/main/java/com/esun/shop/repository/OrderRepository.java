@@ -112,18 +112,18 @@ public class OrderRepository {
                 toStatus, orderId, fromStatus);
     }
 
-    public List<OrderHeader> findHeadersByMember(String memberId, String status, int limit, int offset) {
+    public List<OrderHeader> findHeadersByMember(String memberId, String status, Integer payStatus, int limit, int offset) {
         List<Object> args = new ArrayList<>();
-        String sql = HEADER_SELECT + memberWhere(memberId, status, args)
+        String sql = HEADER_SELECT + memberWhere(memberId, status, payStatus, args)
                 + " ORDER BY o.created_at DESC, o.order_id DESC LIMIT ? OFFSET ?";
         args.add(limit);
         args.add(offset);
         return jdbcTemplate.query(sql, (rs, n) -> mapHeader(rs), args.toArray());
     }
 
-    public long countByMember(String memberId, String status) {
+    public long countByMember(String memberId, String status, Integer payStatus) {
         List<Object> args = new ArrayList<>();
-        Long total = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM shop_order o" + memberWhere(memberId, status, args),
+        Long total = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM shop_order o" + memberWhere(memberId, status, payStatus, args),
                 Long.class, args.toArray());
         return total == null ? 0 : total;
     }
@@ -149,12 +149,16 @@ public class OrderRepository {
         return total == null ? 0 : total;
     }
 
-    private static String memberWhere(String memberId, String status, List<Object> args) {
+    private static String memberWhere(String memberId, String status, Integer payStatus, List<Object> args) {
         args.add(memberId);
         String where = " WHERE o.member_id = ?";
         if (status != null) {
             where += " AND o.order_status = ?";
             args.add(status);
+        }
+        if (payStatus != null) {
+            where += " AND o.pay_status = ?";
+            args.add(payStatus);
         }
         return where;
     }

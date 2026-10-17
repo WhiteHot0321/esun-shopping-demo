@@ -47,13 +47,14 @@ public class OrderController {
 
     // ---- buyer: own orders only, identity from the verified JWT ----
 
-    @Operation(summary = "列出我的訂單（可依狀態篩選、分頁）")
+    @Operation(summary = "列出我的訂單（可依訂單狀態、付款狀態篩選、分頁）")
     @GetMapping("/api/orders")
     public ApiResponse<OrderPageResponse> listMyOrders(@RequestParam(defaultValue = "all") String status,
+                                                       @RequestParam(defaultValue = "all") String payStatus,
                                                        @RequestParam(defaultValue = "0") int page,
                                                        @RequestParam(defaultValue = "20") int size,
                                                        HttpServletRequest request) {
-        return ApiResponse.ok(orderStatusService.listMine(principal(request), status, page, size));
+        return ApiResponse.ok(orderStatusService.listMine(principal(request), status, payStatus, page, size));
     }
 
     @Operation(summary = "取得我的單筆訂單")

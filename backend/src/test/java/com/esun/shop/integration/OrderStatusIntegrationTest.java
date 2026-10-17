@@ -117,6 +117,23 @@ class OrderStatusIntegrationTest extends AbstractMySqlIntegrationTest {
         mvc.perform(get("/api/orders").header("Authorization", bearer(buyer)).param("size", "0"))
                 .andExpect(status().isBadRequest());
 
+        // payment-status filter: a fresh order is PENDING; PAID matches only after the DB flips it; junk is a 400
+        mvc.perform(get("/api/orders").header("Authorization", bearer(buyer)).param("payStatus", "PENDING"))
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.orders[0].orderId").value(orderId));
+        mvc.perform(get("/api/orders").header("Authorization", bearer(buyer)).param("payStatus", "paid"))
+                .andExpect(jsonPath("$.data.total").value(0))
+                .andExpect(jsonPath("$.data.orders.length()").value(0));
+        mvc.perform(get("/api/orders").header("Authorization", bearer(buyer)).param("payStatus", "bogus"))
+                .andExpect(status().isBadRequest());
+        jdbc.update("UPDATE shop_order SET pay_status = 1 WHERE order_id = ?", orderId);
+        mvc.perform(get("/api/orders").header("Authorization", bearer(buyer)).param("payStatus", "PAID").param("status", "CREATED"))
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.orders[0].payStatus").value("PAID"));
+        mvc.perform(get("/api/orders").header("Authorization", bearer(buyer)).param("payStatus", "PENDING"))
+                .andExpect(jsonPath("$.data.total").value(0));
+        jdbc.update("UPDATE shop_order SET pay_status = 0 WHERE order_id = ?", orderId);
+
         mvc.perform(get("/api/orders/{id}", orderId).header("Authorization", bearer(stranger)))
                 .andExpect(status().isNotFound());
         mvc.perform(post("/api/orders/{id}/cancel", orderId).header("Authorization", bearer(stranger)))

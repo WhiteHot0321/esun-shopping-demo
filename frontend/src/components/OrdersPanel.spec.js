@@ -41,6 +41,23 @@ describe('OrdersPanel', () => {
     expect(button(wrapper, '標記出貨')).toBeUndefined()
   })
 
+  it('buyer payment filter sends payStatus, combines with the status filter, and is absent in seller mode', async () => {
+    api.get.mockResolvedValue(pageOf([order()]))
+    const wrapper = await mountPanel('buyer')
+    await button(wrapper, '已付款').trigger('click')
+    await flushPromises()
+    expect(api.get).toHaveBeenLastCalledWith('/orders', { params: { status: 'all', page: 0, size: 10, payStatus: 'PAID' } })
+    await button(wrapper, '已確認').trigger('click')
+    await flushPromises()
+    expect(api.get).toHaveBeenLastCalledWith('/orders', { params: { status: 'CONFIRMED', page: 0, size: 10, payStatus: 'PAID' } })
+    await button(wrapper, '付款：全部').trigger('click')
+    await flushPromises()
+    expect(api.get.mock.calls.at(-1)[1].params).not.toHaveProperty('payStatus')
+
+    const seller = await mountPanel('seller')
+    expect(seller.find('[data-testid="pay-filter"]').exists()).toBe(false)
+  })
+
   it('shows the applied coupon and the original price only for discounted orders', async () => {
     api.get.mockResolvedValue(pageOf([
       order({ orderId: 'Ms2', price: 270, couponCode: 'SAVE10', discountAmount: 30 }),

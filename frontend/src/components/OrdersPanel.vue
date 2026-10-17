@@ -11,8 +11,14 @@
         :aria-pressed="filter === option.value" @click="setFilter(option.value)">{{ option.label }}</button>
     </div>
 
+    <div v-if="!isSeller" class="orders-filter" role="group" aria-label="依付款狀態篩選" data-testid="pay-filter">
+      <button v-for="option in payFilters" :key="option.value" type="button"
+        class="btn btn--sm" :class="payFilter === option.value ? 'btn--primary' : 'btn--ghost'"
+        :aria-pressed="payFilter === option.value" @click="setPayFilter(option.value)">{{ option.label }}</button>
+    </div>
+
     <p v-if="loading" role="status">載入訂單中…</p>
-    <p v-else-if="!orders.length" class="field__hint">目前沒有{{ filter === 'all' ? '' : '此狀態的' }}訂單</p>
+    <p v-else-if="!orders.length" class="field__hint">目前沒有{{ filter === 'all' && payFilter === 'all' ? '' : '此狀態的' }}訂單</p>
     <ul v-else class="orders-list">
       <li v-for="order in orders" :key="order.orderId" class="order-card">
         <div class="order-card__head">
@@ -90,12 +96,14 @@ const ACTION_LABELS = {
   CONFIRMED: '確認訂單', SHIPPED: '標記出貨', DELIVERED: '標記送達', CANCELLED: '取消訂單'
 }
 const filters = [{ value: 'all', label: '全部' }, ...Object.entries(STATUS_LABELS).map(([value, label]) => ({ value, label }))]
+const payFilters = [{ value: 'all', label: '付款：全部' }, { value: 'PENDING', label: '未付款' }, { value: 'PAID', label: '已付款' }]
 const size = 10
 
 const orders = ref([])
 const total = ref(0)
 const page = ref(0)
 const filter = ref('all')
+const payFilter = ref('all')
 const loading = ref(true)
 const busyId = ref('')
 const paying = ref(null)
@@ -125,7 +133,10 @@ const load = async () => {
   const request = ++latestRequest
   loading.value = true
   try {
-    const { data } = await api.get(basePath.value, { params: { status: filter.value, page: page.value, size } })
+    const params = { status: filter.value, page: page.value, size }
+    // The payment filter exists for the buyer's own list only; omitted when "all" so the default request is unchanged.
+    if (!isSeller.value && payFilter.value !== 'all') params.payStatus = payFilter.value
+    const { data } = await api.get(basePath.value, { params })
     if (request !== latestRequest) return
     orders.value = data.data?.orders || []
     total.value = data.data?.total || 0
@@ -144,6 +155,11 @@ const load = async () => {
 
 const setFilter = (value) => {
   filter.value = value
+  page.value = 0
+  load()
+}
+const setPayFilter = (value) => {
+  payFilter.value = value
   page.value = 0
   load()
 }

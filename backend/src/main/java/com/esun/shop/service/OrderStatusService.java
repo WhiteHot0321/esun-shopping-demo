@@ -51,12 +51,13 @@ public class OrderStatusService {
 
     // ---- buyer ----
 
-    public OrderPageResponse listMine(String memberId, String status, int page, int size) {
+    public OrderPageResponse listMine(String memberId, String status, String payStatus, int page, int size) {
         validatePaging(page, size);
         String normalized = parseStatusFilter(status);
-        List<OrderHeader> headers = orderRepository.findHeadersByMember(memberId, normalized, size, page * size);
-        return new OrderPageResponse(buildViews(headers, null, false), orderRepository.countByMember(memberId, normalized),
-                page, size);
+        Integer pay = parsePayStatusFilter(payStatus);
+        List<OrderHeader> headers = orderRepository.findHeadersByMember(memberId, normalized, pay, size, page * size);
+        return new OrderPageResponse(buildViews(headers, null, false),
+                orderRepository.countByMember(memberId, normalized, pay), page, size);
     }
 
     public OrderView getMine(String orderId, String memberId) {
@@ -224,6 +225,16 @@ public class OrderStatusService {
             return OrderStatus.valueOf(status.trim().toUpperCase()).name();
         } catch (IllegalArgumentException ex) {
             throw new BusinessException("訂單狀態篩選不合法", HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    /** Returns the persisted pay_status ordinal, or null for "all". */
+    private static Integer parsePayStatusFilter(String payStatus) {
+        if (payStatus == null || payStatus.isBlank() || payStatus.equalsIgnoreCase("all")) return null;
+        try {
+            return PayStatus.valueOf(payStatus.trim().toUpperCase()).ordinal();
+        } catch (IllegalArgumentException ex) {
+            throw new BusinessException("付款狀態篩選不合法", HttpStatus.BAD_REQUEST);
         }
     }
 
