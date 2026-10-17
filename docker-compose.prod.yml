@@ -42,6 +42,9 @@ services:
   redis:
     image: redis:7
     command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD}"]
+    # Run as the redis user directly: the image entrypoint runs as root and, with cap_drop ALL,
+    # root cannot read the uid-999 data dir (find: Permission denied -> restart loop).
+    user: "999:999"
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD}
     volumes:
