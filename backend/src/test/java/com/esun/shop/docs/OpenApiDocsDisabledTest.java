@@ -20,7 +20,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * exposing a spec: the switch the production deployment note relies on.
  */
 @WebMvcTest(controllers = SupportController.class)
-@Import({JwtAuthFilter.class, JwtService.class})
+@Import({com.esun.shop.security.ActiveMemberTestConfig.class, JwtAuthFilter.class, JwtService.class})
 @TestPropertySource(properties = {
         "jwt.secret=integration-test-secret-key-at-least-32-bytes-long",
         "jwt.expiration-ms=3600000",

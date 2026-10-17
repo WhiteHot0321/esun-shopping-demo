@@ -46,7 +46,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * before), while GET /api/products/available stays public for browsing.
  */
 @WebMvcTest(controllers = {OrderController.class, ProductController.class, SupportController.class})
-@Import({JwtAuthFilter.class, JwtService.class})
+@Import({com.esun.shop.security.ActiveMemberTestConfig.class, JwtAuthFilter.class, JwtService.class})
 @TestPropertySource(properties = {
         "jwt.secret=integration-test-secret-key-at-least-32-bytes-long",
         "jwt.expiration-ms=3600000"

@@ -84,7 +84,10 @@ const ACTION_LABELS = {
   ORDER_STATUS_CHANGE: '訂單狀態變更',
   REVIEW_VISIBILITY_CHANGE: '評論顯示切換',
   COUPON_CREATE: '建立優惠券',
-  COUPON_UPDATE: '修改優惠券'
+  COUPON_UPDATE: '修改優惠券',
+  MEMBER_ROLE_CHANGE: '變更會員角色',
+  MEMBER_DISABLE: '停用會員',
+  MEMBER_ENABLE: '啟用會員'
 }
 const size = 20
 

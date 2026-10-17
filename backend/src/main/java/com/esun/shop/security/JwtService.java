@@ -37,6 +37,11 @@ public class JwtService {
     }
 
     public String generateToken(String email, Member.Role role) {
+        return generateToken(email, role, 0);
+    }
+
+    /** @param tokenVersion the member's {@code token_version} at issue time; a later bump revokes this token. */
+    public String generateToken(String email, Member.Role role, int tokenVersion) {
         if (email == null || email.isBlank()) {
             throw new IllegalArgumentException("JWT subject must not be blank");
         }
@@ -48,6 +53,7 @@ public class JwtService {
         return Jwts.builder()
                 .subject(email)
                 .claim("role", role.name())
+                .claim("ver", tokenVersion)
                 .issuedAt(now)
                 .expiration(expiry)
                 .signWith(signingKey)
@@ -74,11 +80,13 @@ public class JwtService {
         }
         String roleClaim = claims.get("role", String.class);
         try {
-            return new JwtIdentity(email, Member.Role.valueOf(roleClaim));
+            Integer ver = claims.get("ver", Integer.class);
+            return new JwtIdentity(email, Member.Role.valueOf(roleClaim), ver);
         } catch (IllegalArgumentException | NullPointerException ex) {
             throw new JwtException("JWT role is missing or invalid", ex) { };
         }
     }
 
-    public record JwtIdentity(String email, Member.Role role) { }
+    /** @param tokenVersion null for tokens issued before revocation existed; the filter rejects those. */
+    public record JwtIdentity(String email, Member.Role role, Integer tokenVersion) { }
 }

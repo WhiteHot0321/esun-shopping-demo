@@ -64,7 +64,7 @@ class FlywayAdoptionIntegrationTest {
     @Test
     void migratesEmptySchemaAndAdoptsOnlyExactLegacyStructureWithoutChangingData() {
         Flyway emptyFlyway = flyway(dataSource(EMPTY));
-        assertThat(emptyFlyway.migrate().migrationsExecuted).isEqualTo(1);
+        assertThat(emptyFlyway.migrate().migrationsExecuted).isEqualTo(2);
         assertThat(emptyFlyway.migrate().migrationsExecuted).isZero();
         assertThat(routineCount(jdbc(EMPTY))).isEqualTo(3);
 

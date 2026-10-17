@@ -34,6 +34,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * this class stays focused on Bean Validation only.
  */
 @WebMvcTest(OrderController.class)
+@org.springframework.context.annotation.Import(com.esun.shop.security.ActiveMemberTestConfig.class)
 @AutoConfigureMockMvc(addFilters = false)
 class OrderControllerValidationTest {
 

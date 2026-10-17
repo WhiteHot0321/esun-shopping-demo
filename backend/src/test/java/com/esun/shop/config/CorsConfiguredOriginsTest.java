@@ -20,7 +20,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 
 /** Phase 3.3 #18 B1: allowed CORS origins come from {@code cors.allowed-origins}, not from a hard-coded dev URL. */
 @WebMvcTest(controllers = OrderController.class)
-@Import({JwtAuthFilter.class, JwtService.class, CorsConfig.class})
+@Import({com.esun.shop.security.ActiveMemberTestConfig.class, JwtAuthFilter.class, JwtService.class, CorsConfig.class})
 @TestPropertySource(properties = {
         "jwt.secret=integration-test-secret-key-at-least-32-bytes-long",
         "cors.allowed-origins=https://shop.example.com, https://www.example.com"
@@ -50,5 +50,18 @@ class CorsConfiguredOriginsTest {
     @Test
     void theDevServerOrigin_isNoLongerAllowedOnceConfigured() throws Exception {
         assertThat(allowOriginFor("http://localhost:5173")).isNull();
+    }
+
+    /** The member-admin role change is the app's first PATCH; a browser preflight for it must be allowed. */
+    @Test
+    void preflightForPatch_isAllowed() throws Exception {
+        var response = mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .options("/api/admin/members/1/role")
+                        .header(ORIGIN, "https://shop.example.com")
+                        .header("Access-Control-Request-Method", "PATCH")
+                        .header("Access-Control-Request-Headers", "authorization,content-type"))
+                .andReturn().getResponse();
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getHeader("Access-Control-Allow-Methods")).contains("PATCH");
     }
 }

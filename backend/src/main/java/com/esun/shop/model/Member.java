@@ -9,10 +9,17 @@ public class Member {
         ADMIN
     }
 
+    public enum Status {
+        ACTIVE,
+        DISABLED
+    }
+
     private Long id;
     private String email;
     private String passwordHash;
     private Role role = Role.BUYER;
+    private Status status = Status.ACTIVE;
+    private int tokenVersion;
     private LocalDateTime createdAt;
 
     public Long getId() {
@@ -53,5 +60,21 @@ public class Member {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public Status getStatus() {
+        return status;
+    }
+
+    public void setStatus(Status status) {
+        this.status = status;
+    }
+
+    public int getTokenVersion() {
+        return tokenVersion;
+    }
+
+    public void setTokenVersion(int tokenVersion) {
+        this.tokenVersion = tokenVersion;
     }
 }

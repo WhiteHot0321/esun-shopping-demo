@@ -31,7 +31,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * that the CORS headers are applied ahead of the auth filter, so auth failures stay readable to the frontend.
  */
 @WebMvcTest(controllers = {OrderController.class, ProductController.class})
-@Import({JwtAuthFilter.class, JwtService.class, CorsConfig.class})
+@Import({com.esun.shop.security.ActiveMemberTestConfig.class, JwtAuthFilter.class, JwtService.class, CorsConfig.class})
 @TestPropertySource(properties = {
         "jwt.secret=integration-test-secret-key-at-least-32-bytes-long",
         "jwt.expiration-ms=-3600000" // every token this test generates is already expired

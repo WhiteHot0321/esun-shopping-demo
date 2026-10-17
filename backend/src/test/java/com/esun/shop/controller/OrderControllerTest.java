@@ -23,6 +23,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(OrderController.class)
+@org.springframework.context.annotation.Import(com.esun.shop.security.ActiveMemberTestConfig.class)
 @AutoConfigureMockMvc(addFilters = false)
 class OrderControllerTest {
     private static final String REQUEST_ID = "b35e0f4a-9465-43ea-9c7f-91cb9f8d79d8";
