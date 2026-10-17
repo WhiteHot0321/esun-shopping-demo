@@ -7,6 +7,15 @@ Baseline: advanced-v2 @ 11c60b6 (merge of PR #11)
 
 The only unreconciled gap in #2 (order-history overlap with #11 was otherwise covered by the merged order-status-flow) was the payment-status filter. `GET /api/orders` now accepts `payStatus` (`all`/`PENDING`/`PAID`/`SHIPPED`, case-insensitive, invalid -> 400), combinable with `status`, applied to both page and total count; the buyer `OrdersPanel` has a payment filter (absent in seller mode; `payStatus` omitted when "all"). Verified: `OrderStatusIntegrationTest` 7/7 (real MySQL, new filter assertions), `OrdersPanel.spec.js` 17/17. Seller/admin lists unchanged; full backend suite and independent review not run. The stale `phase31-closure` worktree is superseded and should not be merged wholesale.
 
+## Phase 3.3 deferred items — owner decision 2026-10-17
+
+The owner chose to defer the items below; Phase 3.3 is **closed with these deferred, not fully complete**. Nothing here was verified or implemented.
+
+- **#22:** real ECPay stage payment with an inbound callback recorded (needs stage values in `.env.prod`, currently `PAYMENT_PROVIDER=none`, and the owner completing the payment). The callback route fix is in `0b20f47`; `EcpayPaymentIntegrationTest` 10/10.
+- **#18 B3:** Actions deploy job and Environment approval (no remote host). Local equivalent: `scripts/deploy-tunnel.sh` (`6931ec7`).
+- **#21:** host firewall, SSH policy, TLS renewal, off-host backup and recovery from it (needs a VM and an off-host target).
+- **#20:** public recommendation-endpoint mitigation (~0.5 s DB CPU per call); proposed option: short-TTL cache.
+
 ## Phase 3.3 #18 B3 local deploy script — 2026-10-17
 
 `scripts/deploy-tunnel.sh` adds backup-before-deploy, `:previous` image tagging, a health gate and automatic rollback for the tunnel stack; exercised with real runs (success path and failure-path rollback). The tunnel Redis restart loop (`cap_drop ALL` vs root entrypoint) was fixed in `1315e7e`. Phase 3.3 is still **not complete**: no Actions deploy job/Environment approval (no remote host), #21 host-level items, and #22's real ECPay stage callback (`.env.prod` still `PAYMENT_PROVIDER=none`) remain open. Details: `docs/tasks/070-phase33-18-b3-local-deploy.md`.
