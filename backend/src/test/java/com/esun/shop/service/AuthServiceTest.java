@@ -27,6 +27,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -68,7 +69,7 @@ class AuthServiceTest {
         saved.setId(1L);
         saved.setEmail("user@example.com");
         when(memberRepository.insert(eq("user@example.com"), anyString())).thenReturn(saved);
-        when(jwtService.generateToken("user@example.com", Member.Role.BUYER)).thenReturn("jwt-token");
+        when(jwtService.generateToken("user@example.com", Member.Role.BUYER, 0)).thenReturn("jwt-token");
 
         AuthResponse response = authService.register(request);
 
@@ -101,6 +102,23 @@ class AuthServiceTest {
     }
 
     @Test
+    void login_disabledAccount_isForbiddenAndIssuesNoToken() {
+        LoginRequest request = new LoginRequest();
+        request.setEmail("user@example.com");
+        request.setPassword("correct-pw");
+        Member member = new Member();
+        member.setEmail("user@example.com");
+        member.setStatus(Member.Status.DISABLED);
+        member.setPasswordHash(BCrypt.hashpw("correct-pw", BCrypt.gensalt()));
+        when(memberRepository.findByEmail("user@example.com")).thenReturn(member);
+
+        assertThatThrownBy(() -> authService.login(request))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> assertThat(((BusinessException) ex).getStatus()).isEqualTo(HttpStatus.FORBIDDEN));
+        verify(jwtService, never()).generateToken(anyString(), any(), anyInt());
+    }
+
+    @Test
     void login_correctPassword_returnsToken() {
         LoginRequest request = new LoginRequest();
         request.setEmail("user@example.com");
@@ -110,7 +128,7 @@ class AuthServiceTest {
         member.setEmail("user@example.com");
         member.setPasswordHash(BCrypt.hashpw("correct-pw", BCrypt.gensalt()));
         when(memberRepository.findByEmail("user@example.com")).thenReturn(member);
-        when(jwtService.generateToken("user@example.com", Member.Role.BUYER)).thenReturn("jwt-token");
+        when(jwtService.generateToken("user@example.com", Member.Role.BUYER, 0)).thenReturn("jwt-token");
 
         AuthResponse response = authService.login(request);
 

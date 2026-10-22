@@ -3,6 +3,7 @@ package com.esun.shop.config;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.util.List;
 import javax.sql.DataSource;
 import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.FlywayException;
@@ -64,9 +65,10 @@ class FlywayAdoptionIntegrationTest {
     @Test
     void migratesEmptySchemaAndAdoptsOnlyExactLegacyStructureWithoutChangingData() {
         Flyway emptyFlyway = flyway(dataSource(EMPTY));
-        assertThat(emptyFlyway.migrate().migrationsExecuted).isEqualTo(1);
+        assertThat(emptyFlyway.migrate().migrationsExecuted).isEqualTo(2);
         assertThat(emptyFlyway.migrate().migrationsExecuted).isZero();
-        assertThat(routineCount(jdbc(EMPTY))).isEqualTo(3);
+        JdbcTemplate emptyJdbc = jdbc(EMPTY);
+        assertThat(routineCount(emptyJdbc)).isEqualTo(3);
 
         JdbcTemplate invalidJdbc = jdbc(INVALID);
         JdbcTemplate invalidFixtureAdmin = jdbcAsRoot(INVALID);
@@ -115,7 +117,10 @@ class FlywayAdoptionIntegrationTest {
         new FlywayAdoptionConfiguration().flywayMigrationStrategy(dataSource(LEGACY), true).migrate(legacyFlyway);
         assertThat(legacyJdbc.queryForObject("SELECT quantity FROM product WHERE product_id = 'P001'", Integer.class)).isEqualTo(5);
         assertThat(legacyJdbc.queryForObject("SELECT COUNT(*) FROM flyway_schema_history WHERE success = 1 AND version = '1'", Integer.class)).isEqualTo(1);
-
+        assertThat(legacyJdbc.queryForObject("SELECT COUNT(*) FROM flyway_schema_history WHERE success = 1 AND version = '2'", Integer.class)).isEqualTo(1);
+        assertThat(legacyFlyway.migrate().migrationsExecuted).isZero();
+        assertThat(memberAdminColumnSignature(legacyJdbc)).isEqualTo(memberAdminColumnSignature(emptyJdbc));
+        assertThat(memberStatusCheckClause(legacyJdbc)).isEqualTo(memberStatusCheckClause(emptyJdbc));
     }
 
     private static MySQLContainer<?> mysql() {
@@ -125,6 +130,26 @@ class FlywayAdoptionIntegrationTest {
 
     private static int routineCount(JdbcTemplate jdbc) {
         return jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.routines WHERE routine_schema = DATABASE() AND routine_type = 'PROCEDURE' AND routine_name IN ('sp_add_product', 'sp_get_available_products', 'sp_decrease_stock')", Integer.class);
+    }
+
+    private static List<String> memberAdminColumnSignature(JdbcTemplate jdbc) {
+        return jdbc.queryForList("""
+                SELECT CONCAT(column_name, '|', column_type, '|', is_nullable, '|', COALESCE(column_default, '<NULL>'))
+                FROM information_schema.columns
+                WHERE table_schema = DATABASE()
+                  AND table_name = 'member'
+                  AND column_name IN ('status', 'token_version')
+                ORDER BY ordinal_position
+                """, String.class);
+    }
+
+    private static String memberStatusCheckClause(JdbcTemplate jdbc) {
+        return jdbc.queryForObject("""
+                SELECT check_clause
+                FROM information_schema.check_constraints
+                WHERE constraint_schema = DATABASE()
+                  AND constraint_name = 'chk_member_status'
+                """, String.class);
     }
 
     private static Flyway flyway(DataSource dataSource) {

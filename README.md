@@ -21,7 +21,7 @@
 
 **Phase 3.3 進行中**（基礎工程升級）：
 - ✅ #18 B1：生產環境硬化 （management port + CORS 驗證 + 設定檢查）
-- 🔄 #18 B2：Flyway 遷移檢查表 + 容器拓撲（Compose / Caddy / 無根容器）
+- 🔄 #18 B2：Flyway 遷移檢查表 + 容器拓撲（Compose / Caddy / 非 root 容器：non-root user、cap_drop、read-only）
 - 📋 #19：可觀測性 & 告警（Prometheus + Grafana + 相關日誌 + 故障指標）
 - 📋 #20：SQL 性能基準 + 索引有效性 + 容量模型
 - 📋 #21：生產安全硬化 （防火牆 / SSH / secrets 輪轉 / 映像掃描 / SBOM）

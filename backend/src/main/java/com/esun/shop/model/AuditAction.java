@@ -10,7 +10,10 @@ public enum AuditAction {
     ORDER_STATUS_CHANGE("ORDER"),
     REVIEW_VISIBILITY_CHANGE("REVIEW"),
     COUPON_CREATE("COUPON"),
-    COUPON_UPDATE("COUPON");
+    COUPON_UPDATE("COUPON"),
+    MEMBER_ROLE_CHANGE("MEMBER"),
+    MEMBER_DISABLE("MEMBER"),
+    MEMBER_ENABLE("MEMBER");
 
     private final String targetType;
 

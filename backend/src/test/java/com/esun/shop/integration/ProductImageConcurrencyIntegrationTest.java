@@ -53,7 +53,7 @@ class ProductImageConcurrencyIntegrationTest extends AbstractMySqlIntegrationTes
 
     private void concurrentUploads(int initial, int secondStatus, int added) throws Exception {
         String id = seed(initial);
-        String token = jwt.generateToken("image-owner@example.com", Member.Role.SELLER);
+        String token = ownerToken();
         long before = fileCount();
         var executor = Executors.newFixedThreadPool(2);
         try (Connection blocker = rootConnection(); Connection observer = rootConnection()) {
@@ -83,7 +83,7 @@ class ProductImageConcurrencyIntegrationTest extends AbstractMySqlIntegrationTes
     @ValueSource(booleans = {true, false})
     void waitingUploadRechecksDeletedStateAndOwnership(boolean deleted) throws Exception {
         String id = seed(0);
-        String token = jwt.generateToken("image-owner@example.com", Member.Role.SELLER);
+        String token = ownerToken();
         long before = fileCount();
         var executor = Executors.newSingleThreadExecutor();
         try (Connection blocker = rootConnection(); Connection observer = rootConnection()) {
@@ -163,5 +163,11 @@ class ProductImageConcurrencyIntegrationTest extends AbstractMySqlIntegrationTes
     private static Path imageRoot() {
         try { return Files.createTempDirectory("image-concurrency-it"); }
         catch (java.io.IOException e) { throw new java.io.UncheckedIOException(e); }
+    }
+
+    /** JwtAuthFilter requires the token's subject to exist as an ACTIVE member. */
+    private String ownerToken() {
+        jdbc.update("INSERT IGNORE INTO member (email, password_hash, role) VALUES ('image-owner@example.com', 'x', 'SELLER')");
+        return jwt.generateToken("image-owner@example.com", Member.Role.SELLER);
     }
 }

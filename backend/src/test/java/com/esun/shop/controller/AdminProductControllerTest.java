@@ -30,6 +30,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(ProductController.class)
+@org.springframework.context.annotation.Import(com.esun.shop.security.ActiveMemberTestConfig.class)
 @AutoConfigureMockMvc(addFilters = false)
 class AdminProductControllerTest {
     @Autowired private MockMvc mockMvc;

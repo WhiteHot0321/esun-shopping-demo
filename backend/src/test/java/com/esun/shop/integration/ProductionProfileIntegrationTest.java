@@ -53,6 +53,15 @@ class ProductionProfileIntegrationTest extends AbstractMySqlIntegrationTest {
     @Autowired
     Environment environment;
 
+    @Autowired
+    org.springframework.jdbc.core.JdbcTemplate jdbc;
+
+    /** JwtAuthFilter now checks the member row, so the token's subject must exist and be ACTIVE. */
+    private String adminToken() {
+        jdbc.update("INSERT IGNORE INTO member (email, password_hash, role) VALUES ('admin@example.com', 'x', 'ADMIN')");
+        return jwtService.generateToken("admin@example.com", Member.Role.ADMIN);
+    }
+
     private ResponseEntity<String> get(int port, String path) {
         return rest.getForEntity("http://localhost:" + port + path, String.class);
     }
@@ -90,7 +99,7 @@ class ProductionProfileIntegrationTest extends AbstractMySqlIntegrationTest {
     @Test
     void mainPortDoesNotServeManagementEndpoints_evenToAnAuthenticatedCaller() {
         HttpHeaders headers = new HttpHeaders();
-        headers.setBearerAuth(jwtService.generateToken("admin@example.com", Member.Role.ADMIN));
+        headers.setBearerAuth(adminToken());
 
         ResponseEntity<String> health = rest.exchange("http://localhost:" + serverPort + "/actuator/health",
                 HttpMethod.GET, new HttpEntity<>(headers), String.class);
@@ -117,7 +126,7 @@ class ProductionProfileIntegrationTest extends AbstractMySqlIntegrationTest {
                 .doesNotContain("password").doesNotContain("jwt");
 
         HttpHeaders headers = new HttpHeaders();
-        headers.setBearerAuth(jwtService.generateToken("admin@example.com", Member.Role.ADMIN));
+        headers.setBearerAuth(adminToken());
         ResponseEntity<String> mainPort = rest.exchange("http://localhost:" + serverPort + "/actuator/prometheus",
                 HttpMethod.GET, new HttpEntity<>(headers), String.class);
         assertThat(mainPort.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);

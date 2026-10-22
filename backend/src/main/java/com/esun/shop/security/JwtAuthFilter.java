@@ -1,6 +1,8 @@
 package com.esun.shop.security;
 
 import com.esun.shop.dto.ApiResponse;
+import com.esun.shop.model.Member;
+import com.esun.shop.repository.MemberRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
@@ -43,8 +45,10 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
     private final ObjectMapper objectMapper;
+    private final MemberRepository memberRepository;
 
-    public JwtAuthFilter(JwtService jwtService, ObjectMapper objectMapper) {
+    public JwtAuthFilter(JwtService jwtService, ObjectMapper objectMapper, MemberRepository memberRepository) {
+        this.memberRepository = memberRepository;
         this.jwtService = jwtService;
         this.objectMapper = objectMapper;
     }
@@ -66,6 +70,16 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         String token = header.substring(BEARER_PREFIX.length());
         try {
             JwtService.JwtIdentity identity = jwtService.extractIdentity(token);
+            // A valid signature only proves the token was once issued. Role/status changes by an admin bump
+            // member.token_version, so one indexed lookup per request makes revocation immediate. A missing "ver"
+            // (pre-M0 token), a missing account, a disabled account or a stale version are all 401, which the
+            // frontend turns into a forced logout.
+            MemberRepository.AuthState state = memberRepository.findAuthState(identity.email());
+            if (state == null || state.status() != Member.Status.ACTIVE
+                    || identity.tokenVersion() == null || identity.tokenVersion() != state.tokenVersion()) {
+                unauthorized(response, "登入憑證已失效，請重新登入");
+                return;
+            }
             request.setAttribute("authenticatedEmail", identity.email());
             request.setAttribute("authenticatedRole", identity.role());
         } catch (JwtException | IllegalArgumentException ex) {

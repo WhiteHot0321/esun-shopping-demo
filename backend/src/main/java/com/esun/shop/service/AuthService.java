@@ -59,7 +59,7 @@ public class AuthService {
         String passwordHash = passwordEncoder.encode(request.getPassword());
         Member member = memberRepository.insert(email, passwordHash);
 
-        String token = jwtService.generateToken(member.getEmail(), member.getRole());
+        String token = jwtService.generateToken(member.getEmail(), member.getRole(), member.getTokenVersion());
         return new AuthResponse(token, member.getEmail(), member.getRole());
     }
 
@@ -72,7 +72,12 @@ public class AuthService {
             throw new BusinessException("帳號或密碼錯誤", HttpStatus.UNAUTHORIZED);
         }
 
-        String token = jwtService.generateToken(member.getEmail(), member.getRole());
+        if (member.getStatus() == Member.Status.DISABLED) {
+            // Checked after the password so a stranger cannot probe which emails are disabled accounts.
+            throw new BusinessException("此帳號已停用，請聯絡管理員", HttpStatus.FORBIDDEN);
+        }
+
+        String token = jwtService.generateToken(member.getEmail(), member.getRole(), member.getTokenVersion());
         return new AuthResponse(token, member.getEmail(), member.getRole());
     }
 

@@ -46,6 +46,10 @@ class OrderRetryTest {
     @Autowired
     private JwtService jwtService;
 
+    // JwtAuthFilter checks the member row; this test only needs "a valid, active caller".
+    @MockBean
+    private com.esun.shop.repository.MemberRepository memberRepository;
+
     @LocalServerPort
     private int port;
 
@@ -147,6 +151,9 @@ class OrderRetryTest {
                 .contains("method", "status", "uri")
                 .doesNotContain("orderId", "memberId", "email", "requestId", "url");
 
+        when(memberRepository.findAuthState("metrics-review@example.com"))
+                .thenReturn(new com.esun.shop.repository.MemberRepository.AuthState(
+                        com.esun.shop.model.Member.Status.ACTIVE, 0));
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(jwtService.generateToken("metrics-review@example.com"));
         ResponseEntity<String> metrics = http.exchange(
