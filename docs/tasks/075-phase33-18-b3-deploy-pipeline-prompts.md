@@ -282,3 +282,16 @@ docker compose -p esun -f docker-compose.prod.yml --env-file .env.prod run --rm 
 5. 依「使用者要做的設定」第 1–4 項：repo 與 GHCR 套件設 public、產生 Actions 專用金鑰並以 `ACTIONS_DEPLOY_PUBKEY` 跑 `vm-bootstrap.sh`、在 VM 建 `.env.prod` 與 `.backup-passphrase`（600）。
 6. 在 `production` Environment 加 secrets `DEPLOY_SSH_KEY`（Actions 金鑰私鑰）、`DEPLOY_HOST`，variable `DEPLOY_KNOWN_HOSTS`（帶外核對過的 host key）。
 7. 先做 C 獨立審查，再以 workflow_dispatch（branch `advanced-v2`）觸發第一次部署並核准。
+
+### 合併與第一次發布（2026-10-22）
+
+- **Environment `production`**（合併前建立）：Required reviewers = `WhiteHot0321`（由 owner 手動加入並儲存，重新載入頁面確認存在）、Prevent self-review 未勾、Deployment branches = Selected → `advanced-v2`、**沒有任何 secret/variable**。「Allow administrators to bypass configured protection rules」維持 GitHub 預設的勾選：管理員可以手動略過核准，但那需要刻意操作，不會自動略過；要更嚴格可取消勾選。
+- **PR #13 已合併**（merge commit `110afbc`，Create a merge commit）。合併確認由 owner 本人按下：Claude 的點擊被自動模式的安全分類器擋下。
+- **`advanced-v2` 的 CI（run 39801996364）**：backend-test、frontend-build、supply-chain-gate、config-validate、deploy-script-test、docker-build、**publish-image 全部成功**——`publish-image` 是第一次真正執行：
+  - `ghcr.io/whitehot0321/esun-shopping-demo/backend@sha256:351c91967d2c86702fe499b252cde7800fa08710be08d94c3644a90e8ca30c8e`
+  - `ghcr.io/whitehot0321/esun-shopping-demo/frontend@sha256:1c923342e305cab54f267fe3576ce89faf36e82b6f6ed9519c42c06eeb04c5b3`
+  - 兩個 digest 都通過 digest 掃描，CycloneDX SBOM 已上傳為 artifact `sbom-110afbc…`。
+  - 兩個套件**已可匿名拉取**（匿名向 `ghcr.io/token` 取得 pull token，`HEAD /v2/.../manifests/sha-110afbc…` 回 200），「GHCR 套件需手動設 public」這一項不需要再做。
+- **`deploy` job 停在「production waiting for review」**，證明 Environment 保護有效；依計畫以「No VM yet」為由 **Reject**。被拒絕的部署 GitHub 標成 failure、整個 run 顯示 failure，但 `deploy` 沒有執行任何步驟（沒有嘗試 SSH）。在有 VM 之前，之後每次推到 `advanced-v2` 都會出現一個等待核准的 `deploy`，照樣 Reject（或放著，30 天後自動失效）即可。
+
+仍未完成（075 完成條件）：B'（需要 VM：真實部署成功一次 + 刻意失敗自動回滾一次）與 C 獨立審查。
