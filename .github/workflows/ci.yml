@@ -19,6 +19,7 @@ permissions:
 
 env:
   IMAGE: ghcr.io/${{ github.repository }}/backend
+  FRONTEND_IMAGE: ghcr.io/${{ github.repository }}/frontend
 
 jobs:
   backend-test:
@@ -137,8 +138,22 @@ jobs:
           docker run --rm -v "$PWD/frontend/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2-alpine
           caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 
+  # The deploy scripts run on a production host with a Docker socket; their guards (ancestry, revision label, rollback without
+  # migrate, forced-command parsing) are exercised against stubs here (docs/tasks/075). shellcheck is preinstalled on the runner.
+  deploy-script-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint the deploy scripts
+        run: |
+          for f in scripts/deploy-vm.sh scripts/esun-deploy-entry scripts/vm-bootstrap.sh scripts/test/deploy-vm.test.sh; do bash -n "$f"; done
+          shellcheck -x scripts/deploy-vm.sh scripts/esun-deploy-entry scripts/vm-bootstrap.sh scripts/test/deploy-vm.test.sh
+      - name: Run the stubbed deploy tests
+        run: bash scripts/test/deploy-vm.test.sh
+
   docker-build:
-    needs: [backend-test, frontend-build, supply-chain-gate, config-validate]
+    needs: [backend-test, frontend-build, supply-chain-gate, config-validate, deploy-script-test]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -153,8 +168,18 @@ jobs:
           push: false
           load: true
           tags: esun-shopping-backend:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+      - name: Build frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: frontend
+          file: frontend/Dockerfile
+          push: false
+          load: true
+          tags: esun-shopping-frontend:${{ github.sha }}
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
       - uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
         with:
           version: v0.74.0
@@ -163,18 +188,27 @@ jobs:
         run: >
           trivy image --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1
           --ignorefile .trivyignore.yaml esun-shopping-backend:${{ github.sha }}
+      # The frontend image is what Caddy runs in production: same gate, base image caddy:2-alpine included.
+      - name: Scan frontend image (blocking on fixable HIGH/CRITICAL)
+        run: >
+          trivy image --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1
+          --ignorefile .trivyignore.yaml esun-shopping-frontend:${{ github.sha }}
 
-  # Publishes to GHCR with the built-in GITHUB_TOKEN (no stored secret). Runs only after every
-  # gate above is green, and only for pushes to main / advanced-v2 or a v* tag - never for
-  # pull requests. There is deliberately no deploy step: no deployment target is chosen yet.
+  # Publishes backend and frontend to GHCR with the built-in GITHUB_TOKEN (no stored secret). Runs only after every gate
+  # above is green, for pushes to main / advanced-v2 or a v* tag, and for a manual run on advanced-v2 (the deploy job needs
+  # it) - never for pull requests. Its two digest outputs are the only images the deploy job may promote: the job is
+  # green only if both digests also passed the digest scan below.
   publish-image:
     needs: [docker-build]
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/advanced-v2' || startsWith(github.ref, 'refs/tags/v'))
+    if: (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/advanced-v2' || startsWith(github.ref, 'refs/tags/v'))) || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/advanced-v2')
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     permissions:
       contents: read
       packages: write
+    outputs:
+      backend_digest: ${{ steps.push_backend.outputs.digest }}
+      frontend_digest: ${{ steps.push_frontend.outputs.digest }}
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
@@ -183,7 +217,7 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - id: meta
+      - id: meta_backend
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.IMAGE }}
@@ -191,9 +225,18 @@ jobs:
             type=ref,event=branch
             type=semver,pattern={{version}}
             type=sha,format=long
-      # sbom + provenance attach BuildKit attestations to the pushed manifest, so they travel with the digest.
+      - id: meta_frontend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.FRONTEND_IMAGE }}
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=sha,format=long
+      # sbom + provenance attach BuildKit attestations to the pushed manifest, so they travel with the digest. The labels from
+      # metadata-action include org.opencontainers.image.revision=<commit>, which the VM compares with the sha it deploys.
       - name: Build and push backend image
-        id: push
+        id: push_backend
         uses: docker/build-push-action@v6
         with:
           context: backend
@@ -201,32 +244,118 @@ jobs:
           push: true
           sbom: true
           provenance: mode=max
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          tags: ${{ steps.meta_backend.outputs.tags }}
+          labels: ${{ steps.meta_backend.outputs.labels }}
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+      - name: Build and push frontend image
+        id: push_frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: frontend
+          file: frontend/Dockerfile
+          push: true
+          sbom: true
+          provenance: mode=max
+          tags: ${{ steps.meta_frontend.outputs.tags }}
+          labels: ${{ steps.meta_frontend.outputs.labels }}
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
       - uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
         with:
           version: v0.74.0
       # A registry reference must be lowercase; github.repository keeps the owner's capitalisation (docker/metadata-action lowercases its tags).
-      - name: Resolve the pushed digest reference
-        run: echo "IMAGE_REF=${IMAGE,,}@${{ steps.push.outputs.digest }}" >> "$GITHUB_ENV"
-      # Scan the digest that can actually be promoted, not a separate rebuild. A failure here means this digest must not
-      # be deployed even though its tags already exist; deploy tooling must promote only digests whose run is green.
-      - name: Scan the published digest
+      - name: Resolve the pushed digest references
+        run: |
+          echo "BACKEND_REF=${IMAGE,,}@${{ steps.push_backend.outputs.digest }}" >> "$GITHUB_ENV"
+          echo "FRONTEND_REF=${FRONTEND_IMAGE,,}@${{ steps.push_frontend.outputs.digest }}" >> "$GITHUB_ENV"
+      # Scan the digests that can actually be promoted, not separate rebuilds. A failure here means the digest must not be
+      # deployed even though its tags already exist; the deploy job only runs when this whole job is green.
+      - name: Scan the published backend digest
         run: >
           trivy image --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1
-          --ignorefile .trivyignore.yaml "$IMAGE_REF"
-      # Artifact names cannot contain ':', so the name carries the commit and the file name carries the digest.
-      - name: Generate CycloneDX SBOM for the digest
+          --ignorefile .trivyignore.yaml "$BACKEND_REF"
+      - name: Scan the published frontend digest
+        run: >
+          trivy image --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1
+          --ignorefile .trivyignore.yaml "$FRONTEND_REF"
+      # Artifact names cannot contain ':', so the name carries the commit and the file names carry the digests.
+      - name: Generate CycloneDX SBOMs for the digests
         run: |
-          digest="${{ steps.push.outputs.digest }}"
-          trivy image --format cyclonedx --output "sbom-${digest#sha256:}.cdx.json" "$IMAGE_REF"
-      - name: Upload SBOM
+          backend_digest="${{ steps.push_backend.outputs.digest }}"
+          frontend_digest="${{ steps.push_frontend.outputs.digest }}"
+          trivy image --format cyclonedx --output "sbom-backend-${backend_digest#sha256:}.cdx.json" "$BACKEND_REF"
+          trivy image --format cyclonedx --output "sbom-frontend-${frontend_digest#sha256:}.cdx.json" "$FRONTEND_REF"
+      - name: Upload SBOMs
         uses: actions/upload-artifact@v4
         with:
           name: sbom-${{ github.sha }}
           path: sbom-*.cdx.json
           retention-days: 90
-      - name: Record digest
-        run: echo "Published $IMAGE_REF" >> "$GITHUB_STEP_SUMMARY"
+      - name: Record digests
+        run: |
+          echo "Published $BACKEND_REF" >> "$GITHUB_STEP_SUMMARY"
+          echo "Published $FRONTEND_REF" >> "$GITHUB_STEP_SUMMARY"
+
+  # Production deploy (docs/tasks/075). Only advanced-v2 (push or manual run), only after publish-image is green, and only the
+  # two digests that job published and scanned. `environment: production` is where the owner's approval happens (Required
+  # reviewers, deployment branches limited to advanced-v2). The job holds no repository write access and checks nothing out:
+  # it speaks SSH to the VM with a key that can run exactly one forced command (scripts/esun-deploy-entry). Application secrets
+  # are never here; they exist only in the VM's .env.prod. Everything the VM prints goes to this public log, and deploy-vm.sh
+  # is written to print none.
+  deploy:
+    needs: [publish-image]
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/advanced-v2'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: production
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    permissions:
+      contents: read
+    steps:
+      - name: Deploy to the VM
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_KNOWN_HOSTS: ${{ vars.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_SHA: ${{ github.sha }}
+          BACKEND_DIGEST: ${{ needs.publish-image.outputs.backend_digest }}
+          FRONTEND_DIGEST: ${{ needs.publish-image.outputs.frontend_digest }}
+        run: |
+          set -euo pipefail
+          sha_re='^[0-9a-f]{40}$'
+          digest_re='^sha256:[0-9a-f]{64}$'
+          [[ "$DEPLOY_SHA" =~ $sha_re ]] || { echo "::error::unexpected commit sha"; exit 1; }
+          [[ "$BACKEND_DIGEST" =~ $digest_re && "$FRONTEND_DIGEST" =~ $digest_re ]] || { echo "::error::publish-image did not produce two valid digests"; exit 1; }
+          if [ -z "$DEPLOY_SSH_KEY" ] || [ -z "$DEPLOY_HOST" ] || [ -z "$DEPLOY_KNOWN_HOSTS" ]; then
+            echo "::error::the production Environment needs DEPLOY_SSH_KEY and DEPLOY_HOST (secrets) and DEPLOY_KNOWN_HOSTS (variable)"; exit 1
+          fi
+          umask 077
+          ssh_dir="$RUNNER_TEMP/ssh"
+          mkdir -p "$ssh_dir"
+          trap 'rm -rf "$ssh_dir"' EXIT
+          printf '%s\n' "$DEPLOY_SSH_KEY" | tr -d '\r' > "$ssh_dir/key"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" | tr -d '\r' > "$ssh_dir/known_hosts"
+          # The host key comes from DEPLOY_KNOWN_HOSTS (obtained out of band) and is verified strictly: no ssh-keyscan, no
+          # trust-on-first-use, no system known_hosts. The command string is validated again by the VM's forced command.
+          rc=0
+          ssh -T -i "$ssh_dir/key" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$ssh_dir/known_hosts" -o GlobalKnownHostsFile=/dev/null \
+            -o ConnectTimeout=20 -o ServerAliveInterval=30 \
+            "deploy@${DEPLOY_HOST}" "deploy $DEPLOY_SHA $BACKEND_DIGEST $FRONTEND_DIGEST" || rc=$?
+          {
+            echo "### Deploy"
+            echo "- commit: \`$DEPLOY_SHA\`"
+            echo "- backend: \`$BACKEND_DIGEST\`"
+            echo "- frontend: \`$FRONTEND_DIGEST\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          case "$rc" in
+            0)  echo "- result: deployed, health gate passed" >> "$GITHUB_STEP_SUMMARY" ;;
+            10) echo "::error::health gate failed; the VM rolled back to the previous version and is healthy"; echo "- result: FAILED, rolled back" >> "$GITHUB_STEP_SUMMARY" ;;
+            11) echo "::error::health gate failed AND the rollback failed; the VM needs manual attention"; echo "- result: FAILED, rollback failed" >> "$GITHUB_STEP_SUMMARY" ;;
+            12) echo "::error::first deploy failed; there was no previous version to roll back to"; echo "- result: FAILED (first deploy)" >> "$GITHUB_STEP_SUMMARY" ;;
+            *)  echo "::error::deploy refused or SSH failed (exit $rc); nothing was started on the VM unless the log above says otherwise"; echo "- result: refused or unreachable (exit $rc)" >> "$GITHUB_STEP_SUMMARY" ;;
+          esac
+          exit "$rc"
