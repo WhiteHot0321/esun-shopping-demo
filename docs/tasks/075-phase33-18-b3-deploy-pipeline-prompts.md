@@ -171,10 +171,10 @@ SSH 信任模型：另建 Actions 專用新金鑰（既有 `esun_shop_deploy` �
 
 ### 未驗證項目（B' 必須處理，或維持如實標示）
 
-- 整條管線從未在 GitHub 上跑過：新的 `deploy-script-test`、frontend 建置、frontend digest 掃描與 SBOM、`deploy` job、Environment 核准，都要等第一次 push／dispatch 才知道。
+- ~~整條管線從未在 GitHub 上跑過~~ → PR #13 的 CI（run 39793275163）全綠：`deploy-script-test`、frontend 建置、frontend/backend 映像掃描都在 GitHub 上跑過。**仍未跑過**：`publish-image`（推 GHCR、digest 掃描、SBOM）、`deploy` job、Environment 核准——要合進 `advanced-v2` 後才會第一次執行。
 - **frontend 映像的 Trivy 掃描**（`caddy:2-alpine` 是否有可修補的 HIGH/CRITICAL，是否需要 `.trivyignore.yaml` 例外，需 owner 與到期日）：見下方「Trivy 本機結果」與「Trivy exceptions」（已加 4 筆限時例外，2026-11-05 到期）。
-- **migrate 失敗時舊 backend 是否繼續運行**：沒有實測。腳本的做法是 `up` 失敗就走回滾（`up -d --no-deps backend caddy` 重新放上上一版 digest），所以不依賴 Compose 的行為，但「回滾前有沒有短暫中斷」未知。
-- **Flyway 遇到「資料庫已套用、checkout 沒有」的 migration 是否只警告**：未實測，也與本管線無關：backend 在 prod 是 `FLYWAY_ENABLED=false`，migration 由 `migrate` 服務（Flyway CLI）執行，而回滾**不重跑它**，所以回滾後 backend 是舊程式碼對上新 schema。映像回滾只在 migration 向前相容（expand/contract）時安全；不相容時要從備份還原（手動，還原到另一個資料庫再切換）。
+- ~~migrate 失敗時舊 backend 是否繼續運行~~ → **已實測：不會**，見下方「A 階段未驗證項目：本機 Compose 實測」。
+- ~~Flyway 遇到「資料庫已套用、checkout 沒有」的 migration 是否只警告~~ → **已實測：只警告**，同一節。另外實測出「失敗的 migration 會擋住之後所有 migrate，直到手動 repair」。
 - GHCR 套件需手動確認為 public；repo 需為公開。
 - `frontend/Caddyfile` 的憑證申請：首次部署 Caddy 向 Let's Encrypt 申請憑證，可能超過 gate 逾時；首次部署的逾時預設放寬為 300 秒（`FIRST_DEPLOY_HEALTH_TIMEOUT`），但從未在真實主機實測。
 - gate 用的 `/api/products/available` 需要資料庫與 backend 都正常才會 200，這是刻意的；但它不涵蓋 Redis 降級、付款、登入。
@@ -235,3 +235,50 @@ owner 要求：Jackson 升級，其餘對照程式碼評估可達性後加限時
 驗證（本機 Trivy `latest`，旗標同 CI）：套用全部例外後，**後端與前端映像都 exit 0**；把所有 `expired_at` 改成過去日期後後端 6 個 finding（2 CRITICAL + 4 HIGH）全部回來、exit 1；把 `paths` 改成別的路徑後同樣 exit 1。
 
 限制：CI 釘 Trivy v0.74.0、本機用最新版，資料庫每天更新，CI 實際掃到的集合可能不同；`docker-build` 在 CI 上仍未實際跑過（上一輪卡在這一步之前）。
+
+### A 階段未驗證項目：本機 Compose 實測（2026-10-22）
+
+A 的決定早已確認並在 B 實作；這一節關掉 A 留給 B/B' 的未驗證項目中**不需要 VM** 的部分。做法：用真實的 `docker-compose.prod.yml`（另取專案名 `b3probe`、全新 volume、非機密的測試值），起 MySQL + Redis + `migrate` + 本分支建出的 prod-profile backend 映像（不起 Caddy，避免佔用 80/443）；以 override 檔把 `migrate` 的 SQL 目錄換成「V1 + 刻意寫錯的 V999」或「V1 + 正常的 V999」。做完已 `down -v` 並刪除實驗映像，沒有碰既有的 `esun-tunnel` 等容器。
+
+**1. migrate 失敗時，舊 backend 不會繼續運行（會中斷，直到回滾）。** `docker events` 時間軸（UTC）：
+
+```
+14:51:33-34  舊 backend（上一版映像）kill / stop / destroy，新版容器建立但未啟動   ← migrate 還沒開始
+14:51:34     migrate start
+14:51:36     migrate die（V999 語法錯誤，exit 1）；`up -d` 結束碼 1；backend 停在 Created
+14:51:37     回滾：`up -d --no-deps --no-build backend`（上一版映像）→ start
+14:51:42     backend healthy；migrate 沒有再被啟動
+```
+
+- Compose 在 recreate 時先移除舊容器、再等依賴（migrate）完成，所以**失敗的部署一定會造成中斷**；`deploy-vm.sh` 在 `up` 非零時立刻走回滾（不等 gate），本機中斷約 8 秒。真實 VM 上還要加 Caddy 與 JVM 啟動時間。
+- 連帶結論：**成功的部署也有停機**（舊 backend 在 migrate 前就被停掉，到新 backend healthy 為止）。單 VM + Compose 沒有零停機，這是目前架構的已知限制，不是腳本錯誤。
+- 回滾路徑（stub 測試裡只能模擬的那一段）在真實 Compose 下可用：上一版映像重新起來並 healthy，`migrate` 容器的結束時間沒有變（沒重跑）。
+
+**2. 失敗的 migration 會擋住之後所有 migrate，直到手動 repair。** MySQL 的 DDL 不是交易性的，Flyway 失敗後在 `flyway_schema_history` 留下 `999 bad success=0`；之後就算換成正確的 SQL，`migrate` 仍回 `Validate failed: Detected failed migration to version 999`，exit 1。也就是說：一次 migration 失敗後，**後續每次部署都會在 migrate 失敗並自動回滾**（安全的方向），直到操作者處理。處理方式（在 VM 上手動，先確認沒有半套用的 DDL）：
+
+```
+docker compose -p esun -f docker-compose.prod.yml --env-file .env.prod run --rm --no-deps migrate repair
+```
+
+實測 `repair` 會刪掉失敗紀錄，之後正確的 V999 成功套用。
+
+**3. 「資料庫已套用、checkout 沒有」的 migration：只警告。** DB 在 V999 時，用只有 V1 的舊 SQL 目錄跑 `migrate`：`WARNING: Schema has a version (999) that is newer than the latest available migration (1)`、`Schema is up to date`，exit 0（連「失敗的 future migration」也只是警告）。回滾本來就不跑 migrate，所以這只影響有人手動從舊 checkout 執行 migrate 的情況。
+
+**4. 舊程式碼對上新 schema。** V999 加了一張表後，上一版 backend 仍 healthy：**新增式（expand）變更可安全回滾映像**；刪除或改名欄位（contract）則不行，那種 migration 要拆成兩次部署，否則只能從備份還原（手動）。
+
+仍未驗證（需要 VM）：Caddy 首次申請憑證所需時間 vs. `FIRST_DEPLOY_HEALTH_TIMEOUT`、真實 sshd 的 `restrict,command=`、`flock` 互斥、`vm-bootstrap.sh` 整支執行、GHCR 拉取 digest。
+
+### 合併前後的 Environment 設定清單（給 owner）
+
+**合併前（建議先做，不填任何 secret）**
+
+1. GitHub repo → Settings → Environments → New environment，名稱 `production`（必須完全一致）。
+2. Deployment protection rules → 勾 Required reviewers → 加入自己（`WhiteHot0321`）。
+3. Deployment branches and tags → Selected branches and tags → 加 `advanced-v2`。
+4. 先不要加 secret/variable。這時合併後觸發的 `deploy` 會停在等核准；**有 VM 之前一律按 Reject**。若沒先建 Environment，GitHub 會自動建一個沒有保護的同名 Environment，`deploy` 會直接執行並因缺少連線設定而失敗（不危險，但之後填 secret 時會有「還沒設核准」的空窗）。
+
+**有 VM 之後（B' 前）**
+
+5. 依「使用者要做的設定」第 1–4 項：repo 與 GHCR 套件設 public、產生 Actions 專用金鑰並以 `ACTIONS_DEPLOY_PUBKEY` 跑 `vm-bootstrap.sh`、在 VM 建 `.env.prod` 與 `.backup-passphrase`（600）。
+6. 在 `production` Environment 加 secrets `DEPLOY_SSH_KEY`（Actions 金鑰私鑰）、`DEPLOY_HOST`，variable `DEPLOY_KNOWN_HOSTS`（帶外核對過的 host key）。
+7. 先做 C 獨立審查，再以 workflow_dispatch（branch `advanced-v2`）觸發第一次部署並核准。
