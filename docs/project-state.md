@@ -1,7 +1,11 @@
 # Verified project state
 
-Updated: 2026-09-27 (2026-09-27 batch merged: PRs #7-#11; strategy: engineering depth)
+Updated: 2026-10-22 (B3 deploy pipeline written on a feature branch; 2026-09-27 batch merged: PRs #7-#11)
 Baseline: advanced-v2 @ 11c60b6 (merge of PR #11)
+
+## Phase 3.3 #18 B3 deploy pipeline written (not deployed) — 2026-10-22 (branch `feature/phase33-18-b3-deploy-pipeline`, not merged)
+
+CI now publishes backend **and** frontend images (digest scan + SBOM each) and has a `deploy` job (`environment: production`, `needs: [publish-image]`, advanced-v2 only, job-level concurrency, no checkout) that SSHes to the VM with a key restricted to one forced command (`scripts/esun-deploy-entry`). `scripts/deploy-vm.sh` fetches and checks out the exact SHA, refuses downgrades and commits not on advanced-v2, pulls only backend/caddy by digest, requires the image revision label to equal the SHA, backs up (skipped loudly on a first deploy), runs a health gate through Caddy with a verified certificate, and on failure redeploys the last known good digests with `up -d --no-deps` (no migrate rerun). Application secrets live only in the VM's `.env.prod` (supersedes 057 §3). Verified: stub tests **83/83 PASS** under WSL Ubuntu, 10 deliberately broken script variants all caught, actionlint and shellcheck clean, bootstrap key logic replayed in isolation. **Not deployed: no VM exists; the workflow has never run on GitHub; `vm-bootstrap.sh` has never run on a real host.** Blocker found: the frontend image fails the Trivy gate today (5 fixable HIGH in the upstream `caddy:2-alpine` binary), so CI would go red at the frontend scan until the owner chooses between waiting, time-boxed exceptions, or building Caddy with a newer Go. Details, owner setup steps and unverified items: `docs/tasks/075-phase33-18-b3-deploy-pipeline-prompts.md`.
 
 ## Phase 3.3 #20 recommendation endpoint mitigation — 2026-10-17
 

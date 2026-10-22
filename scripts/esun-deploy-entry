@@ -1,0 +1,30 @@
+#!/bin/bash
+# Forced command for the GitHub Actions deploy key. Phase 3.3 #18 B3 (docs/tasks/075).
+#
+# Installed by scripts/vm-bootstrap.sh as /usr/local/sbin/esun-deploy-entry (owned by root, not writable by the deploy user)
+# and referenced from authorized_keys as:
+#   restrict,command="/usr/local/sbin/esun-deploy-entry" ssh-ed25519 AAAA...
+#
+# sshd puts whatever the client asked for in SSH_ORIGINAL_COMMAND. Only two exact shapes are accepted; anything else
+# (extra words, uppercase hex, shell metacharacters, newlines, an interactive login) is rejected without running anything:
+#   deploy <40 lowercase hex sha> <sha256:64 hex backend digest> <sha256:64 hex frontend digest>
+#   rollback
+set -euo pipefail
+
+readonly DEPLOY_SCRIPT=/opt/esun-shopping/scripts/deploy-vm.sh
+readonly SAFE_PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+cmd="${SSH_ORIGINAL_COMMAND:-}"
+deploy_re='^deploy ([0-9a-f]{40}) (sha256:[0-9a-f]{64}) (sha256:[0-9a-f]{64})$'
+
+if [[ "$cmd" =~ $deploy_re ]]; then
+  logger -t esun-deploy "deploy ${BASH_REMATCH[1]}" 2>/dev/null || true
+  # env -i: nothing from the SSH session reaches the deploy script's tunables.
+  exec env -i PATH="$SAFE_PATH" HOME="${HOME:-/home/deploy}" "$DEPLOY_SCRIPT" deploy "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}" "${BASH_REMATCH[3]}"
+elif [ "$cmd" = rollback ]; then
+  logger -t esun-deploy "rollback" 2>/dev/null || true
+  exec env -i PATH="$SAFE_PATH" HOME="${HOME:-/home/deploy}" "$DEPLOY_SCRIPT" rollback
+fi
+
+echo "esun-deploy-entry: command rejected" >&2
+exit 2

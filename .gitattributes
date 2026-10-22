@@ -1,3 +1,6 @@
 # Shell scripts must keep LF line endings even when checked out on Windows —
 # a CRLF shebang line breaks execution on Linux (e.g. scripts/vm-bootstrap.sh, run on the VM).
 *.sh text eol=lf
+
+# The forced-command entry point has no .sh extension, so name it here (a CRLF shebang would break it on Linux).
+scripts/esun-deploy-entry text eol=lf
