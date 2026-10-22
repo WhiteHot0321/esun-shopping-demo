@@ -172,7 +172,7 @@ SSH 信任模型：另建 Actions 專用新金鑰（既有 `esun_shop_deploy` �
 ### 未驗證項目（B' 必須處理，或維持如實標示）
 
 - 整條管線從未在 GitHub 上跑過：新的 `deploy-script-test`、frontend 建置、frontend digest 掃描與 SBOM、`deploy` job、Environment 核准，都要等第一次 push／dispatch 才知道。
-- **frontend 映像的 Trivy 掃描**（`caddy:2-alpine` 是否有可修補的 HIGH/CRITICAL，是否需要 `.trivyignore.yaml` 例外，需 owner 與到期日）：見下方「Trivy 本機結果」。
+- **frontend 映像的 Trivy 掃描**（`caddy:2-alpine` 是否有可修補的 HIGH/CRITICAL，是否需要 `.trivyignore.yaml` 例外，需 owner 與到期日）：見下方「Trivy 本機結果」與「Trivy exceptions」（已加 4 筆限時例外，2026-11-05 到期）。
 - **migrate 失敗時舊 backend 是否繼續運行**：沒有實測。腳本的做法是 `up` 失敗就走回滾（`up -d --no-deps backend caddy` 重新放上上一版 digest），所以不依賴 Compose 的行為，但「回滾前有沒有短暫中斷」未知。
 - **Flyway 遇到「資料庫已套用、checkout 沒有」的 migration 是否只警告**：未實測，也與本管線無關：backend 在 prod 是 `FLYWAY_ENABLED=false`，migration 由 `migrate` 服務（Flyway CLI）執行，而回滾**不重跑它**，所以回滾後 backend 是舊程式碼對上新 schema。映像回滾只在 migration 向前相容（expand/contract）時安全；不相容時要從備份還原（手動，還原到另一個資料庫再切換）。
 - GHCR 套件需手動確認為 public；repo 需為公開。
@@ -189,8 +189,24 @@ SSH 信任模型：另建 Actions 專用新金鑰（既有 `esun_shop_deploy` �
 - 第一次用本機快取的舊基底（`caddy:2-alpine`，建於 2026-09-17）：24 個 HIGH，全在 `usr/bin/caddy` 這支 Go 二進位。
 - 改用 `docker build --pull` 取得當前上游映像（Alpine 3.23.7、Caddy v2.11.4）後：**仍有 5 個可修補的 HIGH**，皆在 `usr/bin/caddy`（OS 套件 0 個）：`golang.org/x/net` v0.59.0 → 0.60.0（CVE-2026-78669），以及 Go 標準庫 1.26.8 → 1.26.10 / 1.27.3（CVE-2026-111943、CVE-2026-78667、CVE-2026-78669、CVE-2026-97031）。
 
-意義：新加進 `docker-build` 的「Scan frontend image」步驟，以及 `publish-image` 的 frontend digest 掃描，在今天的上游映像上**會失敗**；`.trivyignore.yaml` 目前是空的，這道閘門是刻意嚴格的。失敗是安全的方向（CI 紅，`publish-image` 與 `deploy` 都不會執行），但在處理之前不可能有任何部署。**我沒有替你加例外**，因為這是在對外的 TLS 終端上接受 5 個 HIGH 漏洞，該由 owner 決定。選項：
+意義：新加進 `docker-build` 的「Scan frontend image」步驟，以及 `publish-image` 的 frontend digest 掃描，在今天的上游映像上**會失敗**。失敗是安全的方向（CI 紅，`publish-image` 與 `deploy` 都不會執行）。owner 在 2026-10-22 選擇「評估可達性後加限時例外」，結果見下一節。
 
-1. 等上游 `caddy:2-alpine` 帶著 Go ≥ 1.26.10 / x-net 0.60 發新版後重跑（閘門維持嚴格，期間不能部署）。
-2. 評估這 5 個 CVE 在 Caddy 的可達性後，於 `.trivyignore.yaml` 加有 owner 與到期日的限時例外（格式見該檔頭註解）。
-3. 在 `frontend/Dockerfile` 用 `xcaddy` 以較新的 Go 自行編譯 Caddy（改動範圍較大，且要自己追 Caddy 的安全更新）。
+### Trivy exceptions（2026-10-22，owner 決定；`.trivyignore.yaml`）
+
+對照 `frontend/Caddyfile` 評估（`caddy adapt` 確認：無 `ech` 全域選項、有 `file_server`、未限制協定即 HTTP/2 預設開啟、監聽 `:443`）：
+
+| CVE | 內容 | 在本設定下 | 影響 |
+|---|---|---|---|
+| CVE-2026-78669 | HTTP/2 SETTINGS 幀造成 CPU 耗盡（x/net 與標準庫同一 ID） | **可達**（對所有人開放的 :443） | 只影響可用性 |
+| CVE-2026-78667 | `Range` 標頭含大量小區間，`ServeContent`/`FileServer` CPU 耗盡 | **可達**（`file_server` 提供 SPA 靜態檔） | 只影響可用性，受標頭大小上限約束 |
+| CVE-2026-97031 | ECH 外層擴充多重參照造成記憶體耗盡 | **不可達**：需伺服器處理 ECH，而 ECH 是 Caddy 的選用功能（全域 `ech`），本設定沒有 | — |
+| CVE-2026-111943 | `crypto/x509` 拒絕已知不可信中繼憑證（避免 MITM） | **低**：需要對 Caddy 當客戶端驗證的連線（對 CA 的 ACME）做 MITM；沒有用戶端憑證驗證，往 backend 是內網明文 HTTP | 找不到比 Go/Red Hat 摘要更詳細的公開說明 |
+
+做法：四個 ID 各一筆例外，`paths: ["usr/bin/caddy"]`（只對這支二進位有效，不會順帶放行 backend 映像裡的同 ID），`owner: WhiteHot0321`，`expired_at: 2026-11-05`（14 天，Go 修補版已發布，預期上游很快重建）。可用性風險的緩解：Caddy 容器 `mem_limit: 256m`、`restart: unless-stopped`、`cap_drop: ALL`、唯讀根檔案系統；單 VM demo 無資料外洩面。**沒有套用但可做的加固**（要改 `frontend/Caddyfile`，超出本任務範圍）：只開 h1/h3、在 Caddy 剝除 `Range` 標頭。
+
+驗證（本機 Trivy `latest`，對 `docker build --pull` 的前端映像，旗標同 CI）：套用例外後 exit 0；把 `expired_at` 改成過去日期後 5 個 HIGH 全部重新出現、exit 1；把 `paths` 改成別的路徑後同樣 exit 1。也就是例外會到期、且確實只限定在 `usr/bin/caddy`。
+
+仍未驗證／限制：
+- CI 釘的是 Trivy v0.74.0 而我用本機最新版，且資料庫會每天更新，到 CI 實際執行時 finding 集合可能不同（多出新的就會紅，需再評估；上游修好了則例外變成多餘，應移除）。
+- 例外 2026-11-05 到期後，若上游仍未重建，gate 會再次變紅——這是設計目的，屆時要重新決定（延期並重新評估，或選用自行編譯 Caddy 的選項 3）。
+- CVE-2026-97031「ECH 為選用」是依 Caddy 文件與 `caddy adapt` 結果判斷，我沒有用 ECH 客戶端實測伺服器行為；CVE-2026-111943 沒找到獨立的公開公告。
