@@ -122,7 +122,7 @@ setup() {
   DOMAIN="$(envval DOMAIN)"
   [[ "$DOMAIN" =~ $DOMAIN_RE ]] || die "DOMAIN in $ENV_FILE must be a plain hostname"
   [ "$DOMAIN" != localhost ] || die "DOMAIN in $ENV_FILE is still localhost; set the real public hostname"
-  [ -d "$STATE_DIR" ] && [ -w "$STATE_DIR" ] || die "state directory $STATE_DIR is missing or not writable (run vm-bootstrap.sh)"
+  if [ ! -d "$STATE_DIR" ] || [ ! -w "$STATE_DIR" ]; then die "state directory $STATE_DIR is missing or not writable (run vm-bootstrap.sh)"; fi
   exec 9>"$STATE_DIR/lock"
   flock -n 9 || die "another deploy or rollback is already running"
   cd "$REPO_DIR"
@@ -133,7 +133,7 @@ setup() {
 do_deploy() { # <sha> <backend digest> <frontend digest>
   local sha="$1" be="$2" fe="$3" first=0 timeout="$HEALTH_TIMEOUT" volume
   [[ "$sha" =~ $SHA_RE ]] || die "first argument must be a 40-character lowercase commit sha"
-  [[ "$be" =~ $DIGEST_RE ]] && [[ "$fe" =~ $DIGEST_RE ]] || die "image arguments must be sha256:<64 hex> digests"
+  if [[ ! "$be" =~ $DIGEST_RE ]] || [[ ! "$fe" =~ $DIGEST_RE ]]; then die "image arguments must be sha256:<64 hex> digests"; fi
   setup
   if [ -z "$CUR_SHA" ]; then first=1; timeout="$FIRST_DEPLOY_HEALTH_TIMEOUT"; note "no last known good version recorded: this is a first deploy (no rollback target)"; fi
 
