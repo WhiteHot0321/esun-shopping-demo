@@ -210,3 +210,28 @@ SSH 信任模型：另建 Actions 專用新金鑰（既有 `esun_shop_deploy` �
 - CI 釘的是 Trivy v0.74.0 而我用本機最新版，且資料庫會每天更新，到 CI 實際執行時 finding 集合可能不同（多出新的就會紅，需再評估；上游修好了則例外變成多餘，應移除）。
 - 例外 2026-11-05 到期後，若上游仍未重建，gate 會再次變紅——這是設計目的，屆時要重新決定（延期並重新評估，或選用自行編譯 Caddy 的選項 3）。
 - CVE-2026-97031「ECH 為選用」是依 Caddy 文件與 `caddy adapt` 結果判斷，我沒有用 ECH 客戶端實測伺服器行為；CVE-2026-111943 沒找到獨立的公開公告。
+
+### CI 第一輪結果與後續修正（PR #13，2026-10-22）
+
+第一輪 CI 有 3 個 job 失敗，第二輪還有 1 個，原因都是**新公布的漏洞或工具版本差異**，不是管線設計問題（`advanced-v2` 現在推送也會紅）：
+
+| 失敗 | 處理 |
+|---|---|
+| `deploy-script-test`：runner 的 shellcheck 對 `deploy-vm.sh` 兩行 `A && B \|\| die` 報 SC2015 | 改成明確的 `if`，行為不變（1bc4709） |
+| `frontend-build`、`supply-chain-gate`：前端 runtime 依賴 4 個 HIGH（vue/`@vue/server-renderer` 3.5.31、follow-redirects 1.16.0、source-map-js 1.2.1） | 只改 `frontend/package-lock.json`，全在原 semver 範圍內（755e8bd）。`npm audit fix` 單獨跑動不了 vue（vue 與 `@vue/server-renderer` 互相鎖死同一個確切版本），所以把這兩個 lock 項目移除後用 `npm install --package-lock-only` 重新解析。`npm audit --omit=dev` 0、Trivy repo 掃描乾淨、Vitest 84/84、build 成功 |
+| `docker-build` 的後端映像掃描：10 個 findings | 見下 |
+
+### Trivy exceptions - backend image（2026-10-22，owner 決定）
+
+owner 要求：Jackson 升級，其餘對照程式碼評估可達性後加限時例外。
+
+- **Jackson（4 個 HIGH）：修掉，不是例外。** `jackson-bom.version` 2.21.6 → 2.21.7（`backend/pom.xml` 唯一改動）。解析結果 jackson-core/databind 2.21.7。後端完整測試 **314/314 PASS**（0 failures/errors/skips），JaCoCo 閘門通過；本機重建映像（`--pull`）後 Jackson 的 finding 消失。
+- **Spring `spring-webmvc` 6.2.19（2 個 CRITICAL）：加例外，到期 2026-11-19。** Trivy 只列出 7.0.9 為修正版，6.2.x 沒有修正；補丁要升 Spring Framework 7（Spring Boot 4 級的遷移，另案）。
+  - CVE-2026-47884（XsltView + `/**` 映射 → SSRF/RCE）：**不可達**。13 個 controller 檔全是 `@RestController`、沒有 `@Controller`、沒有 ViewResolver、沒有模板引擎依賴（只有 `spring-boot-starter-web` 與 springdoc）、沒有 `templates` 目錄、沒有 XSLT。
+  - CVE-2026-47890（SSE 搭配 view fragments 造成串流損壞）：**不可達**。沒有 `SseEmitter`／`ResponseBodyEmitter`／`text/event-stream`／webflux，也沒有 view 層。
+  - 風險不是零：這個判斷建立在「應用沒有 view 層」上，之後若加入 view 層或 SSE 要重新評估。例外的 `paths` 限定在 `spring-webmvc-*.jar`。
+- **`usr/bin/pebble`（4 個 Go 標準庫 HIGH，同 Caddy 那批 CVE）：加例外，到期 2026-11-05。** 這是 `eclipse-temurin:17-jre`（本機 `--pull` 後為 Ubuntu 26.04）基底層裡的 Canonical Pebble 客戶端 v1.33.0，不屬於任何 dpkg 套件。**不可達**：我們的 ENTRYPOINT 是 `sh -c exec java ... -jar app.jar`，容器內沒有 pebble 行程或監聽（`ps` 只有 sh），並以非 root 的 `spring` 使用者執行；要利用必須先取得容器內程式碼執行權。預期由上游重建基底映像解決。
+
+驗證（本機 Trivy `latest`，旗標同 CI）：套用全部例外後，**後端與前端映像都 exit 0**；把所有 `expired_at` 改成過去日期後後端 6 個 finding（2 CRITICAL + 4 HIGH）全部回來、exit 1；把 `paths` 改成別的路徑後同樣 exit 1。
+
+限制：CI 釘 Trivy v0.74.0、本機用最新版，資料庫每天更新，CI 實際掃到的集合可能不同；`docker-build` 在 CI 上仍未實際跑過（上一輪卡在這一步之前）。

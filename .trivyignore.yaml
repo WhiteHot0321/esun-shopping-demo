@@ -45,3 +45,46 @@ vulnerabilities:
       configured for client-certificate auth and reaches the backend over plain HTTP on the internal network. No public
       advisory text beyond the Go/Red Hat summary was found. owner: WhiteHot0321; tracking: docs/tasks/075
     expired_at: 2026-11-05
+
+# 2026-10-22 (second batch): backend image. Jackson was fixed by bumping jackson-bom.version to 2.21.7 (no exception). Left
+# over, both assessed against the code (docs/tasks/075, "Trivy exceptions - backend image"):
+#  - Spring Framework 6.2.19 (spring-webmvc): Trivy lists the fix only in 7.0.9, i.e. there is no 6.2.x fix; closing it means a
+#    Spring Boot 4 / Framework 7 migration. Neither CVE is reachable in this application.
+#  - usr/bin/pebble in the eclipse-temurin:17-jre base layer (Ubuntu 26.04): same four Go stdlib CVEs as the Caddy entries above.
+  - id: CVE-2026-47884
+    paths: ["app/app.jar/BOOT-INF/lib/spring-webmvc-*.jar"]
+    statement: >-
+      NOT REACHABLE. Needs XsltView in a Spring MVC app with a "/**" mapping that renders views. This application has no view
+      layer: every controller is @RestController (none uses @Controller), there is no ViewResolver, no template engine
+      dependency (only spring-boot-starter-web and springdoc), no src/main/resources/templates, no XSLT. No 6.2.x fix exists
+      (fixed only in 7.0.9). Re-assess if a view layer is ever added; plan the Spring Framework 7 migration.
+      owner: WhiteHot0321; tracking: docs/tasks/075
+    expired_at: 2026-11-19
+  - id: CVE-2026-47890
+    paths: ["app/app.jar/BOOT-INF/lib/spring-webmvc-*.jar"]
+    statement: >-
+      NOT REACHABLE. Needs Server-Sent Events rendered with view fragments. The application uses no SSE (no SseEmitter,
+      ResponseBodyEmitter, text/event-stream or webflux) and has no template/view layer. No 6.2.x fix exists (fixed only in
+      7.0.9). owner: WhiteHot0321; tracking: docs/tasks/075
+    expired_at: 2026-11-19
+  - id: CVE-2026-78669
+    paths: ["usr/bin/pebble"]
+    statement: &pebble >-
+      NOT REACHABLE. /usr/bin/pebble is the Canonical Pebble client (v1.33.0) shipped in the Ubuntu 26.04 base layer of
+      eclipse-temurin:17-jre, not part of any dpkg package and not used by us: the ENTRYPOINT is `sh -c exec java ... -jar
+      app.jar`, no pebble process or listener runs in the container (only sh/java), and the container runs as the
+      non-root user spring. Exploiting the Go stdlib flaw would first need code execution in the container. Fix expected from
+      an upstream base-image rebuild. owner: WhiteHot0321; tracking: docs/tasks/075
+    expired_at: 2026-11-05
+  - id: CVE-2026-78667
+    paths: ["usr/bin/pebble"]
+    statement: *pebble
+    expired_at: 2026-11-05
+  - id: CVE-2026-97031
+    paths: ["usr/bin/pebble"]
+    statement: *pebble
+    expired_at: 2026-11-05
+  - id: CVE-2026-111943
+    paths: ["usr/bin/pebble"]
+    statement: *pebble
+    expired_at: 2026-11-05
