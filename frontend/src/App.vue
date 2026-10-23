@@ -12,6 +12,7 @@
           <span class="topbar__email" :title="auth.email">{{ auth.email }}</span>
           <button type="button" class="btn btn--ghost btn--sm" @click="togglePanel('orders')">我的訂單</button>
           <button v-if="isSeller" type="button" class="btn btn--ghost btn--sm" @click="togglePanel('sellerOrders')">訂單管理</button>
+          <button v-if="isAdmin" type="button" class="btn btn--ghost btn--sm" @click="togglePanel('dashboard')">營運儀表板</button>
           <button v-if="isAdmin" type="button" class="btn btn--ghost btn--sm" @click="togglePanel('coupons')">優惠券管理</button>
           <button v-if="isAdmin" type="button" class="btn btn--ghost btn--sm" @click="togglePanel('members')">會員管理</button>
           <button v-if="isAdmin" type="button" class="btn btn--ghost btn--sm" @click="togglePanel('audit')">稽核日誌</button>
@@ -27,6 +28,7 @@
   <main id="main" class="container">
     <OrdersPanel v-if="activePanel === 'orders'" mode="buyer" @close="activePanel = ''" />
     <OrdersPanel v-if="activePanel === 'sellerOrders' && isSeller" mode="seller" @close="activePanel = ''" />
+    <OpsDashboardPanel v-if="activePanel === 'dashboard' && isAdmin" @close="activePanel = ''" />
     <CouponPanel v-if="activePanel === 'coupons' && isAdmin" @close="activePanel = ''" />
     <MemberAdminPanel v-if="activePanel === 'members' && isAdmin" @close="activePanel = ''" />
     <AuditLogPanel v-if="activePanel === 'audit' && isAdmin" @close="activePanel = ''" />
@@ -43,6 +45,7 @@
 import { computed, nextTick, onMounted, onUnmounted, provide, ref, watch } from 'vue'
 import AuditLogPanel from './components/AuditLogPanel.vue'
 import MemberAdminPanel from './components/MemberAdminPanel.vue'
+import OpsDashboardPanel from './components/OpsDashboardPanel.vue'
 import ChangePasswordPanel from './components/ChangePasswordPanel.vue'
 import CouponPanel from './components/CouponPanel.vue'
 import OrdersPanel from './components/OrdersPanel.vue'
@@ -59,7 +62,8 @@ provide(TOAST_KEY, toast)
 
 const showChangePassword = ref(false)
 const showProfile = ref(false)
-// 'orders' (buyer history), 'sellerOrders' (fulfilment), 'coupons' or 'audit' (both ADMIN); only one is open at a time.
+// 'orders' (buyer history), 'sellerOrders' (fulfilment), 'dashboard', 'coupons', 'members' or 'audit' (all ADMIN);
+// only one is open at a time.
 const activePanel = ref('')
 const isSeller = computed(() => ['SELLER', 'ADMIN'].includes(auth.role))
 const isAdmin = computed(() => auth.role === 'ADMIN')

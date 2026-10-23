@@ -549,6 +549,43 @@ describe('shipping address book UI', () => {
   })
 })
 
+describe('ops dashboard entry point', () => {
+  const dashboardPayload = {
+    asOf: '2026-10-23T09:30:15+08:00', timezone: 'Asia/Taipei',
+    today: { from: '2026-10-23T00:00:00+08:00', to: '2026-10-24T00:00:00+08:00', orderCount: 1, revenue: 10, paymentFailureCount: 0 },
+    pendingPaymentCount: 0, refundRequiredCount: 0,
+    lowStock: { threshold: 5, count: 0, items: [] }, redis: { mode: 'DISABLED', scope: 'THIS_INSTANCE' }
+  }
+  const stubApi = () => api.get.mockImplementation((url) => {
+    if (url === '/admin/dashboard') return Promise.resolve({ data: { data: dashboardPayload } })
+    if (url === '/member/addresses') return Promise.resolve({ data: { data: addresses } })
+    if (url === '/cart') return Promise.resolve({ data: { data: [] } })
+    return Promise.resolve({ data: { data: products } })
+  })
+
+  it('is offered to ADMIN only and opens the dashboard', async () => {
+    stubApi()
+    await mountApp({ signedIn: true, role: 'SELLER' })
+    expect(button('營運儀表板')).toBeUndefined()
+    wrapper.unmount()
+
+    await mountApp({ signedIn: true, role: 'ADMIN' })
+    await button('營運儀表板').trigger('click')
+    await flushPromises()
+    expect(api.get).toHaveBeenCalledWith('/admin/dashboard')
+    expect(wrapper.find('.ops-panel').exists()).toBe(true)
+    await wrapper.get('.ops-panel .link-button:last-child').trigger('click')
+    expect(wrapper.find('.ops-panel').exists()).toBe(false)
+  })
+
+  it('never requests the dashboard for a buyer', async () => {
+    stubApi()
+    await mountApp({ signedIn: true, role: 'BUYER' })
+    expect(button('營運儀表板')).toBeUndefined()
+    expect(api.get).not.toHaveBeenCalledWith('/admin/dashboard')
+  })
+})
+
 describe('audit log entry point', () => {
   it('is offered to ADMIN only and opens the audit panel', async () => {
     api.get.mockImplementation((url) => {

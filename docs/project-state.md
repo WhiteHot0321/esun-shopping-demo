@@ -1,7 +1,11 @@
 # Verified project state
 
-Updated: 2026-10-22 (Phase 4.#3 M0 merged via PR #14; B3 deploy pipeline merged via PR #13)
+Updated: 2026-10-23 (Phase 4.#5 M4 B implemented on a feature branch; Phase 4.#3 M0 merged via PR #14)
 Baseline: advanced-v2 @ becec89 (merge of PR #14)
+
+## Phase 4.#5 M4 ops dashboard — B implemented 2026-10-23 (branch `feature/phase4-5-ops-dashboard`, not committed, not merged)
+
+ADMIN-only `GET /api/admin/dashboard` plus an `OpsDashboardPanel` (ADMIN area of `App.vue`): today's order count and paid revenue (cancelled orders excluded), payment-pending backlog, today's payment failures (system closures `ORDER_CANCELLED`/`SUPERSEDED_BY_*` excluded), refund-required backlog, low-stock products (DB quantity, soft-deleted skipped, default threshold 5) and the process-local Redis stock-cache mode. Database figures are cached 15 s (`ops.dashboard.cache-ttl-seconds`, 0 disables). **"Today" is the Asia/Taipei day converted to UTC wall-clock before it reaches SQL**: a real-MySQL test proved `shop_order.created_at` (DB default) and `payment` timestamps (app `LocalDateTime.now()`) both hold UTC in every deployed container, so a Taipei-midnight cut would have misfiled every order created 00:00-08:00 Taipei time; the test is now a contract (`ops.dashboard.storage-zone`, default UTC) that fails if either side is reconfigured. No write path, schema or migration was touched. Verified: 22 new backend tests (7 deliberate query/service mutations each turned a test red), full backend `mvn clean test` **344/344** with JaCoCo gates met, Vitest **108/108**, build OK, browser pass against the dev stack (figures match SQL on the dev DB; a real checkout moved today's orders 0 -> 1 and pending 5 -> 6; buyer sees no entry and gets 403; unauthenticated 401). Not done: `EXPLAIN`/index measurement for the two unindexed scans (D5), independent review, commit/merge, cross-midnight browser check. The D3 exclusion of `SUPERSEDED_BY_*` goes one step beyond the owner's wording and awaits confirmation. Dev DB `esun-mysql` kept throwaway accounts `ops-walk-*`, one address and one pending order. Details: `docs/tasks/075-phase4-5-ops-dashboard.md`.
 
 ## Phase 4.#3 M0 member admin + token revocation — PASS 2026-10-18, merged into advanced-v2 2026-10-22 as `becec89` (PR #14)
 
