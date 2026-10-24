@@ -12,10 +12,12 @@ description: 開發 esun-shopping（玉山 Spring Boot MVC 購物車專案）時
 本地 Markdown（例如 AGENTS.md、CLAUDE.md、README.md、docs）與以下 Notion 主頁及其相關子頁共同構成專案文件。不要假設工作目錄已包含程式碼；先檢查檔案與 Git 分支。
 
 - [主頁](https://app.notion.com/p/3bd708da9f9281da9c1cc36bd60e7f8f)：專案目標、Git 策略及全部子頁入口。
-- [專案介紹](https://app.notion.com/p/3c5708da9f92800782fceeed862b786a)：架構、資料結構、歷史修復說明。
+- [專案介紹](https://app.notion.com/p/3c5708da9f92800782fceeed862b786a)：一屏簡介（定位、技術棧、核心功能、設計亮點、導覽連結）；不記錄進度。
+- [程式結構](https://app.notion.com/p/3de708da9f9280349452f707c4346ccc)：架構總覽與 11 個分層子頁（Controller、DTO、Service、Repository、資料表、Security、例外、設定營運、RAG、前端、核心流程），2026-10-09 依程式碼核對。
 - [進度追蹤](https://app.notion.com/p/3c4708da9f9280d89606c93c3a6d3e53)：Phase 1 清單、Phase 2 候選與 Tasks 入口。
 - [執行計劃](https://app.notion.com/p/3d4708da9f9281dc8b3ddb0423cbc0ad)：Phase 1 收尾與 Phase 2 計劃。
-- [技術分析](https://app.notion.com/p/3c5708da9f9280f987cade36881ec404)：需要理解技術決策時讀取。
+- [技術分析](https://app.notion.com/p/3c5708da9f9280f987cade36881ec404)：底下有「技術筆記」（單一主題的深入分析，`/note` 寫入處）與「單字解釋」（面試名詞表）；需要理解技術決策時讀取。
+- [各項測試](https://app.notion.com/p/3e5708da9f9280468a30c5e3080ff680)：測試分層、核心正確性測試與 k6 負載結果摘要（數字附來源與日期）。
 - [訂單客服問答系統 RAG](https://app.notion.com/p/3d7708da9f92816591ced6c89a5de7b8)：處理 RAG 工作時讀取。
 
 其他主題（提示詞、面試、未來技術、Python 方案）由主頁取得最新子頁連結，按任務需要讀取。Notion 連結寫著 CLAUDE.md 不代表本地檔案存在。
@@ -24,7 +26,7 @@ description: 開發 esun-shopping（玉山 Spring Boot MVC 購物車專案）時
 
 1. 讀取適用的本地 Markdown，確認 git status、目前分支與實際程式碼。讀取 Notion 主頁、進度追蹤、執行計劃及本次相關子頁；注意截斷或無法讀取的區塊。
 2. 使用者目前明確要求優先；文件說明需求與計劃，程式碼、commit 與測試佐證實作。遇到文件互相矛盾，指出差異並核對證據，不能僅依修改時間或勾選框宣稱已完成。
-3. 已知 2026-09-14 讀取時，「專案介紹」與「進度追蹤」的 Phase 1 完成狀態不同；這是待核對的歷史觀察，不是永久狀態。
+3. 2026-10-09 起「專案介紹」不再記錄 Phase 狀態；狀態以 Tasks／Log 與 `docs/project-state.md` 為準。
 4. Notion 記載 main 保留面試原始版本，新開發使用 advanced-v2。先確認分支存在與工作樹狀態；不擅自修改 main、重設工作樹或還原他人變更。缺少 repo 或分支時明確回報，不能假裝已檢查實作。
 
 ## 實作重點
