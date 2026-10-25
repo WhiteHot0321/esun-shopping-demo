@@ -6,6 +6,8 @@
 #   # put that origin in .env.prod as CORS_ALLOWED_ORIGINS (and ECPAY_* URLs if used), then:
 #   docker compose -p esun-tunnel -f docker-compose.prod.yml -f docker-compose.tunnel.yml --env-file .env.prod up -d --build
 #
+# Stable hostname: add -f docker-compose.cloudflared.yml (named tunnel, token in .env.prod) instead of the quick tunnel above.
+#
 # `-p esun-tunnel` keeps this stack's named volumes separate from any earlier local acceptance run.
 services:
   caddy:

@@ -129,10 +129,12 @@ jobs:
           CORS_ALLOWED_ORIGINS=https://ci.example.com
           PAYMENT_PROVIDER=none
           GRAFANA_ADMIN_PASSWORD=ci-not-a-secret
+          CLOUDFLARE_TUNNEL_TOKEN=ci-not-a-secret
           EOF
           docker compose -f docker-compose.prod.yml --env-file ci.env config -q
           docker compose -f docker-compose.prod.yml -f docker-compose.tunnel.yml --env-file ci.env config -q
           docker compose -f docker-compose.prod.yml -f docker-compose.tunnel.yml -f docker-compose.monitoring.yml --env-file ci.env config -q
+          docker compose -f docker-compose.prod.yml -f docker-compose.tunnel.yml -f docker-compose.cloudflared.yml --env-file ci.env config -q
       - name: Validate the Caddyfile
         run: >
           docker run --rm -v "$PWD/frontend/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2-alpine

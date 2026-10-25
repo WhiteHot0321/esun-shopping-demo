@@ -9,6 +9,7 @@
 #   ENV_FILE          env file passed to Compose                (default: ./.env.prod)
 #   HEALTH_URL        URL that must return 200 through Caddy    (default: http://127.0.0.1:8088/)
 #   HEALTH_TIMEOUT    seconds to wait for the gate              (default: 120)
+#   CLOUDFLARED=1     also include docker-compose.cloudflared.yml (named Cloudflare Tunnel; needs CLOUDFLARE_TUNNEL_TOKEN)
 #   BACKUP_SKIP=1     skip the pre-deploy backup (never the default)
 #   DRY_RUN=1         print the docker/backup commands instead of running them
 set -euo pipefail
@@ -20,7 +21,9 @@ HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:8088/}"
 HEALTH_TIMEOUT="${HEALTH_TIMEOUT:-120}"
 BACKEND_REPO="${BACKEND_REPO:-esun-shopping-backend}"
 FRONTEND_REPO="${FRONTEND_REPO:-esun-shopping-frontend}"
-COMPOSE=(docker compose -p "$PROJECT" -f docker-compose.prod.yml -f docker-compose.tunnel.yml --env-file "$ENV_FILE")
+COMPOSE=(docker compose -p "$PROJECT" -f docker-compose.prod.yml -f docker-compose.tunnel.yml)
+[ "${CLOUDFLARED:-0}" = 1 ] && COMPOSE+=(-f docker-compose.cloudflared.yml)
+COMPOSE+=(--env-file "$ENV_FILE")
 
 die() { echo "error: $*" >&2; exit 1; }
 run() { if [ "${DRY_RUN:-0}" = 1 ]; then echo "[dry-run] $*"; else "$@"; fi; }
