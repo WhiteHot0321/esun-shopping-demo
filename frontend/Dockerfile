@@ -14,5 +14,8 @@ ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 RUN npm run build
 
 FROM caddy:2-alpine
+# Pull in Alpine's patched brotli-libs (CVE-2026-111497, fixed in 1.2.1-r0) until the upstream caddy image is rebuilt;
+# the Trivy gate in CI fails on fixable HIGH/CRITICAL findings. Remove once the base image ships >= 1.2.1-r0.
+RUN apk upgrade --no-cache brotli-libs
 COPY --from=build /app/dist /usr/share/caddy
 COPY Caddyfile /etc/caddy/Caddyfile
