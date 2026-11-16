@@ -101,6 +101,20 @@ slower); the latch never clears by itself.
    Products created or restocked through the API keep their counters in sync since task 065; direct SQL changes to `product.quantity` do not, and are the usual cause of drift.
 Recovery check: `shop_stock_cache_degraded` is 0 after the restart and stays 0.
 
+## OllamaUnavailable
+
+Meaning: for 5 minutes the backend could not reach Ollama, or Ollama answered without one of the configured chat/embed
+models (`shop_llm_ollama_up` = 0; probed through `/api/tags`, cached 30 s). Only the customer support assistant is
+affected; orders, payments and readiness are not (Ollama is outside the readiness group by design). The series exists only
+when `LLM_PROVIDER=ollama`.
+1. `$C ps ollama` and `$C logs --tail 50 ollama` — crashed, restarting or out of memory?
+2. `$C exec backend curl -s localhost:8081/actuator/health/dependencies` shows the mode:
+   `UNAVAILABLE`/`TIMEOUT` (network or process) versus `REACHABLE_MISSING_MODELS` (models deleted or not pulled).
+3. Missing models: `$C exec ollama ollama pull <model>` for the model named in `OLLAMA_CHAT_MODEL`/`OLLAMA_EMBED_MODEL`.
+4. Otherwise `$C restart ollama`; the gauge recovers without a backend restart.
+Recovery check: `shop_llm_ollama_up` is 1 within about 30 s of Ollama answering again; the alert resolves on the next
+evaluation.
+
 ## JvmHeapHigh
 
 Meaning: heap above 90% of max for 10 minutes.
@@ -114,6 +128,21 @@ Meaning: connection pool nearly exhausted or requests are waiting for a connecti
 1. `$C exec mysql sh -c 'MYSQL_PWD=$MYSQL_ROOT_PASSWORD mysql -uroot -e "SHOW FULL PROCESSLIST"'` — long-running or blocked statements?
 2. Long lock waits usually accompany lock-retry metrics; see OrderLockRetriesElevated.
 3. Restarting the backend releases the pool; fix the slow statement before raising the pool size.
+
+## Alert delivery (optional)
+
+Default: no receiver. Alerts are visible in Alertmanager (`127.0.0.1:9093`) and Prometheus (`/alerts`) only.
+To deliver them to a webhook (Alertmanager's JSON webhook format; chat services that need their own payload format need
+an adapter in between):
+1. On the host, write the URL into a file outside the repository, e.g. `install -m 0444 /dev/null <dir>/alert-webhook-url`
+   then edit it, inside a directory only the deploy user can enter (`chmod 0700 <dir>`). The container user (`nobody`)
+   must be able to read the file itself; the directory permission keeps other host users out.
+2. Set `ALERT_WEBHOOK_URL_FILE=<dir>/alert-webhook-url` in `.env.prod`.
+3. `$C -f docker-compose.alerting.yml up -d alertmanager`. Without step 2 this command refuses to render.
+4. Prove delivery once: `$C -f docker-compose.alerting.yml exec alertmanager amtool alert add DeliveryCheck severity=warning
+   --alertmanager.url=http://localhost:9093` and confirm it arrives after about 30 s (group_wait).
+Rotating the URL: replace the file content and `restart alertmanager`. Alertmanager redacts the URL in its own logs.
+Validate config changes with `bash scripts/test/monitoring-config.test.sh` (Docker only).
 
 ## After any incident
 

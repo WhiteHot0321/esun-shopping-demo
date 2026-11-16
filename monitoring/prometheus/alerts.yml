@@ -1,5 +1,6 @@
 # Alert rules. Every alert links to a section of docs/runbook-incident.md via the `runbook` annotation.
 # Thresholds are starting points sized for a single small instance; tune them from the dashboard, not by guessing.
+# The reasoning behind each threshold and the review of 2026-11 are in docs/tasks/080.
 groups:
   - name: esun-availability
     rules:
@@ -35,10 +36,12 @@ groups:
           description: "5xx ratio over 5m is {{ $value | humanizePercentage }} with non-trivial traffic."
           runbook: "docs/runbook-incident.md#highhttp5xxratio"
 
+      # /api/support calls an LLM (seconds per answer, 30 s timeout by design); it would dominate p95 without being a
+      # regression, so it is excluded here. Its failures still count in HighHttp5xxRatio and OllamaUnavailable.
       - alert: HighP95Latency
         expr: |
           histogram_quantile(0.95,
-            sum by (le) (rate(http_server_requests_seconds_bucket{uri!~"/actuator.*"}[5m]))) > 1
+            sum by (le) (rate(http_server_requests_seconds_bucket{uri!~"/actuator.*|/api/support.*"}[5m]))) > 1
         for: 10m
         labels: {severity: warning}
         annotations:
@@ -97,6 +100,17 @@ groups:
           summary: "Redis stock path latched to DB-only"
           description: "Orders still succeed against MySQL, but the latch clears only after reconciliation and a restart."
           runbook: "docs/runbook-incident.md#stockcachedegraded"
+
+      # Exported only when llm.provider=ollama (no series -> no alert for a Claude-backed deployment). The gauge is
+      # 1 only when Ollama answers /api/tags with both configured models; it is cached for 30 s in the backend.
+      - alert: OllamaUnavailable
+        expr: max(shop_llm_ollama_up) == 0
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: "Ollama is unreachable or missing a configured model"
+          description: "The customer support assistant (chat + embeddings) fails; orders and payments are unaffected."
+          runbook: "docs/runbook-incident.md#ollamaunavailable"
 
   - name: esun-resources
     rules:

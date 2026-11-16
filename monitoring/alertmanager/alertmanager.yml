@@ -1,7 +1,10 @@
-# Alertmanager. No notification destination is configured on purpose: a real webhook URL, chat token or e-mail
-# password is a secret and must never be committed. Alerts still fire, are grouped, and are visible in the
-# Alertmanager UI and Prometheus (/alerts). To deliver notifications, mount a secret file on the host and reference it
-# with `url_file` (see the commented receiver below), then `docker compose ... restart alertmanager`.
+# Alertmanager default: no notification destination. A real webhook URL, chat token or e-mail password is a secret
+# and must never be committed. Alerts still fire, are grouped, and are visible in the Alertmanager UI and Prometheus
+# (/alerts). To deliver notifications, add the opt-in overlay docker-compose.alerting.yml with ALERT_WEBHOOK_URL_FILE
+# pointing at a host file that holds the URL; it switches to alertmanager.webhook.yml (same route, webhook receiver).
+#
+# The route and inhibit_rules below must stay identical to alertmanager.webhook.yml; scripts/test/monitoring-config.test.sh
+# fails if they drift.
 route:
   receiver: default
   group_by: [alertname, severity]
@@ -11,10 +14,6 @@ route:
 
 receivers:
   - name: default
-  # - name: default
-  #   webhook_configs:
-  #     - url_file: /run/secrets/alert_webhook_url
-  #       send_resolved: true
 
 # A dead backend explains most warning-level symptoms; page once, not for every symptom.
 inhibit_rules:
