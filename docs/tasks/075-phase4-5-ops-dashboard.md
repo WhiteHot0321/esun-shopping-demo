@@ -198,3 +198,34 @@
 - 沒有對前端做變異測試；沒有跨午夜的端到端瀏覽器驗證（邊界只由 `DashboardWindowTest` 與真 MySQL 的邊界測試涵蓋）。
 
 **dev 資料庫殘留（`esun-mysql`）**: 兩個拋棄式測試帳號 `ops-walk-admin-…`（已升 ADMIN）與 `ops-walk-buyer-…`、1 筆收件地址、1 筆 PENDING 訂單（P002 庫存 46→45）。未清理。
+
+## 12. C 階段審查（2026-11-16，唯讀，Low 風險快速審查）
+
+**範圍**: `git diff advanced-v2...feature/phase4-5-ops-dashboard` 的 M4 檔案（controller、repository、service、`DashboardWindow`、DTO、`OpsDashboardPanel.vue`、`App.vue`、四個後端測試）。審查者與實作者不是同一輪對話，但**不是 Codex 獨立審查**；073 對 Low 風險只要求作者外的快速唯讀審查。
+
+**結論: 沒有發現會影響正確性或安全的缺陷，M4 本身可合併。** 下面是逐項核對與非阻斷發現。
+
+核對過（附依據）
+- 授權：`requireAdmin` 只放行 `ADMIN`；整合測試 `onlyAnAdminMayReadTheDashboard` 覆蓋 401／403（BUYER、SELLER）／200。
+- 無個資外洩：回應只有聚合與商品 id／名稱；測試斷言本文不含 seller email、`creator`、`member`。
+- 時區：`DashboardWindow` 先算台北日再轉儲存時區；`OpsDashboardRepository` 只綁 `storedFrom/storedTo`。邊界測試涵蓋 `[from, to)` 兩端各 ±1 秒。
+- `pay_status` 以 `PayStatus.ordinal()` 綁定，與 `PayStatus` 註解（序號即 DB 值）及 `markOrderPaid` 一致。
+- 付款失敗口徑：對照 `PaymentCallbackService`／`PaymentService`／`PaymentRepository` 寫入的 `failure_reason` 字面值。`ORDER_CANCELLED`、`SUPERSEDED_BY_RETRY`、`SUPERSEDED_BY_LATE_SUCCESS` 皆為系統關單；`PROVIDER_DECLINED` 是真失敗、會被計入；`LATE_SUCCESS_ON_CLOSED_ATTEMPT` 會把狀態轉成 `REFUND_REQUIRED` 而非 `FAILED`，不會誤計。`failure_reason IS NULL` 已明確允許。排除清單與目前程式一致。
+- 快取：失敗不快取、`ttl<=0` 直接查、`nanoTime` 差值比較不受溢位影響。
+- 前端：只讀；`latestRequest` 防止舊回應蓋掉新回應；重新整理失敗時保留舊資料並提示；日期以字串切片，不經瀏覽器時區。
+- 沒有改任何寫入路徑、沒有 schema 變更。
+
+重跑結果（本次）
+- `mvn -Dtest='OpsDashboard*Test,DashboardWindowTest' -Djacoco.skip=true test`：exit 0；`OpsDashboardIntegrationTest` 8、`OpsDashboardTimeZoneIntegrationTest` 2、`OpsDashboardServiceTest` 7、`DashboardWindowTest` 5，共 **22/22**，0 failures／errors／skips。
+- `npx vitest run src/components/OpsDashboardPanel.spec.js src/App.spec.js`：**47/47**。
+
+非阻斷發現
+1. **分支夾帶無關變更**：對 `advanced-v2` 的 diff 共 28 個檔案，其中只有約 14 個屬於 M4；其餘是 skills 文件、`.gitignore`、study notes、`scripts/dev.ps1`、`docs/handoff/phase4-3-validation.md`，以及 `docs/tasks/075-phase33-18-b3-deploy-pipeline-prompts.md` 的改寫（+47／−177）。建議合併前拆開或明確接受。
+2. **文件過時**：本檔標頭與 `docs/project-state.md` 仍寫「未 commit」，但分支已有 `3bdaafc`（M4）與後續兩個 commit；本分支尚未 push／merge 的狀態也未寫明。
+3. **系統關單字面值無共用常數**：`SYSTEM_CLOSURE_REASONS` 與三個寫入點各寫一份字串，改名會讓儀表板悄悄多算失敗。已有註解提醒，但沒有測試把兩邊綁在一起。屬於後續清理，不要為此改寫入路徑。
+4. `requireAdmin` 與 `CouponController` 等處重複同一段程式；可在日後抽成共用元件。
+5. D5（兩個無索引掃描的 `EXPLAIN`）仍未做；目前資料量小且有 15 秒快取，不阻擋合併，但要在資料量成長前補。
+
+**未涵蓋（本次審查沒做）**: 完整 `mvn clean test` 與 JaCoCo（沿用先前紀錄的 344/344，未重跑）、瀏覽器走查、`EXPLAIN`、自行做變異測試、Codex 獨立審查。
+
+**另發現（非 M4）**: `.trivyignore.yaml` 的 caddy／pebble 例外（共 8 條）已於 2026-11-05 過期，backend 的 spring-webmvc 2 條將於 2026-11-19 過期；尚未實際查 CI 是否已因此失敗。
