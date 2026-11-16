@@ -1,0 +1,23 @@
+# Opt-in alert delivery (Phase 3.3 #19, docs/tasks/080). Add it after the monitoring overlay ONLY when a destination
+# exists:
+#
+#   docker compose -f docker-compose.prod.yml [-f docker-compose.tunnel.yml] -f docker-compose.monitoring.yml \
+#       -f docker-compose.alerting.yml --env-file .env.prod up -d alertmanager
+#
+# ALERT_WEBHOOK_URL_FILE is the host path of a file whose only content is the webhook URL. It is mounted as a Compose
+# secret and read by Alertmanager at send time; the URL never appears in Git, in `docker compose config` output or in the
+# container environment. Without the variable this overlay refuses to render, so a forgotten destination fails loudly
+# instead of silently dropping notifications. Without this overlay the stack has no receiver (alertmanager.yml).
+services:
+  alertmanager:
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.webhook.yml
+      - --storage.path=/alertmanager
+    volumes:
+      - ./monitoring/alertmanager/alertmanager.webhook.yml:/etc/alertmanager/alertmanager.webhook.yml:ro
+    secrets:
+      - alert_webhook_url
+
+secrets:
+  alert_webhook_url:
+    file: ${ALERT_WEBHOOK_URL_FILE:?set ALERT_WEBHOOK_URL_FILE to a host file containing the alert webhook URL}

@@ -5,9 +5,11 @@ import com.esun.shop.dto.OrderItemRequest;
 import com.esun.shop.model.PayStatus;
 import com.esun.shop.service.OrderService;
 import com.esun.shop.service.StockCacheService;
+import com.esun.shop.monitoring.TelemetryMetricsConfiguration;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -42,7 +44,8 @@ import static org.assertj.core.api.Assertions.assertThat;
         "spring.data.redis.timeout=200ms",
         "spring.data.redis.connect-timeout=200ms",
         "llm.indexing.enabled=false",
-        "management.health.dependencies.timeout-ms=200"
+        "management.health.dependencies.timeout-ms=200",
+        "management.metrics.ollama.probe-cache-seconds=0"
 })
 class ExternalDependenciesHealthIntegrationTest extends AbstractMySqlIntegrationTest {
     enum OllamaMode { PRESENT, MISSING, REFUSED, TIMEOUT }
@@ -75,7 +78,28 @@ class ExternalDependenciesHealthIntegrationTest extends AbstractMySqlIntegration
     @Autowired StringRedisTemplate redis;
     @Autowired StockCacheService cache;
     @Autowired OrderService orders;
+    @Autowired MeterRegistry meters;
     @LocalManagementPort int managementPort;
+
+    @Test
+    void ollamaAvailabilityGaugeFollowsTheDependencyHealth() {
+        try {
+            OLLAMA_MODE.set(OllamaMode.PRESENT);
+            assertThat(ollamaUp()).isEqualTo(1.0);
+            OLLAMA_MODE.set(OllamaMode.MISSING);
+            assertThat(ollamaUp()).as("reachable but a required model is missing").isEqualTo(0.0);
+            OLLAMA_MODE.set(OllamaMode.REFUSED);
+            assertThat(ollamaUp()).isEqualTo(0.0);
+            OLLAMA_MODE.set(OllamaMode.PRESENT);
+            assertThat(ollamaUp()).as("recovers without a restart").isEqualTo(1.0);
+        } finally {
+            OLLAMA_MODE.set(OllamaMode.PRESENT);
+        }
+    }
+
+    private double ollamaUp() {
+        return meters.get(TelemetryMetricsConfiguration.OLLAMA_UP).gauge().value();
+    }
 
     @Test
     void optionalDependencyFailuresStayOutOfReadiness_andRedisRecoveryDoesNotClearLatch() throws Exception {
@@ -232,7 +256,13 @@ class RedisDisabledDependenciesHealthIntegrationTest extends AbstractMySqlIntegr
 })
 class DatabaseReadinessHealthIntegrationTest extends AbstractMySqlIntegrationTest {
     @Autowired TestRestTemplate http;
+    @Autowired MeterRegistry meters;
     @LocalManagementPort int managementPort;
+
+    @Test
+    void ollamaAvailabilityGaugeIsNotRegisteredWhenAnotherProviderIsSelected() {
+        assertThat(meters.find(TelemetryMetricsConfiguration.OLLAMA_UP).gauge()).isNull();
+    }
 
     @Test
     void databaseOutageFailsReadinessButNotLiveness() {

@@ -78,11 +78,15 @@ tests:
         values: '0+30x15'
       - series: 'http_server_requests_seconds_count{status="500",uri="/api/orders"}'
         values: '0+30x15'
-      # a second endpoint with 1 tiny request: ratio high, traffic negligible -> must not fire
+      # a second endpoint with one early 5xx; it has left the 5m window by 6m, so the ratio there is exactly 50%
       - series: 'http_server_requests_seconds_count{status="500",uri="/api/only-one"}'
         values: '0 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1'
     alert_rule_test:
-      - eval_time: 12m
+      # condition true from 1m (first rate) -> pending for 5m -> firing at 6m, not before
+      - eval_time: 5m
+        alertname: HighHttp5xxRatio
+        exp_alerts: []
+      - eval_time: 6m
         alertname: HighHttp5xxRatio
         exp_alerts:
           - exp_labels: {severity: critical}
@@ -111,7 +115,11 @@ tests:
       - series: 'shop_orders_failure_total'
         values: '0+2x25'
     alert_rule_test:
-      - eval_time: 22m
+      # failures reach 6 (>= 5) at 3m -> pending for 5m -> firing at 8m, not before
+      - eval_time: 7m
+        alertname: OrderFailureRatioHigh
+        exp_alerts: []
+      - eval_time: 8m
         alertname: OrderFailureRatioHigh
         exp_alerts:
           - exp_labels: {severity: warning}
@@ -144,7 +152,11 @@ tests:
       - series: 'http_server_requests_seconds_bucket{uri="/api/orders",le="+Inf"}'
         values: '0+60x30'
     alert_rule_test:
-      - eval_time: 25m
+      # p95 is 1.95s from 1m (first rate) -> pending for 10m -> firing at 11m, not before
+      - eval_time: 10m
+        alertname: HighP95Latency
+        exp_alerts: []
+      - eval_time: 11m
         alertname: HighP95Latency
         exp_alerts:
           - exp_labels: {severity: warning}
@@ -173,10 +185,10 @@ tests:
       - series: 'shop_payments_failure_total'
         values: '0 0 1 2 3 4 5 5 5 5'
     alert_rule_test:
-      - eval_time: 3m
+      - eval_time: 5m
         alertname: PaymentFailuresElevated
         exp_alerts: []
-      - eval_time: 8m
+      - eval_time: 6m
         alertname: PaymentFailuresElevated
         exp_alerts:
           - exp_labels: {severity: warning}
@@ -191,7 +203,11 @@ tests:
       - series: 'shop_orders_lock_retry_total'
         values: '0+5x30'
     alert_rule_test:
-      - eval_time: 20m
+      # 25 retries (> 20) first at 5m -> pending for 5m -> firing at 10m, not before
+      - eval_time: 9m
+        alertname: OrderLockRetriesElevated
+        exp_alerts: []
+      - eval_time: 10m
         alertname: OrderLockRetriesElevated
         exp_alerts:
           - exp_labels: {severity: warning}
@@ -221,7 +237,7 @@ tests:
       - eval_time: 9m
         alertname: JvmHeapHigh
         exp_alerts: []
-      - eval_time: 12m
+      - eval_time: 10m
         alertname: JvmHeapHigh
         exp_alerts:
           - exp_labels: {severity: warning}
@@ -243,7 +259,7 @@ tests:
       - eval_time: 2m
         alertname: DbPoolSaturated
         exp_alerts: []
-      - eval_time: 6m
+      - eval_time: 3m
         alertname: DbPoolSaturated
         exp_alerts:
           - exp_labels: {severity: warning}
@@ -261,7 +277,7 @@ tests:
       - eval_time: 4m
         alertname: BackendMetricsAbsent
         exp_alerts: []
-      - eval_time: 8m
+      - eval_time: 5m
         alertname: BackendMetricsAbsent
         exp_alerts:
           - exp_labels: {severity: critical, job: esun-backend}
@@ -269,3 +285,112 @@ tests:
               summary: "No backend target is being scraped at all"
               description: "The esun-backend job has no series; the scrape configuration or the stack is broken."
               runbook: "docs/runbook-incident.md#backenddown"
+
+  - interval: 1m
+    name: waiters on the connection pool warn even when active is below ninety percent
+    input_series:
+      - series: 'hikaricp_connections_active{pool="HikariPool-1"}'
+        values: '5+0x15'
+      - series: 'hikaricp_connections_max{pool="HikariPool-1"}'
+        values: '10+0x15'
+      - series: 'hikaricp_connections_pending{pool="HikariPool-1"}'
+        values: '0 2 2 2 2 2 2 2 2 2'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: DbPoolSaturated
+        exp_alerts: []
+      - eval_time: 4m
+        alertname: DbPoolSaturated
+        exp_alerts:
+          - exp_labels: {severity: warning}
+            exp_annotations:
+              summary: "Database connection pool is saturated or has waiters"
+              description: "Active/max above 90% or requests are waiting for a connection."
+              runbook: "docs/runbook-incident.md#dbpoolsaturated"
+
+  - interval: 1m
+    name: a half-used pool without waiters stays quiet
+    input_series:
+      - series: 'hikaricp_connections_active{pool="HikariPool-1"}'
+        values: '5+0x15'
+      - series: 'hikaricp_connections_max{pool="HikariPool-1"}'
+        values: '10+0x15'
+      - series: 'hikaricp_connections_pending{pool="HikariPool-1"}'
+        values: '0+0x15'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: DbPoolSaturated
+        exp_alerts: []
+
+  - interval: 1m
+    name: ollama unavailable for five minutes warns, not before
+    input_series:
+      - series: 'shop_llm_ollama_up{job="esun-backend",instance="backend:8081"}'
+        values: '1 1 0 0 0 0 0 0 0 0 0 0'
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: OllamaUnavailable
+        exp_alerts: []
+      - eval_time: 7m
+        alertname: OllamaUnavailable
+        exp_alerts:
+          - exp_labels: {severity: warning}
+            exp_annotations:
+              summary: "Ollama is unreachable or missing a configured model"
+              description: "The customer support assistant (chat + embeddings) fails; orders and payments are unaffected."
+              runbook: "docs/runbook-incident.md#ollamaunavailable"
+
+  - interval: 1m
+    name: a flapping ollama that recovers within five minutes stays quiet
+    input_series:
+      - series: 'shop_llm_ollama_up{job="esun-backend",instance="backend:8081"}'
+        values: '1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1'
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: OllamaUnavailable
+        exp_alerts: []
+
+  - interval: 1m
+    name: no ollama series (another llm provider selected) raises nothing
+    input_series:
+      - series: 'up{job="esun-backend"}'
+        values: '1+0x15'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: OllamaUnavailable
+        exp_alerts: []
+
+  - interval: 1m
+    name: a healthy ollama raises nothing
+    input_series:
+      - series: 'shop_llm_ollama_up{job="esun-backend",instance="backend:8081"}'
+        values: '1+0x15'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: OllamaUnavailable
+        exp_alerts: []
+
+  - interval: 1m
+    name: slow LLM support answers do not raise the latency warning when shop requests are fast
+    input_series:
+      # 30 fast shop requests/min and 30 support answers/min taking 2-5 s: without the exclusion p95 would be ~4.7 s
+      - series: 'http_server_requests_seconds_bucket{uri="/api/products",le="0.5"}'
+        values: '0+30x30'
+      - series: 'http_server_requests_seconds_bucket{uri="/api/products",le="1"}'
+        values: '0+30x30'
+      - series: 'http_server_requests_seconds_bucket{uri="/api/products",le="5"}'
+        values: '0+30x30'
+      - series: 'http_server_requests_seconds_bucket{uri="/api/products",le="+Inf"}'
+        values: '0+30x30'
+      - series: 'http_server_requests_seconds_bucket{uri="/api/support/ask",le="0.5"}'
+        values: '0+0x30'
+      - series: 'http_server_requests_seconds_bucket{uri="/api/support/ask",le="1"}'
+        values: '0+0x30'
+      - series: 'http_server_requests_seconds_bucket{uri="/api/support/ask",le="5"}'
+        values: '0+30x30'
+      - series: 'http_server_requests_seconds_bucket{uri="/api/support/ask",le="+Inf"}'
+        values: '0+30x30'
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: HighP95Latency
+        exp_alerts: []

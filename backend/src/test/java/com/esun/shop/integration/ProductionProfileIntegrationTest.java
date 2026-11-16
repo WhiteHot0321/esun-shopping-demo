@@ -123,6 +123,7 @@ class ProductionProfileIntegrationTest extends AbstractMySqlIntegrationTest {
                 .contains("shop_orders_lock_exhausted_total")
                 .contains("shop_payments_failure_total")
                 .contains("shop_stock_cache_degraded")
+                .contains("shop_llm_ollama_up")
                 .doesNotContain("password").doesNotContain("jwt");
 
         HttpHeaders headers = new HttpHeaders();
