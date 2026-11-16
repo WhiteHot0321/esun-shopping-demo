@@ -331,6 +331,25 @@ else
   assert_eq "the lock is free again afterwards" "$RC" 0
 fi
 
+echo "== 13. the SSH session disappears AND the host log cannot be written: the deploy still finishes, and a failing one still rolls back"
+make_fixture
+STUB_REVISION="$SHA2" run_deploy deploy "$SHA2" "$GOOD1" "$FE1"
+touch "$T/stub/has_volume"; : > "$T/stub/log"; before="$(cat "$T/state/state")"
+# tee -p stops once every output has failed. With the reader gone (case 11) and every write to the host log failing (ENOSPC),
+# tee would exit and the next write by the script would hit a pipe nobody reads: SIGPIPE, with no rollback.
+ln -sf /dev/full "$T/state/deploy.log"
+STUB_REVISION="$SHA3" run_deploy_disconnected deploy "$SHA3" "$BAD" "$FE2"
+assert_eq "bad deploy without reader or log: exit 10" "$RC" 10
+assert_log "bad deploy without reader or log: rolled back to the good digest" "^UP flags=\[.*--no-deps.* BACKEND_IMAGE=$BASE/backend@$GOOD1"
+assert_eq "bad deploy without reader or log: the good backend is what runs" "$(cat "$T/stub/running_backend")" "$BASE/backend@$GOOD1"
+assert_eq "bad deploy without reader or log: checkout moved back" "$(head_sha)" "$SHA2"
+assert_eq "bad deploy without reader or log: state unchanged" "$(cat "$T/state/state")" "$before"
+STUB_REVISION="$SHA3" run_deploy_disconnected deploy "$SHA3" "$GOOD2" "$FE2"
+assert_eq "good deploy without reader or log: exit 0" "$RC" 0
+assert_eq "good deploy without reader or log: recorded" "$(state_val CURRENT_SHA)" "$SHA3"
+assert_eq "good deploy without reader or log: the new backend is what runs" "$(cat "$T/stub/running_backend")" "$BASE/backend@$GOOD2"
+rm -f "$T/state/deploy.log"
+
 echo
 echo "passed: $pass, failed: $fail"
 [ "$fail" -eq 0 ]
