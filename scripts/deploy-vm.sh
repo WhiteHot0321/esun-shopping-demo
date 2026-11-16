@@ -86,10 +86,15 @@ CONFIG_HINT="Compose's own message is withheld because it can quote .env.prod; o
 # The SSH session that started this run can disappear (Actions run cancelled or timed out, network drop). The next write to the
 # dead pipe would then kill the script with SIGPIPE: at worst between `up` and the gate, leaving a failing version live with no
 # rollback. From here on this script and its children write to a tee that outlives its reader (-p) and keeps a copy on the host.
-# Called before the lock is opened, so that tee does not hold the lock.
+# tee -p still exits once EVERY output has failed (reader gone and the host log unwritable, e.g. a full disk); after that the
+# pipe would have no reader and the next write would again be SIGPIPE. So the sink does not end with tee: a plain `cat` takes
+# over and drains what is left into /dev/null until the script closes its end. On the normal path tee ends at EOF and `cat`
+# sees EOF at once. The `|| true` is essential: the sink inherits `set -e`, and tee's failing exit status would end it before
+# `cat` ever started.
+# Called before the lock is opened, so that the sink does not hold the lock.
 detach_output() {
   trap '' HUP
-  exec > >(umask 077; exec tee -p -a "$STATE_DIR/deploy.log") 2>&1
+  exec > >(umask 077; tee -p -a "$STATE_DIR/deploy.log" || true; exec cat >/dev/null) 2>&1
   note "run started $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 }
 
