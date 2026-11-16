@@ -8,83 +8,39 @@
 #     statement: "Not reachable because ...; owner: <name>; tracking: <issue link>"
 #     expired_at: 2026-12-31
 #
-# 2026-10-22: five findings in the Go binary of the upstream caddy:2-alpine base image (frontend image, usr/bin/caddy).
-# Caddy v2.11.4 was built with Go 1.26.8 / x/net 0.59.0; the fixes exist (Go 1.26.10, x/net 0.60.0) but the upstream image
-# has not been rebuilt with them yet. Assessment against frontend/Caddyfile (docs/tasks/075, "Trivy exceptions"): two are
-# reachable by anyone and are availability-only (CPU / memory exhaustion of the edge), two are not reachable in this
-# configuration. All expire on 2026-11-05 so the decision is re-made, not forgotten. Remove each entry as soon as a rebuilt
-# base image makes the gate pass without it.
+# 2026-11-16 renewal (docs/tasks/083). The 2026-10-22 batch is resolved by upstream rebuilds and its entries are removed:
+#  - usr/bin/caddy (CVE-2026-78669, -78667, -97031, -111943): caddy:2-alpine is now Caddy v2.11.9; no longer reported.
+#  - usr/bin/pebble (same four CVEs): eclipse-temurin:17-jre was rebuilt (17.0.21, Ubuntu 26.04.1); no longer reported.
+# Both Dockerfiles use floating base tags, so a fresh build picks the fixed bases up without a repository change.
+# What is left with pinned Trivy v0.74.0 and an empty ignore file is exactly the three entries below.
 vulnerabilities:
-  - id: CVE-2026-78669
-    paths: ["usr/bin/caddy"]
-    statement: >-
-      REACHABLE, availability only. HTTP/2 SETTINGS-frame CPU exhaustion in net/http and golang.org/x/net/http2; Caddy serves
-      HTTP/2 on :443 to anyone. Accepted for a single-VM demo: no data exposure, container is memory-limited and
-      restart: unless-stopped. Optional hardening not applied (outside the deploy-pipeline scope): serve h1/h3 only.
-      owner: WhiteHot0321; tracking: docs/tasks/075
-    expired_at: 2026-11-05
-  - id: CVE-2026-78667
-    paths: ["usr/bin/caddy"]
-    statement: >-
-      REACHABLE, availability only. Range header with very many small ranges makes http.ServeContent use excessive CPU;
-      Caddy's file_server serves the SPA files to anyone. Bounded by Go's header-size limit; no data exposure. Optional
-      hardening not applied: strip the Range header at Caddy. owner: WhiteHot0321; tracking: docs/tasks/075
-    expired_at: 2026-11-05
-  - id: CVE-2026-97031
-    paths: ["usr/bin/caddy"]
-    statement: >-
-      NOT REACHABLE in this configuration. Memory exhaustion needs the server to process Encrypted ClientHello; ECH is an
-      opt-in Caddy feature (global option `ech`) and frontend/Caddyfile has no global options (checked with `caddy adapt`:
-      no ECH in the adapted config). Re-assess if ECH is ever enabled. owner: WhiteHot0321; tracking: docs/tasks/075
-    expired_at: 2026-11-05
-  - id: CVE-2026-111943
-    paths: ["usr/bin/caddy"]
-    statement: >-
-      LOW exposure. crypto/x509 now rejects known-untrusted intermediates in Verify; exploitation needs a man-in-the-middle
-      on a certificate chain Caddy verifies as a client (the ACME connection to the certificate authority). Caddy is not
-      configured for client-certificate auth and reaches the backend over plain HTTP on the internal network. No public
-      advisory text beyond the Go/Red Hat summary was found. owner: WhiteHot0321; tracking: docs/tasks/075
-    expired_at: 2026-11-05
-
-# 2026-10-22 (second batch): backend image. Jackson was fixed by bumping jackson-bom.version to 2.21.7 (no exception). Left
-# over, both assessed against the code (docs/tasks/075, "Trivy exceptions - backend image"):
-#  - Spring Framework 6.2.19 (spring-webmvc): Trivy lists the fix only in 7.0.9, i.e. there is no 6.2.x fix; closing it means a
-#    Spring Boot 4 / Framework 7 migration. Neither CVE is reachable in this application.
-#  - usr/bin/pebble in the eclipse-temurin:17-jre base layer (Ubuntu 26.04): same four Go stdlib CVEs as the Caddy entries above.
+  # Spring Framework 6.2.19 is still the newest 6.2.x and Spring Boot 3.5.16 the newest 3.5.x on Maven Central (checked
+  # 2026-11-16); Trivy lists the fix only in 7.0.9. Closing these means the Spring Boot 4 / Framework 7 migration.
   - id: CVE-2026-47884
     paths: ["app/app.jar/BOOT-INF/lib/spring-webmvc-*.jar"]
     statement: >-
-      NOT REACHABLE. Needs XsltView in a Spring MVC app with a "/**" mapping that renders views. This application has no view
-      layer: every controller is @RestController (none uses @Controller), there is no ViewResolver, no template engine
-      dependency (only spring-boot-starter-web and springdoc), no src/main/resources/templates, no XSLT. No 6.2.x fix exists
-      (fixed only in 7.0.9). Re-assess if a view layer is ever added; plan the Spring Framework 7 migration.
-      owner: WhiteHot0321; tracking: docs/tasks/075
-    expired_at: 2026-11-19
+      NOT REACHABLE (re-checked 2026-11-16). Needs XsltView in a Spring MVC app with a "/**" mapping that renders views. This
+      application has no view layer: all 14 controllers are @RestController (none uses @Controller), there is no ViewResolver,
+      ModelAndView, template engine dependency, src/main/resources/templates or XSLT. No 6.2.x fix exists (fixed only in
+      7.0.9). Re-assess if a view layer is ever added; plan the Spring Framework 7 migration.
+      owner: WhiteHot0321; tracking: docs/tasks/083
+    expired_at: 2026-12-14
   - id: CVE-2026-47890
     paths: ["app/app.jar/BOOT-INF/lib/spring-webmvc-*.jar"]
     statement: >-
-      NOT REACHABLE. Needs Server-Sent Events rendered with view fragments. The application uses no SSE (no SseEmitter,
-      ResponseBodyEmitter, text/event-stream or webflux) and has no template/view layer. No 6.2.x fix exists (fixed only in
-      7.0.9). owner: WhiteHot0321; tracking: docs/tasks/075
-    expired_at: 2026-11-19
-  - id: CVE-2026-78669
-    paths: ["usr/bin/pebble"]
-    statement: &pebble >-
-      NOT REACHABLE. /usr/bin/pebble is the Canonical Pebble client (v1.33.0) shipped in the Ubuntu 26.04 base layer of
-      eclipse-temurin:17-jre, not part of any dpkg package and not used by us: the ENTRYPOINT is `sh -c exec java ... -jar
-      app.jar`, no pebble process or listener runs in the container (only sh/java), and the container runs as the
-      non-root user spring. Exploiting the Go stdlib flaw would first need code execution in the container. Fix expected from
-      an upstream base-image rebuild. owner: WhiteHot0321; tracking: docs/tasks/075
-    expired_at: 2026-11-05
-  - id: CVE-2026-78667
-    paths: ["usr/bin/pebble"]
-    statement: *pebble
-    expired_at: 2026-11-05
-  - id: CVE-2026-97031
-    paths: ["usr/bin/pebble"]
-    statement: *pebble
-    expired_at: 2026-11-05
-  - id: CVE-2026-111943
-    paths: ["usr/bin/pebble"]
-    statement: *pebble
-    expired_at: 2026-11-05
+      NOT REACHABLE (re-checked 2026-11-16). Needs Server-Sent Events rendered with view fragments. The application uses no
+      SSE (no SseEmitter, ResponseBodyEmitter, text/event-stream or webflux) and has no template/view layer. No 6.2.x fix
+      exists (fixed only in 7.0.9). owner: WhiteHot0321; tracking: docs/tasks/083
+    expired_at: 2026-12-14
+  # New on 2026-11-16: Caddy v2.11.9 (the newest release and the current caddy:2-alpine) is built with x/net 0.60.0; the fix
+  # is in 0.62.0. Short expiry: remove as soon as a rebuilt or newer Caddy image makes the gate pass without it.
+  - id: CVE-2026-78661
+    paths: ["usr/bin/caddy"]
+    statement: >-
+      NOT REACHABLE in this configuration; availability only if it were. Quadratic CPU/allocation in the golang.org/x/net/html
+      parser on crafted HTML. frontend/Caddyfile adapts to the handlers encode, headers, rewrite, vars, reverse_proxy and
+      file_server only (`caddy adapt`); these stream request and response bodies and none parses HTML (no templates, no
+      file_server browse). The parser is linked into the binary, but which Caddy module calls it was not identified, so
+      re-assess if any other handler is added. Container is memory-limited with restart: unless-stopped.
+      owner: WhiteHot0321; tracking: docs/tasks/083
+    expired_at: 2026-11-30
