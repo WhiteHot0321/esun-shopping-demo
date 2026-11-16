@@ -165,6 +165,69 @@ class EcpayPaymentGatewayTest {
         assertThat(gateway.canResumeAttempt()).isFalse();
     }
 
+    /**
+     * The full field set ECPay documents for a credit-card ReturnURL callback: empty optional fields, spaces, slashes
+     * and a Chinese RtnMsg. The expected value was computed by a separate Python implementation
+     * (sorted case-insensitively, urllib quote_plus with safe "-_.!*()", lowercased, SHA-256), not by this class.
+     */
+    @Test
+    void aFullCreditCardCallbackMatchesAnIndependentlyComputedCheckMacValue() {
+        Map<String, String> values = new LinkedHashMap<>();
+        values.put("CustomField1", "");
+        values.put("CustomField2", "");
+        values.put("CustomField3", "");
+        values.put("CustomField4", "");
+        values.put("MerchantID", "3002607");
+        values.put("MerchantTradeNo", "E0123456789ABCDEF012");
+        values.put("PaymentDate", "2024/01/01 10:00:05");
+        values.put("PaymentType", "Credit_CreditCard");
+        values.put("PaymentTypeChargeFee", "2");
+        values.put("RtnCode", "1");
+        values.put("RtnMsg", "交易成功");
+        values.put("SimulatePaid", "0");
+        values.put("StoreID", "");
+        values.put("TradeAmt", "100");
+        values.put("TradeDate", "2024/01/01 09:59:30");
+        values.put("TradeNo", "2401010959301234");
+        String independent = "05C3A1624F6DFD954A3ABB05F0FECA1B9A4EA16FB4DE3C2A3B765ACCC0F5589D";
+        assertThat(gateway.calculateCheckMacValue(values)).isEqualTo(independent);
+
+        values.put("CheckMacValue", independent.toLowerCase(java.util.Locale.ROOT)); // case of the MAC itself is irrelevant
+        assertThat(gateway.verifyCallback(values)).hasValueSatisfying(callback -> {
+            assertThat(callback.result()).isEqualTo(PaymentResult.SUCCESS);
+            assertThat(callback.providerRef()).isEqualTo("2401010959301234");
+        });
+    }
+
+    /**
+     * The MAC is computed over names compared ignoring case, the values are then read by exact name. Two names that
+     * differ only in case would let the MAC cover one value while the shop acts on the other.
+     */
+    @Test
+    void aSignedFieldCannotBeShadowedByACaseVariantOfItsName() {
+        Map<String, String> genuineDecline = signedCallback(Map.of("RtnCode", "10100058"));
+
+        Map<String, String> forged = new LinkedHashMap<>();
+        forged.put("RtnCode", "1"); // what the shop would read
+        genuineDecline.forEach((name, value) -> {
+            if (!"RtnCode".equals(name)) forged.put(name, value);
+        });
+        forged.put("rtncode", "10100058"); // what the genuine MAC covers
+        assertThat(gateway.verifyCallback(forged)).isEmpty();
+
+        Map<String, String> otherTrade = new LinkedHashMap<>();
+        otherTrade.put("MerchantTradeNo", "E9999999999999999999");
+        signedCallback(Map.of()).forEach((name, value) -> {
+            if (!"MerchantTradeNo".equals(name)) otherTrade.put(name, value);
+        });
+        otherTrade.put("MERCHANTTRADENO", "E0123456789ABCDEF012");
+        assertThat(gateway.verifyCallback(otherTrade)).isEmpty();
+
+        Map<String, String> twoMacs = signedCallback(Map.of());
+        twoMacs.put("checkmacvalue", "0".repeat(64));
+        assertThat(gateway.verifyCallback(twoMacs)).isEmpty();
+    }
+
     @Test
     void ecpayCannotBeSimulated() {
         assertThat(gateway.supportsSimulation()).isFalse();

@@ -21,7 +21,9 @@ import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.UUID;
 
 /**
@@ -109,6 +111,12 @@ public class EcpayPaymentGateway implements PaymentGateway {
     @Override
     public Optional<VerifiedPaymentCallback> verifyCallback(Map<String, String> parameters) {
         try {
+            // The MAC below treats names case-insensitively, but values are read by exact name. If two names differ
+            // only in case, the MAC would cover one value while we act on the other (e.g. "RtnCode=1" next to a
+            // genuinely signed "rtncode=10100058"), so such a callback is never authentic.
+            Set<String> names = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+            names.addAll(parameters.keySet());
+            if (names.size() != parameters.size()) return Optional.empty();
             String supplied = parameters.get("CheckMacValue");
             if (supplied == null || !MessageDigest.isEqual(
                     calculateCheckMacValue(parameters).getBytes(StandardCharsets.US_ASCII),

@@ -4,6 +4,9 @@ import com.esun.shop.service.EcpayPaymentGateway;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -14,11 +17,18 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -32,6 +42,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
 @AutoConfigureMockMvc
+@ExtendWith(OutputCaptureExtension.class)
 @TestPropertySource(properties = {
         "payment.provider=ecpay",
         "ecpay.merchant-id=3002607",
@@ -211,6 +222,140 @@ class EcpayPaymentIntegrationTest extends AbstractMySqlIntegrationTest {
                                 "result", "SUCCESS", "signature", "0".repeat(64)))))
                 .andExpect(status().isBadRequest());
         assertThat(paymentStatus(tradeNo)).isEqualTo("INITIATED");
+    }
+
+    // ---- adversarial review of the inbound callback (docs/tasks/084) ----
+
+    /**
+     * One genuinely paid 100-TWD callback must not be reusable to mark a different 100-TWD order paid: the MAC is
+     * computed over names ignoring case, so a case-variant name used to carry the signed value while the exact name
+     * carried the value the shop acted on.
+     */
+    @Test
+    void aCapturedGenuineCallbackCannotBeRetargetedAtAnotherOrderWithACaseVariantFieldName() throws Exception {
+        Fixture paid = fixture(1, 100);
+        String paidTradeNo = start(paid).path("data").path("merchantTradeNo").asText();
+        Map<String, String> genuine = callback(paidTradeNo, "100", "1", "2401010000000020");
+        ecpayCallback(genuine).andExpect(status().isOk()).andExpect(content().string("1|OK"));
+
+        Fixture victim = fixture(1, 100);
+        String unpaidTradeNo = start(victim).path("data").path("merchantTradeNo").asText();
+        Map<String, String> forged = new LinkedHashMap<>();
+        forged.put("MerchantTradeNo", unpaidTradeNo); // read by the shop
+        genuine.forEach((name, value) -> {
+            if (!"MerchantTradeNo".equals(name)) forged.put(name, value);
+        });
+        forged.put("merchanttradeno", paidTradeNo); // covered by the genuine CheckMacValue
+
+        ecpayCallback(forged).andExpect(status().isBadRequest()).andExpect(content().string("0|ERROR"));
+        assertThat(paymentStatus(unpaidTradeNo)).isEqualTo("INITIATED");
+        assertThat(count("SELECT pay_status FROM shop_order WHERE order_id = ?", victim.orderId)).isZero();
+    }
+
+    @Test
+    void aGenuineDeclineCannotBeTurnedIntoASuccessWithACaseVariantRtnCode() throws Exception {
+        Fixture f = fixture(1, 100);
+        String tradeNo = start(f).path("data").path("merchantTradeNo").asText();
+        Map<String, String> genuineDecline = callback(tradeNo, "100", "10100058", "2401010000000021");
+
+        Map<String, String> forged = new LinkedHashMap<>();
+        forged.put("RtnCode", "1");
+        genuineDecline.forEach((name, value) -> {
+            if (!"RtnCode".equals(name)) forged.put(name, value);
+        });
+        forged.put("RTNCODE", "10100058");
+
+        ecpayCallback(forged).andExpect(status().isBadRequest()).andExpect(content().string("0|ERROR"));
+        assertThat(paymentStatus(tradeNo)).isEqualTo("INITIATED");
+        assertThat(count("SELECT pay_status FROM shop_order WHERE order_id = ?", f.orderId)).isZero();
+    }
+
+    @Test
+    void aSuccessArrivingAfterTheBuyerCancelledIsAcknowledgedAndParkedForRefundOnce() throws Exception {
+        Fixture f = fixture(1, 100);
+        String tradeNo = start(f).path("data").path("merchantTradeNo").asText();
+        mvc.perform(post("/api/orders/{id}/cancel", f.orderId).header("Authorization", bearer(f.buyer)))
+                .andExpect(status().isOk());
+        assertThat(paymentStatus(tradeNo)).isEqualTo("FAILED");
+
+        // the card was charged on the ECPay page that was still open: acknowledge (retrying changes nothing), never PAID
+        for (int attempt = 0; attempt < 2; attempt++) {
+            ecpayCallback(callback(tradeNo, "100", "1", "2401010000000022"))
+                    .andExpect(status().isOk()).andExpect(content().string("1|OK"));
+            assertThat(paymentStatus(tradeNo)).isEqualTo("REFUND_REQUIRED");
+            assertThat(count("SELECT pay_status FROM shop_order WHERE order_id = ?", f.orderId)).isZero();
+        }
+        assertThat(jdbc.queryForObject("SELECT failure_reason FROM payment WHERE merchant_trade_no = ?", String.class,
+                tradeNo)).isEqualTo("LATE_SUCCESS_ON_CLOSED_ATTEMPT");
+        assertThat(jdbc.queryForObject("SELECT order_status FROM shop_order WHERE order_id = ?", String.class,
+                f.orderId)).isEqualTo("CANCELLED");
+    }
+
+    @Test
+    void concurrentDuplicateEcpayCallbacksAreAllAcknowledgedAndPayTheOrderExactlyOnce() throws Exception {
+        Fixture f = fixture(1, 100);
+        String tradeNo = start(f).path("data").path("merchantTradeNo").asText();
+        Map<String, String> values = callback(tradeNo, "100", "1", "2401010000000023");
+
+        int callers = 8;
+        CountDownLatch go = new CountDownLatch(1);
+        ExecutorService pool = Executors.newFixedThreadPool(callers);
+        try {
+            List<Future<String>> responses = new ArrayList<>();
+            for (int i = 0; i < callers; i++) {
+                responses.add(pool.submit(() -> {
+                    go.await();
+                    var response = ecpayCallback(values).andReturn().getResponse();
+                    return response.getStatus() + " " + response.getContentAsString();
+                }));
+            }
+            go.countDown();
+            for (Future<String> response : responses) assertThat(response.get()).isEqualTo("200 1|OK");
+        } finally {
+            pool.shutdownNow();
+        }
+        assertThat(paymentStatus(tradeNo)).isEqualTo("SUCCEEDED");
+        assertThat(count("SELECT pay_status FROM shop_order WHERE order_id = ?", f.orderId)).isEqualTo(1);
+        assertThat(count("SELECT COUNT(*) FROM payment WHERE order_id = ? AND status = 'SUCCEEDED'", f.orderId)).isEqualTo(1);
+    }
+
+    /** The body as ECPay sends it (raw form encoding, empty optional fields, Chinese RtnMsg), not pre-parsed params. */
+    @Test
+    void aRawFormEncodedBodyWithEmptyFieldsAndChineseTextIsVerifiedAndNothingSecretIsLogged(CapturedOutput output)
+            throws Exception {
+        Fixture f = fixture(1, 100);
+        String tradeNo = start(f).path("data").path("merchantTradeNo").asText();
+        Map<String, String> values = new LinkedHashMap<>();
+        values.put("CustomField1", "");
+        values.put("MerchantID", "3002607");
+        values.put("MerchantTradeNo", tradeNo);
+        values.put("PaymentDate", "2024/01/01 10:00:05");
+        values.put("PaymentType", "Credit_CreditCard");
+        values.put("PaymentTypeChargeFee", "2");
+        values.put("RtnCode", "1");
+        values.put("RtnMsg", "交易成功");
+        values.put("SimulatePaid", "0");
+        values.put("StoreID", "");
+        values.put("TradeAmt", "100");
+        values.put("TradeDate", "2024/01/01 09:59:30");
+        values.put("TradeNo", "2401010000000024");
+        String mac = gateway.calculateCheckMacValue(values);
+        values.put("CheckMacValue", mac);
+        StringBuilder body = new StringBuilder();
+        values.forEach((name, value) -> body.append(body.isEmpty() ? "" : "&").append(name).append('=')
+                .append(URLEncoder.encode(value, StandardCharsets.UTF_8)));
+
+        mvc.perform(post("/api/payments/ecpay/callback").contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                        .content(body.toString()))
+                .andExpect(status().isOk()).andExpect(content().string("1|OK"));
+        assertThat(paymentStatus(tradeNo)).isEqualTo("SUCCEEDED");
+
+        // a rejected one too, then check what reached the log
+        String forged = body.toString().replace(mac, "0".repeat(64));
+        mvc.perform(post("/api/payments/ecpay/callback").contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .content(forged)).andExpect(status().isBadRequest()).andExpect(content().string("0|ERROR"));
+        assertThat(output.getAll()).contains("Rejected payment callback that failed verification")
+                .doesNotContain("pwFHCqoQZGmho4w6").doesNotContain("EkRm7iFT261dpevs").doesNotContain(mac);
     }
 
     // ---- helpers ----
