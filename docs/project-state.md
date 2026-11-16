@@ -1,11 +1,11 @@
 # Verified project state
 
-Updated: 2026-11-16 (Phase 3.3 closeout PRs #17-#22 all merged into advanced-v2; Phase 3.3 still not complete); Phase 4.#3 M0 merged via PR #14
+Updated: 2026-11-16 (Phase 3.3 closeout PRs #17-#24 merged into advanced-v2; Phase 3.3 still not complete); Phase 4.#3 M0 merged via PR #14
 Baseline: advanced-v2 @ becec89 (merge of PR #14)
 
 ## Phase 3.3 closeout without external resources — 2026-11-16 (all six PRs merged into advanced-v2: #17 `b4d341f`, #18 `b1c2152`, #19 `f514be3`, #20 `abda196`, #21 `10d714c`, #22 `2075e46`)
 
-**Review status:** PR #17 (ECPay) has an independent review that passed on reviewed head `552346c`, whose author identity is still to be confirmed against AGENTS.md's cross-agent requirement. PR #18 has only the Claude-side review (`docs/tasks/082`); the Codex prompt B is unrun. PRs #19, #20 and #21 have author self-review only. Merged on green CI; nothing deployed or verified on a real host or real ECPay stage payment.
+**Review status:** PR #17 (ECPay) has an independent review that passed on reviewed head `552346c`, whose author identity is still to be confirmed against AGENTS.md's cross-agent requirement. PR #18 has a Claude-side review (`docs/tasks/082`) and a Codex review that found one P1 (`tee -p` exits when both the SSH reader and `deploy.log` are gone, so the script could die with SIGPIPE before rollback). That P1 was fixed in **PR #24** (`9303221`, merged as `9ebafc1`): case 13 reproduces it (exit 141 before the fix, 6 failures; 118/118 after, twice under WSL), and a Codex re-review at `9303221` returned APPROVE WITH FIXES with no Critical/High/Medium/Low findings. Its one Info item (the test suite leaves its `mktemp` fixture directories behind) is not fixed. The full Codex prompt B was not run as a whole. PRs #19, #20 and #21 have author self-review only. Merged on green CI; nothing deployed or verified on a real host (no real sshd disconnect, no full-disk test, no shellcheck run) or real ECPay stage payment.
 
 Each of #18-#22 was handled in its own worktree by a model-matched agent (Notion's model labels: Fable for #18/#21/#22, Opus for #19/#20), covering only what needs no VM, off-host storage, ECPay stage values or alert destination. **None of it is merged or independently reviewed except #18's review itself; CI had not run on any of it when this was written.** No VM, no real ECPay callback and no real notification delivery exist, so Phase 3.3 is still **not complete**.
 
