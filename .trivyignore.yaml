@@ -8,6 +8,9 @@
 #     statement: "Not reachable because ...; owner: <name>; tracking: <issue link>"
 #     expired_at: 2026-12-31
 #
+# expired_at must be a bare YYYY-MM-DD date. CI runs scripts/check-trivy-expiry.sh (docs/tasks/086): it annotates an entry 14
+# days before it expires, and fails the build only when it cannot read an entry's date.
+#
 # 2026-11-16 renewal (docs/tasks/083). The 2026-10-22 batch is resolved by upstream rebuilds and its entries are removed:
 #  - usr/bin/caddy (CVE-2026-78669, -78667, -97031, -111943): caddy:2-alpine is now Caddy v2.11.9; no longer reported.
 #  - usr/bin/pebble (same four CVEs): eclipse-temurin:17-jre was rebuilt (17.0.21, Ubuntu 26.04.1); no longer reported.
