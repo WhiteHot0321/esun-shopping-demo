@@ -15,8 +15,11 @@
 # Exit codes: 0 deployed | 1 refused before anything was started (checkout restored) | 10 gate failed, rolled back and healthy
 #             11 gate failed and the rollback also failed | 12 first deploy failed (nothing to roll back to; stack left as is)
 #
-# Output hygiene (the repository is public, so the Actions log is public): no `set -x`, `compose config -q` only, no
-# `docker inspect` of whole containers, and no compose logs on failure.
+# Output hygiene (the repository is public, so the Actions log is public): no `set -x`, `compose config -q` only and with its
+# own output withheld (see config_ok), no `docker inspect` of whole containers, and no compose logs on failure.
+#
+# Everything printed is also appended to $STATE_DIR/deploy.log, and a run keeps going when the SSH session that started it
+# goes away (see detach_output).
 set -euo pipefail
 
 REPO_DIR="${REPO_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
@@ -75,6 +78,21 @@ use_images() { # <backend digest> <frontend digest>: Compose reads these from th
   export BACKEND_IMAGE FRONTEND_IMAGE
 }
 
+# When Compose cannot parse the env file it quotes the offending line or value ("unterminated quoted value ...", "Invalid
+# template: ..."), and every subcommand does that. So the configuration is checked once, silently, before any other compose call.
+config_ok() { "${COMPOSE[@]}" config -q >/dev/null 2>&1; }
+CONFIG_HINT="Compose's own message is withheld because it can quote .env.prod; on the host run: docker compose -f docker-compose.prod.yml --env-file .env.prod config -q"
+
+# The SSH session that started this run can disappear (Actions run cancelled or timed out, network drop). The next write to the
+# dead pipe would then kill the script with SIGPIPE: at worst between `up` and the gate, leaving a failing version live with no
+# rollback. From here on this script and its children write to a tee that outlives its reader (-p) and keeps a copy on the host.
+# Called before the lock is opened, so that tee does not hold the lock.
+detach_output() {
+  trap '' HUP
+  exec > >(umask 077; exec tee -p -a "$STATE_DIR/deploy.log") 2>&1
+  note "run started $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+}
+
 checkout_sha() { git checkout --quiet --detach "$1"; }
 
 # Before `up` nothing of the running stack has changed, so refusing only has to put the working tree back.
@@ -123,6 +141,7 @@ setup() {
   [[ "$DOMAIN" =~ $DOMAIN_RE ]] || die "DOMAIN in $ENV_FILE must be a plain hostname"
   [ "$DOMAIN" != localhost ] || die "DOMAIN in $ENV_FILE is still localhost; set the real public hostname"
   if [ ! -d "$STATE_DIR" ] || [ ! -w "$STATE_DIR" ]; then die "state directory $STATE_DIR is missing or not writable (run vm-bootstrap.sh)"; fi
+  detach_output
   exec 9>"$STATE_DIR/lock"
   flock -n 9 || die "another deploy or rollback is already running"
   cd "$REPO_DIR"
@@ -150,7 +169,7 @@ do_deploy() { # <sha> <backend digest> <frontend digest>
 
   grep -Eq '^[[:space:]]+SPRING_PROFILES_ACTIVE:[[:space:]]*prod[[:space:]]*$' docker-compose.prod.yml \
     || abort_before_up "docker-compose.prod.yml at $sha does not pin SPRING_PROFILES_ACTIVE: prod"
-  "${COMPOSE[@]}" config -q || abort_before_up "compose configuration is invalid at $sha"
+  config_ok || abort_before_up "compose configuration is invalid at $sha. $CONFIG_HINT"
 
   "${COMPOSE[@]}" pull backend caddy || abort_before_up "could not pull the backend/frontend images"
   [ "$(image_revision "$BACKEND_IMAGE")" = "$sha" ] || abort_before_up "backend image revision label does not match $sha"
@@ -192,6 +211,7 @@ do_deploy() { # <sha> <backend digest> <frontend digest>
 do_rollback() {
   setup
   [ -n "$PREV_SHA" ] || die "no previous version recorded; nothing to roll back to"
+  config_ok || die "compose configuration is invalid. $CONFIG_HINT"
   note "rolling back from $CUR_SHA to $PREV_SHA"
   if redeploy "$PREV_SHA" "$PREV_BE" "$PREV_FE"; then
     write_state "$PREV_SHA" "$PREV_BE" "$PREV_FE" "" "" ""

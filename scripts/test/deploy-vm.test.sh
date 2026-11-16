@@ -9,7 +9,7 @@
 # rollback that follows are produced by the script's own control flow, not by a flag that skips the check.
 #
 # Not covered here (needs a real host): real Docker/Compose behaviour, real GHCR pulls, Caddy certificates, sshd forced
-# commands, and flock contention (the flock stub always succeeds).
+# commands. The flock stub always succeeds, except in case 12, which removes it and uses the real flock.
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -53,10 +53,13 @@ case "$1" in
   compose)
     sub=""
     for a in "$@"; do case "$a" in config|pull|up|ps) sub="$a"; break ;; esac; done
+    # What real Compose prints when it cannot parse the env file (observed with v5.5.1): the offending value, on every subcommand.
+    if [ "${STUB_ENV_UNPARSABLE:-0}" = 1 ]; then echo 'failed to read .env.prod: line 2: unterminated quoted value "FAKE-LEAKED-VALUE' >&2; exit 1; fi
     case "$sub" in
       config) exit 0 ;;
       pull) [ "${STUB_PULL_FAIL:-0}" = 1 ] && exit 1; exit 0 ;;
       up)
+        n=0; while [ -e "$STUB_DIR/hold_up" ] && [ "$n" -lt 300 ]; do sleep 0.1; n=$((n + 1)); done
         printf '%s' "$BACKEND_IMAGE" > "$STUB_DIR/running_backend"
         echo "UP flags=[$*] BACKEND_IMAGE=$BACKEND_IMAGE FRONTEND_IMAGE=$FRONTEND_IMAGE" >> "$STUB_LOG"
         exit 0 ;;
@@ -108,6 +111,12 @@ run_deploy() {
         HEALTH_INTERVAL=0.2 BACKUP_PASSPHRASE_FILE="$T/repo/.backup-passphrase" BACKUP_DIR="$T/repo/backups" \
         STUB_DIR="$T/stub" STUB_LOG="$T/stub/log" PATH="$T/stubbin:$PATH" bash "$DEPLOY" "$@" 2>&1)"
   RC=$?
+}
+
+# Same, but nobody is reading the output any more: `true` exits at once, as a dropped SSH session does.
+run_deploy_disconnected() {
+  env REPO_DIR="$T/repo" ENV_FILE="$T/repo/.env.prod" STATE_DIR="$T/state" HEALTH_TIMEOUT=1 FIRST_DEPLOY_HEALTH_TIMEOUT=1       HEALTH_INTERVAL=0.2 BACKUP_PASSPHRASE_FILE="$T/repo/.backup-passphrase" BACKUP_DIR="$T/repo/backups"       STUB_DIR="$T/stub" STUB_LOG="$T/stub/log" PATH="$T/stubbin:$PATH" bash "$DEPLOY" "$@" 2>&1 | true
+  RC="${PIPESTATUS[0]}"; OUT=""
 }
 
 echo "== 1. first deploy succeeds (no mysql volume yet)"
@@ -263,6 +272,64 @@ entry "deploy $SHA2 $GOOD1 $FE1${nl}rm -rf /"
 if [ "$RC" = 2 ] && [ ! -e "$T/entry-called" ]; then ok "rejected: embedded newline"; else bad "rejected: embedded newline (rc=$RC)"; fi
 OUT="$(env -u SSH_ORIGINAL_COMMAND bash "$T/entry" 2>&1)"; RC=$?
 if [ "$RC" = 2 ] && [ ! -e "$T/entry-called" ]; then ok "rejected: interactive login (no command)"; else bad "rejected: interactive login (rc=$RC)"; fi
+
+echo "== 10. an unparsable .env.prod is refused without quoting it into the (public) log"
+make_fixture
+STUB_ENV_UNPARSABLE=1 STUB_REVISION="$SHA2" run_deploy deploy "$SHA2" "$GOOD1" "$FE1"
+assert_eq "deploy refused (exit 1)" "$RC" 1
+assert_out "says the configuration is invalid" "compose configuration is invalid"
+if grep -q "FAKE-LEAKED-VALUE" <<<"$OUT"; then bad "deploy output does not quote the env file"; else ok "deploy output does not quote the env file"; fi
+assert_eq "nothing started" "$(count_log '^UP ')" 0
+assert_eq "checkout restored" "$(head_sha)" "$SHA1"
+STUB_REVISION="$SHA2" run_deploy deploy "$SHA2" "$GOOD1" "$FE1"
+touch "$T/stub/has_volume"
+STUB_REVISION="$SHA3" run_deploy deploy "$SHA3" "$GOOD2" "$FE2"
+: > "$T/stub/log"; before="$(cat "$T/state/state")"
+STUB_ENV_UNPARSABLE=1 run_deploy rollback
+assert_eq "rollback refused (exit 1)" "$RC" 1
+if grep -q "FAKE-LEAKED-VALUE" <<<"$OUT"; then bad "rollback output does not quote the env file"; else ok "rollback output does not quote the env file"; fi
+assert_eq "rollback started nothing" "$(count_log '^UP ')" 0
+assert_eq "rollback left the checkout alone" "$(head_sha)" "$SHA3"
+assert_eq "rollback left the state alone" "$(cat "$T/state/state")" "$before"
+
+echo "== 11. the SSH session disappears mid-run: the deploy still finishes, and a failing one still rolls back"
+make_fixture
+STUB_REVISION="$SHA2" run_deploy deploy "$SHA2" "$GOOD1" "$FE1"
+touch "$T/stub/has_volume"; : > "$T/stub/log"; before="$(cat "$T/state/state")"
+STUB_REVISION="$SHA3" run_deploy_disconnected deploy "$SHA3" "$BAD" "$FE2"
+assert_eq "bad deploy without a reader: exit 10" "$RC" 10
+assert_log "bad deploy without a reader: rolled back to the good digest" "^UP flags=\[.*--no-deps.* BACKEND_IMAGE=$BASE/backend@$GOOD1"
+assert_eq "bad deploy without a reader: the good backend is what runs" "$(cat "$T/stub/running_backend")" "$BASE/backend@$GOOD1"
+assert_eq "bad deploy without a reader: checkout moved back" "$(head_sha)" "$SHA2"
+assert_eq "bad deploy without a reader: state unchanged" "$(cat "$T/state/state")" "$before"
+if grep -q "rolled back to $SHA2" "$T/state/deploy.log" 2>/dev/null; then ok "the host keeps the output nobody received"; else bad "the host keeps the output nobody received (no such line in deploy.log)"; fi
+STUB_REVISION="$SHA3" run_deploy_disconnected deploy "$SHA3" "$GOOD2" "$FE2"
+assert_eq "good deploy without a reader: exit 0" "$RC" 0
+assert_eq "good deploy without a reader: recorded" "$(state_val CURRENT_SHA)" "$SHA3"
+assert_eq "good deploy without a reader: the new backend is what runs" "$(cat "$T/stub/running_backend")" "$BASE/backend@$GOOD2"
+
+echo "== 12. two runs at once (real flock): the second is refused and changes nothing"
+make_fixture
+rm -f "$T/stubbin/flock"
+if ! command -v flock >/dev/null 2>&1; then
+  bad "real flock is not installed; concurrency was not tested"
+else
+  touch "$T/stub/hold_up"
+  ( STUB_REVISION="$SHA2" run_deploy deploy "$SHA2" "$GOOD1" "$FE1"; echo "$RC" > "$T/first.rc" ) &
+  n=0; while ! grep -qE '^docker compose .* up -d' "$T/stub/log" && [ "$n" -lt 200 ]; do sleep 0.1; n=$((n + 1)); done
+  STUB_REVISION="$SHA3" run_deploy deploy "$SHA3" "$GOOD2" "$FE2"
+  assert_eq "second deploy refused while the first holds the lock" "$RC" 1
+  assert_out "says another run is active" "already running"
+  run_deploy rollback
+  assert_eq "rollback refused while the first holds the lock" "$RC" 1
+  assert_eq "the refused runs did not move the checkout" "$(head_sha)" "$SHA2"
+  rm -f "$T/stub/hold_up"; wait
+  assert_eq "first deploy finished normally" "$(cat "$T/first.rc" 2>/dev/null)" 0
+  assert_eq "only the first deploy started anything" "$(count_log '^UP ')" 1
+  assert_eq "state is the first deploy's" "$(state_val CURRENT_SHA)" "$SHA2"
+  STUB_REVISION="$SHA3" run_deploy deploy "$SHA3" "$GOOD2" "$FE2"
+  assert_eq "the lock is free again afterwards" "$RC" 0
+fi
 
 echo
 echo "passed: $pass, failed: $fail"
