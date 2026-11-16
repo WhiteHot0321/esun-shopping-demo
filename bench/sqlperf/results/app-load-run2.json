@@ -1,0 +1,235 @@
+{
+  "started": "2026-11-16T20:42:16+0800",
+  "container": "esun-sqlperf-app-20751586",
+  "migrations": [
+    "V1__baseline_schema.sql",
+    "V2__member_admin.sql"
+  ],
+  "seed_seconds": 29.7,
+  "mysql": {
+    "version": "8.0.46",
+    "buffer_pool_mb": 128,
+    "isolation": "REPEATABLE-READ"
+  },
+  "host_cpus": 16,
+  "reco_ttl0": {
+    "label": "cache TTL 0s",
+    "sequential_same_key": {
+      "first_call_ms": 462.4,
+      "rest": {
+        "n": 19,
+        "median_ms": 424.9,
+        "p95_ms": 454.6,
+        "max_ms": 454.8
+      },
+      "db": {
+        "stmt_count_per_call": 12.2,
+        "stmt_ms_per_call": 401.17,
+        "reco_agg_count_per_call": 1.0,
+        "reco_agg_ms_per_call": 399.83,
+        "container_cpu_ms_per_call": 413.69,
+        "stmt_count": 244.0,
+        "stmt_ms": 8023.4,
+        "reco_agg_count": 20.0,
+        "reco_agg_ms": 7996.6,
+        "container_cpu_ms": 8273.8,
+        "http_calls": 20
+      }
+    },
+    "burst_cold_key": {
+      "callers": 32,
+      "latency": {
+        "n": 32,
+        "median_ms": 1455.7,
+        "p95_ms": 2178.9,
+        "max_ms": 2567.1
+      },
+      "db": {
+        "stmt_count_per_call": 12.0,
+        "stmt_ms_per_call": 681.01,
+        "reco_agg_count_per_call": 2.0,
+        "reco_agg_ms_per_call": 679.46,
+        "container_cpu_ms_per_call": 682.94,
+        "stmt_count": 384.0,
+        "stmt_ms": 21792.4,
+        "reco_agg_count": 64.0,
+        "reco_agg_ms": 21742.6,
+        "container_cpu_ms": 21854.1,
+        "http_calls": 32
+      }
+    },
+    "distinct_keys_all_miss": {
+      "latency": {
+        "n": 50,
+        "median_ms": 31.0,
+        "p95_ms": 360.8,
+        "max_ms": 402.2
+      },
+      "db": {
+        "stmt_count_per_call": 11.12,
+        "stmt_ms_per_call": 45.43,
+        "reco_agg_count_per_call": 1.12,
+        "reco_agg_ms_per_call": 44.33,
+        "container_cpu_ms_per_call": 46.78,
+        "stmt_count": 556.0,
+        "stmt_ms": 2271.3,
+        "reco_agg_count": 56.0,
+        "reco_agg_ms": 2216.3,
+        "container_cpu_ms": 2339.2,
+        "http_calls": 50
+      }
+    }
+  },
+  "reco_ttl30": {
+    "label": "cache TTL 30s",
+    "sequential_same_key": {
+      "first_call_ms": 456.8,
+      "rest": {
+        "n": 19,
+        "median_ms": 15.7,
+        "p95_ms": 27.0,
+        "max_ms": 27.3
+      },
+      "db": {
+        "stmt_count_per_call": 1.75,
+        "stmt_ms_per_call": 21.57,
+        "reco_agg_count_per_call": 0.05,
+        "reco_agg_ms_per_call": 21.41,
+        "container_cpu_ms_per_call": 24.24,
+        "stmt_count": 35.0,
+        "stmt_ms": 431.5,
+        "reco_agg_count": 1.0,
+        "reco_agg_ms": 428.3,
+        "container_cpu_ms": 484.8,
+        "http_calls": 20
+      }
+    },
+    "burst_cold_key": {
+      "callers": 32,
+      "latency": {
+        "n": 32,
+        "median_ms": 353.5,
+        "p95_ms": 355.0,
+        "max_ms": 355.2
+      },
+      "db": {
+        "stmt_count_per_call": 0.38,
+        "stmt_ms_per_call": 10.41,
+        "reco_agg_count_per_call": 0.06,
+        "reco_agg_ms_per_call": 10.37,
+        "container_cpu_ms_per_call": 12.01,
+        "stmt_count": 12.0,
+        "stmt_ms": 333.1,
+        "reco_agg_count": 2.0,
+        "reco_agg_ms": 331.8,
+        "container_cpu_ms": 384.2,
+        "http_calls": 32
+      }
+    },
+    "distinct_keys_all_miss": {
+      "latency": {
+        "n": 50,
+        "median_ms": 30.6,
+        "p95_ms": 352.3,
+        "max_ms": 373.2
+      },
+      "db": {
+        "stmt_count_per_call": 11.12,
+        "stmt_ms_per_call": 42.2,
+        "reco_agg_count_per_call": 1.12,
+        "reco_agg_ms_per_call": 41.17,
+        "container_cpu_ms_per_call": 43.73,
+        "stmt_count": 556.0,
+        "stmt_ms": 2109.8,
+        "reco_agg_count": 56.0,
+        "reco_agg_ms": 2058.4,
+        "container_cpu_ms": 2186.4,
+        "http_calls": 50
+      }
+    }
+  },
+  "orders": [
+    {
+      "concurrency": 8,
+      "orders": 200,
+      "status_codes": {
+        "200": 200
+      },
+      "wall_s": 4.79,
+      "throughput_per_s": 41.7,
+      "client_latency": {
+        "n": 200,
+        "median_ms": 190.7,
+        "p95_ms": 218.4,
+        "max_ms": 243.5
+      },
+      "hikari": {
+        "pool_max": 10.0,
+        "pending_peak_sampled": 0.0,
+        "active_peak_sampled": 8.0,
+        "samples": 98,
+        "acquire_count": 400.0,
+        "acquire_mean_ms": 0.012,
+        "acquire_max_ms_window": 1.154,
+        "usage_count": 400.0,
+        "usage_mean_ms": 85.465,
+        "usage_max_ms_window": 438.0
+      },
+      "innodb_row_lock": {
+        "waits": 199,
+        "wait_time_ms": 27805,
+        "current_waits_after": 0
+      },
+      "rw_transactions": {
+        "count": 400.0,
+        "total_ms": 33874.07,
+        "min_ms": 0.02,
+        "avg_ms": 84.69,
+        "max_ms": 224.44
+      }
+    },
+    {
+      "concurrency": 32,
+      "orders": 200,
+      "status_codes": {
+        "200": 200
+      },
+      "wall_s": 4.48,
+      "throughput_per_s": 44.6,
+      "client_latency": {
+        "n": 200,
+        "median_ms": 703.7,
+        "p95_ms": 756.7,
+        "max_ms": 768.1
+      },
+      "hikari": {
+        "pool_max": 10.0,
+        "pending_peak_sampled": 21.0,
+        "active_peak_sampled": 10.0,
+        "samples": 97,
+        "acquire_count": 400.0,
+        "acquire_mean_ms": 215.852,
+        "acquire_max_ms_window": 493.367,
+        "usage_count": 400.0,
+        "usage_mean_ms": 108.865,
+        "usage_max_ms_window": 438.0
+      },
+      "innodb_row_lock": {
+        "waits": 199,
+        "wait_time_ms": 37587,
+        "current_waits_after": 0
+      },
+      "rw_transactions": {
+        "count": 400.0,
+        "total_ms": 43236.76,
+        "min_ms": 0.02,
+        "avg_ms": 108.09,
+        "max_ms": 289.44
+      }
+    }
+  ],
+  "stock_after": {
+    "P00001": 999580,
+    "P00002": 999580
+  }
+}

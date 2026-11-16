@@ -1,0 +1,247 @@
+{
+  "started": "2026-11-16T20:39:55+0800",
+  "container": "esun-sqlperf-app-62c13feb",
+  "migrations": [
+    "V1__baseline_schema.sql",
+    "V2__member_admin.sql"
+  ],
+  "seed_seconds": 25.0,
+  "mysql": {
+    "version": "8.0.46",
+    "buffer_pool_mb": 128,
+    "isolation": "REPEATABLE-READ"
+  },
+  "host_cpus": 16,
+  "reco_ttl0": {
+    "label": "cache TTL 0s",
+    "sequential_same_key": {
+      "first_call_ms": 597.9,
+      "rest": {
+        "n": 19,
+        "median_ms": 854.1,
+        "p95_ms": 1402.8,
+        "max_ms": 1500.4
+      },
+      "db": {
+        "stmt_count_per_call": 12.4,
+        "stmt_ms_per_call": 898.73,
+        "stmt_cpu_ms_per_call": 0.0,
+        "reco_agg_count_per_call": 1.0,
+        "reco_agg_ms_per_call": 896.81,
+        "reco_agg_cpu_ms_per_call": 0.0,
+        "stmt_count": 248.0,
+        "stmt_ms": 17974.5,
+        "stmt_cpu_ms": 0.0,
+        "reco_agg_count": 20.0,
+        "reco_agg_ms": 17936.2,
+        "reco_agg_cpu_ms": 0.0,
+        "http_calls": 20
+      }
+    },
+    "burst_cold_key": {
+      "callers": 32,
+      "latency": {
+        "n": 32,
+        "median_ms": 1919.0,
+        "p95_ms": 2795.1,
+        "max_ms": 3237.9
+      },
+      "db": {
+        "stmt_count_per_call": 12.0,
+        "stmt_ms_per_call": 869.19,
+        "stmt_cpu_ms_per_call": 0.0,
+        "reco_agg_count_per_call": 2.0,
+        "reco_agg_ms_per_call": 867.13,
+        "reco_agg_cpu_ms_per_call": 0.0,
+        "stmt_count": 384.0,
+        "stmt_ms": 27814.2,
+        "stmt_cpu_ms": 0.0,
+        "reco_agg_count": 64.0,
+        "reco_agg_ms": 27748.3,
+        "reco_agg_cpu_ms": 0.0,
+        "http_calls": 32
+      }
+    },
+    "distinct_keys_all_miss": {
+      "latency": {
+        "n": 50,
+        "median_ms": 30.4,
+        "p95_ms": 413.3,
+        "max_ms": 450.1
+      },
+      "db": {
+        "stmt_count_per_call": 11.06,
+        "stmt_ms_per_call": 30.41,
+        "stmt_cpu_ms_per_call": 0.0,
+        "reco_agg_count_per_call": 1.06,
+        "reco_agg_ms_per_call": 29.03,
+        "reco_agg_cpu_ms_per_call": 0.0,
+        "stmt_count": 553.0,
+        "stmt_ms": 1520.5,
+        "stmt_cpu_ms": 0.0,
+        "reco_agg_count": 53.0,
+        "reco_agg_ms": 1451.7,
+        "reco_agg_cpu_ms": 0.0,
+        "http_calls": 50
+      }
+    }
+  },
+  "reco_ttl30": {
+    "label": "cache TTL 30s",
+    "sequential_same_key": {
+      "first_call_ms": 574.6,
+      "rest": {
+        "n": 19,
+        "median_ms": 14.3,
+        "p95_ms": 16.6,
+        "max_ms": 19.3
+      },
+      "db": {
+        "stmt_count_per_call": 1.95,
+        "stmt_ms_per_call": 28.29,
+        "stmt_cpu_ms_per_call": 0.0,
+        "reco_agg_count_per_call": 0.05,
+        "reco_agg_ms_per_call": 28.12,
+        "reco_agg_cpu_ms_per_call": 0.0,
+        "stmt_count": 39.0,
+        "stmt_ms": 565.8,
+        "stmt_cpu_ms": 0.0,
+        "reco_agg_count": 1.0,
+        "reco_agg_ms": 562.5,
+        "reco_agg_cpu_ms": 0.0,
+        "http_calls": 20
+      }
+    },
+    "burst_cold_key": {
+      "callers": 32,
+      "latency": {
+        "n": 32,
+        "median_ms": 322.6,
+        "p95_ms": 324.2,
+        "max_ms": 325.0
+      },
+      "db": {
+        "stmt_count_per_call": 0.38,
+        "stmt_ms_per_call": 9.51,
+        "stmt_cpu_ms_per_call": 0.0,
+        "reco_agg_count_per_call": 0.06,
+        "reco_agg_ms_per_call": 9.47,
+        "reco_agg_cpu_ms_per_call": 0.0,
+        "stmt_count": 12.0,
+        "stmt_ms": 304.4,
+        "stmt_cpu_ms": 0.0,
+        "reco_agg_count": 2.0,
+        "reco_agg_ms": 303.0,
+        "reco_agg_cpu_ms": 0.0,
+        "http_calls": 32
+      }
+    },
+    "distinct_keys_all_miss": {
+      "latency": {
+        "n": 50,
+        "median_ms": 30.6,
+        "p95_ms": 335.1,
+        "max_ms": 384.6
+      },
+      "db": {
+        "stmt_count_per_call": 11.06,
+        "stmt_ms_per_call": 24.36,
+        "stmt_cpu_ms_per_call": 0.0,
+        "reco_agg_count_per_call": 1.06,
+        "reco_agg_ms_per_call": 23.2,
+        "reco_agg_cpu_ms_per_call": 0.0,
+        "stmt_count": 553.0,
+        "stmt_ms": 1218.0,
+        "stmt_cpu_ms": 0.0,
+        "reco_agg_count": 53.0,
+        "reco_agg_ms": 1159.9,
+        "reco_agg_cpu_ms": 0.0,
+        "http_calls": 50
+      }
+    }
+  },
+  "orders": [
+    {
+      "concurrency": 8,
+      "orders": 200,
+      "status_codes": {
+        "200": 200
+      },
+      "wall_s": 5.24,
+      "throughput_per_s": 38.2,
+      "client_latency": {
+        "n": 200,
+        "median_ms": 207.3,
+        "p95_ms": 261.8,
+        "max_ms": 286.3
+      },
+      "hikari": {
+        "pool_max": 10.0,
+        "pending_peak_sampled": 0.0,
+        "active_peak_sampled": 8.0,
+        "samples": 105,
+        "acquire_count": 400.0,
+        "acquire_mean_ms": 0.015,
+        "acquire_max_ms_window": 1.191,
+        "usage_count": 400.0,
+        "usage_mean_ms": 95.465,
+        "usage_max_ms_window": 570.0
+      },
+      "innodb_row_lock": {
+        "waits": 199,
+        "wait_time_ms": 31128,
+        "current_waits_after": 0
+      },
+      "rw_transactions": {
+        "count": 400.0,
+        "total_ms": 37833.75,
+        "min_ms": 0.02,
+        "avg_ms": 94.58,
+        "max_ms": 271.79
+      }
+    },
+    {
+      "concurrency": 32,
+      "orders": 200,
+      "status_codes": {
+        "200": 200
+      },
+      "wall_s": 5.3,
+      "throughput_per_s": 37.7,
+      "client_latency": {
+        "n": 200,
+        "median_ms": 810.3,
+        "p95_ms": 1144.5,
+        "max_ms": 1359.9
+      },
+      "hikari": {
+        "pool_max": 10.0,
+        "pending_peak_sampled": 22.0,
+        "active_peak_sampled": 10.0,
+        "samples": 118,
+        "acquire_count": 400.0,
+        "acquire_mean_ms": 260.592,
+        "acquire_max_ms_window": 801.864,
+        "usage_count": 400.0,
+        "usage_mean_ms": 129.237,
+        "usage_max_ms_window": 624.0
+      },
+      "innodb_row_lock": {
+        "waits": 199,
+        "wait_time_ms": 44925,
+        "current_waits_after": 0
+      },
+      "rw_transactions": {
+        "count": 400.0,
+        "total_ms": 51383.45,
+        "min_ms": 0.02,
+        "avg_ms": 128.46,
+        "max_ms": 621.75
+      }
+    }
+  ],
+  "stock_after": {
+    "P00001": 999580,
+    "P00002": 999580
+  }
+}
