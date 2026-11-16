@@ -1,9 +1,11 @@
 # Verified project state
 
-Updated: 2026-11-16 (Phase 3.3 closeout work (PR #19 merged, #17/#18/#20/#21 open); Phase 4.#3 M0 merged via PR #14)
+Updated: 2026-11-16 (Phase 3.3 closeout PRs #17-#22 all merged into advanced-v2; Phase 3.3 still not complete); Phase 4.#3 M0 merged via PR #14
 Baseline: advanced-v2 @ becec89 (merge of PR #14)
 
-## Phase 3.3 closeout without external resources — 2026-11-16 (five branches off advanced-v2 `cd04e78`, PRs #17-#21; only #19 (the #21 work) is merged, the other four are open and not independently reviewed)
+## Phase 3.3 closeout without external resources — 2026-11-16 (all six PRs merged into advanced-v2: #17 `b4d341f`, #18 `b1c2152`, #19 `f514be3`, #20 `abda196`, #21 `10d714c`, #22 `2075e46`)
+
+**Review status:** PR #17 (ECPay) has an independent review that passed on reviewed head `552346c`, whose author identity is still to be confirmed against AGENTS.md's cross-agent requirement. PR #18 has only the Claude-side review (`docs/tasks/082`); the Codex prompt B is unrun. PRs #19, #20 and #21 have author self-review only. Merged on green CI; nothing deployed or verified on a real host or real ECPay stage payment.
 
 Each of #18-#22 was handled in its own worktree by a model-matched agent (Notion's model labels: Fable for #18/#21/#22, Opus for #19/#20), covering only what needs no VM, off-host storage, ECPay stage values or alert destination. **None of it is merged or independently reviewed except #18's review itself; CI had not run on any of it when this was written.** No VM, no real ECPay callback and no real notification delivery exist, so Phase 3.3 is still **not complete**.
 
@@ -13,7 +15,7 @@ Each of #18-#22 was handled in its own worktree by a model-matched agent (Notion
 - **#19 `feature/phase33-19-obs` @ `b70141f`:** `shop_llm_ollama_up` gauge and `OllamaUnavailable` alert (5 min, warning), opt-in Alertmanager webhook via a secret file (`docker-compose.alerting.yml`, no URL committed, refuses to start when unset), `HighP95Latency` excludes `/api/support`, boundary-timing tests for the existing rules. Backend **327/327** (`-Djacoco.skip=true`, so no coverage gate), promtool 23 rule tests, `monitoring-config.test.sh` 13/13, a local delivery check with a throwaway receiver. Not done: real destination and delivery, Linux secret-file permissions, live Ollama outage firing, Grafana panel, CI wiring of the new script. Evidence: `docs/tasks/080-phase33-19-observability-closeout.md`.
 - **#20 `feature/phase33-20-sqlperf` @ `44cccb1`:** no production code changed. With the 30 s cache, 32 concurrent callers on a cold product cost 2 heavy queries instead of 64 (~0.38 s vs ~21.9 s MySQL CPU), hits ~14-16 ms; 50 distinct products still miss at ~31 ms each, so rate limiting remains the open complement. Ordering is bounded by the hot product's row lock (~40 orders/s whatever the client count, pool 10; lock hold time is an estimate); no lost updates. `PublicRecommendationCacheTest` 6 -> 10, 31/31 with related classes, five mutations each turned the suite red; full backend suite not run. Evidence: `docs/tasks/081-phase33-20-sqlperf-closeout.md`.
 
-Owner decisions pending: #18 M1/M4, #22 two Low items, #20 rate limiting, #21 Spring Boot 4 migration before 2026-12-14. Notion Tasks (summary and last-verified date) and Log were updated; stages were left unchanged.
+Owner decisions pending: #18 M1/M4, #22 two Low items, #20 rate limiting, #21 Spring Boot 4 migration before 2026-12-14. Notion Tasks (summary, evidence and last-verified date) and Log (merge entries for #19 and #22, then #17, #18, #20, #21) were updated; stages were left unchanged.
 
 ## Phase 4.#3 M0 member admin + token revocation — PASS 2026-10-18, merged into advanced-v2 2026-10-22 as `becec89` (PR #14)
 
