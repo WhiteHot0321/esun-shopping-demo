@@ -131,6 +131,13 @@
             <artifactId>spring-boot-starter-actuator-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- TestRestTemplate (spring-boot-resttestclient) needs RestTemplateBuilder from spring-boot-restclient;
+             without it the context fails at runtime with NoClassDefFoundError, not at compile time. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-restclient</artifactId>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers-junit-jupiter</artifactId>
