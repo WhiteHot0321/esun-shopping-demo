@@ -2,8 +2,8 @@ package com.esun.shop.repository;
 
 import com.esun.shop.llm.EmbeddingException;
 import com.esun.shop.model.DocEmbedding;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
@@ -43,7 +43,7 @@ public class DocEmbeddingRepository {
         String json;
         try {
             json = objectMapper.writeValueAsString(embedding);
-        } catch (JsonProcessingException ex) {
+        } catch (JacksonException ex) {
             throw new EmbeddingException("Embedding 序列化失敗", ex);
         }
         String sql = "INSERT INTO doc_embedding (source_type, source_id, content, embedding) " +
@@ -64,7 +64,7 @@ public class DocEmbeddingRepository {
         doc.setContent(rs.getString("content"));
         try {
             doc.setEmbedding(objectMapper.readValue(rs.getString("embedding"), float[].class));
-        } catch (JsonProcessingException ex) {
+        } catch (JacksonException ex) {
             throw new EmbeddingException("Embedding 反序列化失敗", ex);
         }
         doc.setUpdatedAt(rs.getTimestamp("updated_at").toLocalDateTime());
