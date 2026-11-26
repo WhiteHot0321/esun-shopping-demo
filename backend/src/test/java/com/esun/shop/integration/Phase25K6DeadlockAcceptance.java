@@ -1,9 +1,9 @@
 package com.esun.shop.integration;
 
 import com.esun.shop.repository.ProductRepository;
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import org.junit.jupiter.api.AfterEach;
-import org.springframework.boot.test.mock.mockito.SpyBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.context.TestPropertySource;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -16,7 +16,7 @@ import static org.mockito.Mockito.doAnswer;
 /** Same k6 workload with a test-only external transaction producing a real cycle. */
 @TestPropertySource(properties = "stock.redis.enabled=false")
 class Phase25K6DeadlockAcceptance extends Phase25K6Acceptance {
-    @SpyBean ProductRepository products;
+    @MockitoSpyBean ProductRepository products;
     private final ExecutorService pool = Executors.newSingleThreadExecutor();
     private final AtomicInteger realDeadlocks = new AtomicInteger();
     private Future<?> opponent;

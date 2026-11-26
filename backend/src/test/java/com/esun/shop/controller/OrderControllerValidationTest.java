@@ -2,12 +2,12 @@ package com.esun.shop.controller;
 
 import com.esun.shop.security.JwtService;
 import com.esun.shop.service.OrderService;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Map;
@@ -28,7 +28,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *
  * {@code addFilters = false}: {@code @WebMvcTest} auto-includes any {@code Filter} bean
  * (JwtAuthFilter included) in its slice and applies it to every request by default, which
- * would turn every case here into a 401 before validation ever runs. {@code @MockBean
+ * would turn every case here into a 401 before validation ever runs. {@code @MockitoBean
  * JwtService} additionally satisfies JwtAuthFilter's constructor dependency so the slice's
  * context loads at all. Auth itself is exercised separately in {@code JwtAuthFilterTest};
  * this class stays focused on Bean Validation only.
@@ -44,13 +44,13 @@ class OrderControllerValidationTest {
     @Autowired
     private ObjectMapper objectMapper;
 
-    @MockBean
+    @MockitoBean
     private OrderService orderService;
 
-    @MockBean
+    @MockitoBean
     private com.esun.shop.service.OrderStatusService orderStatusService;
 
-    @MockBean
+    @MockitoBean
     private JwtService jwtService;
 
     @Test

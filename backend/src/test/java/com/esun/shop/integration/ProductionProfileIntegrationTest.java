@@ -4,9 +4,10 @@ import com.esun.shop.model.Member;
 import com.esun.shop.security.JwtService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.actuate.observability.AutoConfigureObservability;
+import org.springframework.boot.micrometer.metrics.test.autoconfigure.AutoConfigureMetrics;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.boot.resttestclient.TestRestTemplate;
+import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.boot.test.web.server.LocalManagementPort;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.core.env.Environment;
@@ -25,8 +26,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  * starts, that health lives only on the separate management port (and is readable without a token there), and that
  * the main port neither serves health nor the API docs.
  */
+@AutoConfigureTestRestTemplate
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@AutoConfigureObservability // tests disable metrics export by default; the prod scrape endpoint is what is under test
+@AutoConfigureMetrics // tests disable metrics export by default; the prod scrape endpoint is what is under test
 @ActiveProfiles("prod")
 @TestPropertySource(properties = {
         "MANAGEMENT_PORT=0", // resolved by application-prod.yml; proves the prod profile itself moves health off the main port

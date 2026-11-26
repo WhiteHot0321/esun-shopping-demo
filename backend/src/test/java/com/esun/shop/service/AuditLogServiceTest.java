@@ -5,7 +5,7 @@ import com.esun.shop.model.AuditAction;
 import com.esun.shop.model.Member;
 import com.esun.shop.repository.AuditLogRepository;
 import com.esun.shop.repository.MemberRepository;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

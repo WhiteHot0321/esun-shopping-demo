@@ -6,15 +6,15 @@ import com.esun.shop.model.ProductReview;
 import com.esun.shop.repository.ProductReviewRepository;
 import com.esun.shop.service.AuditLogService;
 import com.esun.shop.service.ProductReviewService;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.boot.test.mock.mockito.SpyBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.context.TestPropertySource;
 
 import java.util.List;
@@ -48,8 +48,8 @@ class ProductReviewAuditConcurrencyIntegrationTest extends AbstractMySqlIntegrat
     @Autowired ProductReviewService reviewService;
     @Autowired JdbcTemplate jdbc;
     @Autowired ObjectMapper mapper;
-    @SpyBean AuditLogService auditLogService;
-    @SpyBean ProductReviewRepository reviewRepository;
+    @MockitoSpyBean AuditLogService auditLogService;
+    @MockitoSpyBean ProductReviewRepository reviewRepository;
 
     @BeforeEach
     void setUpFixture() {

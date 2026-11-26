@@ -30,8 +30,8 @@ import com.esun.shop.service.PublicRecommendationCache;
 import com.esun.shop.service.RecommendationService;
 import com.esun.shop.service.ShippingAddressService;
 import com.esun.shop.service.SupportService;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springdoc.core.configuration.SpringDocConfiguration;
 import org.springdoc.core.properties.SpringDocConfigProperties;
@@ -42,8 +42,8 @@ import org.springdoc.webmvc.core.configuration.SpringDocWebMvcConfiguration;
 import org.springdoc.webmvc.ui.SwaggerConfig;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -81,21 +81,21 @@ class OpenApiDocsTest {
     @Autowired
     private ObjectMapper objectMapper;
 
-    @MockBean private AuditLogService auditLogService;
-    @MockBean private AuthService authService;
-    @MockBean private CartService cartService;
-    @MockBean private CouponService couponService;
-    @MockBean private MemberRepository memberRepository;
-    @MockBean private OrderService orderService;
-    @MockBean private OrderStatusService orderStatusService;
-    @MockBean private PaymentService paymentService;
-    @MockBean private PaymentCallbackService paymentCallbackService;
-    @MockBean private ProductService productService;
-    @MockBean private ProductReviewService productReviewService;
-    @MockBean private RecommendationService recommendationService;
-    @MockBean private PublicRecommendationCache publicRecommendationCache;
-    @MockBean private ShippingAddressService shippingAddressService;
-    @MockBean private SupportService supportService;
+    @MockitoBean private AuditLogService auditLogService;
+    @MockitoBean private AuthService authService;
+    @MockitoBean private CartService cartService;
+    @MockitoBean private CouponService couponService;
+    @MockitoBean private MemberRepository memberRepository;
+    @MockitoBean private OrderService orderService;
+    @MockitoBean private OrderStatusService orderStatusService;
+    @MockitoBean private PaymentService paymentService;
+    @MockitoBean private PaymentCallbackService paymentCallbackService;
+    @MockitoBean private ProductService productService;
+    @MockitoBean private ProductReviewService productReviewService;
+    @MockitoBean private RecommendationService recommendationService;
+    @MockitoBean private PublicRecommendationCache publicRecommendationCache;
+    @MockitoBean private ShippingAddressService shippingAddressService;
+    @MockitoBean private SupportService supportService;
 
     private JsonNode spec() throws Exception {
         String body = mockMvc.perform(get("/v3/api-docs"))
@@ -120,10 +120,10 @@ class OpenApiDocsTest {
         JsonNode paths = spec().get("paths");
 
         assertThat(paths.size()).isGreaterThanOrEqualTo(40);
-        Iterator<Map.Entry<String, JsonNode>> pathIt = paths.fields();
+        Iterator<Map.Entry<String, JsonNode>> pathIt = paths.properties().iterator();
         while (pathIt.hasNext()) {
             Map.Entry<String, JsonNode> path = pathIt.next();
-            Iterator<Map.Entry<String, JsonNode>> opIt = path.getValue().fields();
+            Iterator<Map.Entry<String, JsonNode>> opIt = path.getValue().properties().iterator();
             while (opIt.hasNext()) {
                 Map.Entry<String, JsonNode> op = opIt.next();
                 assertThat(op.getValue().path("summary").asText())
@@ -140,10 +140,10 @@ class OpenApiDocsTest {
         int publicOps = 0;
         int protectedOps = 0;
 
-        Iterator<Map.Entry<String, JsonNode>> pathIt = paths.fields();
+        Iterator<Map.Entry<String, JsonNode>> pathIt = paths.properties().iterator();
         while (pathIt.hasNext()) {
             Map.Entry<String, JsonNode> path = pathIt.next();
-            Iterator<Map.Entry<String, JsonNode>> opIt = path.getValue().fields();
+            Iterator<Map.Entry<String, JsonNode>> opIt = path.getValue().properties().iterator();
             while (opIt.hasNext()) {
                 Map.Entry<String, JsonNode> op = opIt.next();
                 boolean isPublic = JwtAuthFilter.isPublicRoute(op.getKey().toUpperCase(), path.getKey());
