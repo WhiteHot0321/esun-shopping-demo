@@ -35,15 +35,17 @@ vulnerabilities:
       SSE (no SseEmitter, ResponseBodyEmitter, text/event-stream or webflux) and has no template/view layer. No 6.2.x fix
       exists (fixed only in 7.0.9). owner: WhiteHot0321; tracking: docs/tasks/083
     expired_at: 2026-12-14
-  # New on 2026-11-16: Caddy v2.11.9 (the newest release and the current caddy:2-alpine) is built with x/net 0.60.0; the fix
-  # is in 0.62.0. Short expiry: remove as soon as a rebuilt or newer Caddy image makes the gate pass without it.
+  # New on 2026-11-16, renewed 2026-11-26 (docs/tasks/087): Caddy v2.11.9 (the newest release, published 2026-11-05, and the
+  # current caddy:2-alpine) is built with x/net 0.60.0; the fix is in 0.62.0. Re-checked 2026-11-26 with a `--pull` rebuild:
+  # still v2.11.9 / x/net 0.60.0 and still reported. Caddy's master branch already requires x/net 0.62.0 but no release carries
+  # it yet. Short expiry: remove as soon as a newer Caddy image makes the gate pass without it.
   - id: CVE-2026-78661
     paths: ["usr/bin/caddy"]
     statement: >-
-      NOT REACHABLE in this configuration; availability only if it were. Quadratic CPU/allocation in the golang.org/x/net/html
+      NOT REACHABLE in this configuration; availability only if it were (re-checked 2026-11-26). Quadratic CPU/allocation in the golang.org/x/net/html
       parser on crafted HTML. frontend/Caddyfile adapts to the handlers encode, headers, rewrite, vars, reverse_proxy and
       file_server only (`caddy adapt`); these stream request and response bodies and none parses HTML (no templates, no
       file_server browse). The parser is linked into the binary, but which Caddy module calls it was not identified, so
       re-assess if any other handler is added. Container is memory-limited with restart: unless-stopped.
-      owner: WhiteHot0321; tracking: docs/tasks/083
-    expired_at: 2026-11-30
+      owner: WhiteHot0321; tracking: docs/tasks/087
+    expired_at: 2026-12-14
