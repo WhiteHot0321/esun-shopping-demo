@@ -2,44 +2,54 @@ package com.esun.shop.monitoring;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.LoggerContext;
+import ch.qos.logback.classic.util.LogbackMDCAdapter;
+import java.lang.reflect.Constructor;
 import java.util.Arrays;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.logging.LoggingInitializationContext;
+import ch.qos.logback.classic.joran.JoranConfigurator;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
-import org.springframework.context.annotation.Configuration;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.mock.env.MockEnvironment;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Task 088 B-7: {@code logback-spring.xml} had no test coverage. The prod profile must emit one JSON object per line
  * (logstash-logback-encoder is still Jackson 2 and must keep working beside Boot 4's Jackson 3).
- * Only a tiny context is started so the real logback-spring.xml is applied with the {@code prod} profile and no
- * database or Redis is needed.
+ *
+ * <p>The real file is applied to a private {@link LoggerContext} with the {@code prod} profile active. Booting a Spring
+ * context instead would not work in the full suite: Boot skips re-initialising logging while an earlier cached context
+ * still owns the JVM's logging system.
  */
-@SpringBootTest(classes = ProdJsonLoggingTest.NoBeans.class, webEnvironment = SpringBootTest.WebEnvironment.NONE,
-        properties = "spring.profiles.active=prod")
 @ExtendWith(OutputCaptureExtension.class)
 class ProdJsonLoggingTest {
 
-    private static final Logger LOG = LoggerFactory.getLogger("prod.json.logging.test");
-
-    @Configuration
-    static class NoBeans {
-    }
-
     @Test
-    void prodProfileWritesOneJsonObjectPerLineWithMdcCorrelationIdAndStackTrace(CapturedOutput output) {
-        MDC.put("correlationId", "cid-088");
+    void prodProfileWritesOneJsonObjectPerLineWithMdcCorrelationIdAndStackTrace(CapturedOutput output) throws Exception {
+        LoggerContext context = new LoggerContext();
+        context.setMDCAdapter(new LogbackMDCAdapter());
         try {
-            LOG.info("json-log-probe");
-            LOG.error("json-log-failure", new IllegalStateException("boom-088"));
+            MockEnvironment environment = new MockEnvironment().withProperty("spring.profiles.active", "prod");
+            environment.setActiveProfiles("prod");
+            // Boot's configurator (the one that understands <springProfile>) is package-private, hence reflection.
+            Constructor<?> ctor = Class.forName("org.springframework.boot.logging.logback.SpringBootJoranConfigurator")
+                    .getDeclaredConstructor(LoggingInitializationContext.class);
+            ctor.setAccessible(true);
+            JoranConfigurator configurator = (JoranConfigurator) ctor.newInstance(new LoggingInitializationContext(environment));
+            configurator.setContext(context);
+            configurator.doConfigure(new ClassPathResource("logback-spring.xml").getURL());
+
+            Logger log = context.getLogger("prod.json.logging.test");
+            context.getMDCAdapter().put("correlationId", "cid-088");
+            log.info("json-log-probe");
+            log.error("json-log-failure", new IllegalStateException("boom-088"));
         } finally {
-            MDC.remove("correlationId");
+            context.stop();
         }
 
         JsonMapper mapper = JsonMapper.builder().build();
