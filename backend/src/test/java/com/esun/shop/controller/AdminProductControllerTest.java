@@ -8,9 +8,9 @@ import com.esun.shop.security.JwtService;
 import com.esun.shop.service.ProductService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -34,8 +34,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc(addFilters = false)
 class AdminProductControllerTest {
     @Autowired private MockMvc mockMvc;
-    @MockBean private ProductService productService;
-    @MockBean private JwtService jwtService;
+    @MockitoBean private ProductService productService;
+    @MockitoBean private JwtService jwtService;
 
     @Test
     void sellerCreationUsesAuthenticatedPrincipalRatherThanClientOwnership() throws Exception {

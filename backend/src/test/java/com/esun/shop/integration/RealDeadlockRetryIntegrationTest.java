@@ -9,7 +9,7 @@ import com.esun.shop.service.OrderService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.test.mock.mockito.SpyBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.TestPropertySource;
 import java.sql.Connection;
@@ -27,7 +27,7 @@ import static org.mockito.Mockito.doAnswer;
 class RealDeadlockRetryIntegrationTest extends AbstractMySqlIntegrationTest {
     @Autowired OrderService orders;
     @Autowired JdbcTemplate db;
-    @SpyBean ProductRepository products;
+    @MockitoSpyBean ProductRepository products;
     @Value("${order.retry.max-attempts:3}") int attempts;
 
     record Pair(String x, String y, String ballastPrefix, CountDownLatch yLocked,

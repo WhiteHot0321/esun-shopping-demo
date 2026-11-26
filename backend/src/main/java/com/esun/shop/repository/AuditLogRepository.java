@@ -1,9 +1,9 @@
 package com.esun.shop.repository;
 
 import com.esun.shop.dto.AuditLogEntry;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -61,7 +61,7 @@ public class AuditLogRepository {
         if (json == null) return null;
         try {
             return objectMapper.readTree(json);
-        } catch (JsonProcessingException ex) {
+        } catch (JacksonException ex) {
             throw new IllegalStateException("audit_log 內容不是合法 JSON", ex);
         }
     }

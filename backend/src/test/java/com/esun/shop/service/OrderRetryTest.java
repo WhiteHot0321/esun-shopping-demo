@@ -9,8 +9,9 @@ import io.micrometer.core.instrument.Timer;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.boot.resttestclient.TestRestTemplate;
+import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.dao.DeadlockLoserDataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -25,16 +26,17 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
+@AutoConfigureTestRestTemplate
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = "stock.redis.enabled=false")
 class OrderRetryTest {
     @Autowired
     private OrderService orderService;
 
-    @MockBean
+    @MockitoBean
     private OrderTransactionService transactionService;
 
-    @MockBean
+    @MockitoBean
     private StockCacheService stockCacheService;
 
     @Autowired
@@ -47,7 +49,7 @@ class OrderRetryTest {
     private JwtService jwtService;
 
     // JwtAuthFilter checks the member row; this test only needs "a valid, active caller".
-    @MockBean
+    @MockitoBean
     private com.esun.shop.repository.MemberRepository memberRepository;
 
     @LocalServerPort

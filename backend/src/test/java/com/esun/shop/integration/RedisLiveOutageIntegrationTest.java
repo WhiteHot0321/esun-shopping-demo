@@ -6,11 +6,12 @@ import com.esun.shop.model.PayStatus;
 import com.esun.shop.service.OrderService;
 import com.esun.shop.service.OrderTransactionService;
 import com.esun.shop.service.StockCacheService;
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.boot.resttestclient.TestRestTemplate;
+import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -33,6 +34,7 @@ import java.util.concurrent.TimeUnit;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /** Live dependency outage; only this test's disposable Redis is paused. */
+@AutoConfigureTestRestTemplate
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestPropertySource(properties = {"stock.redis.enabled=true", "spring.data.redis.timeout=200ms",
         "spring.data.redis.connect-timeout=200ms", "stock.redis.audit-interval-ms=3600000"})

@@ -6,8 +6,8 @@ import com.esun.shop.model.AuditAction;
 import com.esun.shop.model.Member;
 import com.esun.shop.repository.AuditLogRepository;
 import com.esun.shop.repository.MemberRepository;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
@@ -84,7 +84,7 @@ public class AuditLogService {
         if (value == null) return null;
         try {
             return objectMapper.writeValueAsString(value);
-        } catch (JsonProcessingException ex) {
+        } catch (JacksonException ex) {
             throw new IllegalStateException("無法序列化稽核內容", ex);
         }
     }

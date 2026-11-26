@@ -7,7 +7,7 @@ import com.esun.shop.service.OrderService;
 import com.esun.shop.service.StockCacheService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.mock.mockito.SpyBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.TestPropertySource;
@@ -25,7 +25,7 @@ import static org.mockito.Mockito.verify;
 class RedisUnavailableOrderIntegrationTest extends AbstractMySqlIntegrationTest {
     @Autowired OrderService orders;
     @Autowired JdbcTemplate db;
-    @SpyBean StockCacheService cache;
+    @MockitoSpyBean StockCacheService cache;
 
     @Test
     void realConnectionFailureFallsBackWithoutMintingCompensationAndPreservesRollback() {

@@ -3,7 +3,7 @@ package com.esun.shop.security;
 import com.esun.shop.dto.ApiResponse;
 import com.esun.shop.model.Member;
 import com.esun.shop.repository.MemberRepository;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;

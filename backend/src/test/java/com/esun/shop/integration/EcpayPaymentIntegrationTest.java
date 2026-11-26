@@ -1,14 +1,14 @@
 package com.esun.shop.integration;
 
 import com.esun.shop.service.EcpayPaymentGateway;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -68,7 +68,7 @@ class EcpayPaymentIntegrationTest extends AbstractMySqlIntegrationTest {
         assertThat(redirect.path("actionUrl").asText())
                 .isEqualTo("https://payment-stage.ecpay.com.tw/Cashier/AioCheckOut/V5");
         Map<String, String> fields = new LinkedHashMap<>();
-        redirect.path("fields").fields().forEachRemaining(e -> fields.put(e.getKey(), e.getValue().asText()));
+        redirect.path("fields").properties().forEach(e -> fields.put(e.getKey(), e.getValue().asText()));
         assertThat(fields.get("MerchantTradeNo")).isEqualTo(data.path("merchantTradeNo").asText()).matches("E[0-9A-F]{19}");
         assertThat(fields).containsEntry("TotalAmount", "200").containsEntry("ChoosePayment", "Credit");
         assertThat(fields.get("CheckMacValue")).isEqualTo(gateway.calculateCheckMacValue(fields));
