@@ -1,4 +1,4 @@
-# 088 — Spring Boot 3.5.16 → 4.x 遷移（A 段：定位，只讀）
+# 088 — Spring Boot 3.5.16 → 4.x 遷移（A 段：定位，只讀；B 段：實作，見 §10）
 
 Date: 2026-11-26 (Asia/Taipei)。Executor: Claude Code。基準：`origin/advanced-v2` @ `c32a123`（`git fetch` 後確認與本機 HEAD 相同）。
 Scope：只讀調查。本檔以外沒有改任何檔案、沒有 commit。B 階段（實作）由 owner 確認後另開 session；C 階段由 Codex 獨立審查。
@@ -314,3 +314,65 @@ Scope：只讀調查。本檔以外沒有改任何檔案、沒有 commit。B 階
 - 本檔是 A 段全部產出；**程式碼、pom、`.trivyignore.yaml`、`docs/project-state.md` 均未改**，未 commit。
 - 需要 owner 決定三件事再開 B：（1）版本 4.1.3 還是 4.2.0；（2）Retry 走 R1（先試、不改碼）或直接 R2；（3）12/10 no-go 時是否接受第三次例外續期。
 - 暫存的探針 pom 與 jar 放在 session scratchpad，不在 repo，不需清理。
+
+## 10. B 段結果（實作）
+
+Date: 2026-11-26 (Asia/Taipei)。Executor: Claude Code（單一寫入者）。Branch: `claude/spring-boot-4-4d89e7`（自 `advanced-v2` @ `c32a123`）。
+**不 merge、未動 `advanced-v2`**；C 階段（Codex 獨立審查）另開。已決定項目全照辦：Boot **4.1.3**（Framework 7.0.11）、Retry **R1**（`spring-retry:2.0.13` + `spring-boot-starter-aspectj`，`OrderService` 零改動）、`MySQLContainer` 不換類、`TestRestTemplate` 不換 `RestTestClient`、`asText()` 不動。
+
+### Problem
+
+兩條 `spring-webmvc` CRITICAL 例外（CVE-2026-47884、-47890）2026-12-14 到期，OSS 修補只在 Framework 7.0.9，只能遷到 Boot 4。
+
+### Solution
+
+| 步驟 | 內容 |
+|---|---|
+| B-1/B-2 | pom：parent 4.1.3；刪四個版本覆寫（`testcontainers.version`、`tomcat.version`、`jackson-bom.version`、`netty.version`）；starter 改名（`webmvc`、`aspectj`）、加 `spring-boot-starter-flyway`；`spring-retry` 明寫 2.0.13；springdoc 3.2.1；TC 2.x artifact id；加 `webmvc-test`、`actuator-test` 測試 starter。main：Jackson 3 import（5 檔，`JsonProcessingException`→`JacksonException`）、`health.contributor`（3 檔）、`flyway.autoconfigure`（1 檔）。**B-1 編譯錯誤只出現在文件預測的 main 檔（Flyway 1、health 3），沒有意外檔案** |
+| B-3 | 測試：import 搬家、`JsonNode.fields()`→`properties()`（`OpenApiDocsTest` 4 處、`EcpayPaymentIntegrationTest` 1 處）、`@MockitoBean/@MockitoSpyBean`、`@AutoConfigureMetrics`、4 個含 `TestRestTemplate` 的檔案（`ExternalDependenciesHealthIntegrationTest` 內共 3 個類別）加 `@AutoConfigureTestRestTemplate` |
+| B-4 | 新增 `FlywayAutoConfigurationWiringIntegrationTest`（同檔 2 個類別各 1 case）；補測試依賴 `spring-boot-starter-restclient`（見下表） |
+| B-7 | 新增 `ProdJsonLoggingTest`（`logback-spring.xml` 原本零覆蓋）；`.trivyignore.yaml` 刪兩條 Spring 例外並更新檔頭 |
+
+### 與 A 段預測的差異（執行時才發現）
+
+| 項目 | 發現 | 處理 |
+|---|---|---|
+| `TestRestTemplate` 還缺 `spring-boot-restclient` | 加了 `@AutoConfigureTestRestTemplate` 後，執行期 `NoClassDefFoundError: org.springframework.boot.restclient.RestTemplateBuilder`（15 個測試紅，編譯不報）。A 段只列了 `spring-boot-resttestclient` | pom 加 test-scope `spring-boot-starter-restclient`；重跑 4 個類別全綠 |
+| `mvn package` 會編譯測試 | `-DskipTests` 不跳過 test-compile，B-2 的驗證改用 `-Dmaven.test.skip=true`（Dockerfile 的 `-DskipTests clean package` 在測試可編譯後不受影響） | — |
+| JSON log 測試不能起 Spring context | 第一版用 `@SpringBootTest(profile=prod)`：單跑綠，**全套中紅**（先前快取的 context 仍擁有 JVM 的 logging system，Boot 不會重新套用 `logback-spring.xml`）。改為把真正的 `logback-spring.xml` 套到私有 `LoggerContext`（`SpringBootJoranConfigurator` 是 package-private，用反射建構） | 全套 341/341 綠；測試不依賴 JVM 全域狀態 |
+| 我自己的兩次失誤（已修，記錄以免重犯） | ① 第一次改 `.trivyignore.yaml` 時 `index('vulnerabilities:')` 先命中註解範例，造成重複 key，Trivy 報 `mapping key "vulnerabilities" already defined`（當時 scan exit 1 的真因，不是漏洞）；還原後重做，下表的 scan 都是修正版。② 第一版 JSON 契約腳本的訂單請求 `requestId` 不是 UUID、帶了無效 `payStatus`，訂單 400；修正後才真正走到 200 路徑 | — |
+
+### Verification（本機，Docker 29.8.0 / Maven 3.9.14 / 本機 JDK 21，映像內為 JDK 17）
+
+| # | 驗收（§6） | 結果 |
+|---|---|---|
+| 1 | 全套 `mvn -B clean test`，不跳 JaCoCo | **341 tests / 0 fail / 0 error / 0 skip，6 分 00 秒**；`All coverage checks have been met`（`check-core-services`）。基準 083 是 322 / 6:29；**322 已過時**（`c32a123` 起已有更多測試；341 − 本分支新增 3 = 338 為推算，**未在 base 重跑**）。時間沒有變慢 |
+| 2 | 前端不受影響 | Vitest **8 files / 91 tests**；`vite build` 成功；`frontend/` 無 diff |
+| 3 | 兩映像過 Trivy 0.74.0（`--ignore-unfixed --severity HIGH,CRITICAL --exit-code 1`） | 後端 **空 ignore 檔 exit 0**（ubuntu 0、`app/app.jar` 0、`usr/bin/pebble` 0）；前端用 committed ignore exit 0（唯一發現是 Caddy CVE-2026-78661，空 ignore 時 exit 1）。方法：`docker build --pull` → `docker save` → `aquasec/trivy:0.74.0 image --input` |
+| 4 | `.trivyignore.yaml` 刪兩條、`check-trivy-expiry.sh` exit 0 | 已刪；剩 CVE-2026-78661（Caddy，2026-11-30，非本任務）；腳本 exit 0、`trivy-expiry.test.sh` 29/29；repo `trivy fs`（CI 旗標）exit 0 |
+| 5 | 負向證明 | ① **3.5.16 映像（`c32a123` 的 `backend/`）+ 空 ignore → exit 1**，列出 CVE-2026-47884、-47890（spring-webmvc 6.2.19，fixed 7.0.9）；② 同一映像 + 舊 ignore → exit 0（例外原本是 gate 變綠的唯一原因）；③ 新映像 + 還原含兩條的舊 ignore → exit 0（新映像不靠例外） |
+| 6 | `FlywayAdoptionIntegrationTest` | 通過（真 `mysql:8.0`、Flyway 12.4.0；74 s） |
+| 7 | `ProductionProfileIntegrationTest` | 6/6，含 Prometheus scrape、管理埠隔離 |
+| 8 | Flyway 接線測試 + 紅燈 | 綠燈 2/2。**紅燈 ①**（照 §4.4 字面：移除 `spring-boot-starter-flyway`）：乾淨編譯直接失敗（`FlywayAdoptionConfiguration` 的 `org.springframework.boot.flyway.autoconfigure` 不存在）；增量編譯時兩個新測試都紅（`NoClassDefFoundError: ...FlywayMigrationStrategy`）。**紅燈 ②**（模擬真正靜默：starter 在，`-DargLine=-Dspring.autoconfigure.exclude=...FlywayAutoConfiguration`）：兩個測試都紅（空庫 case 在 `getBeansOfType(Flyway)` 斷言失敗；legacy case `flyway_schema_history` 不存在 → `BadSqlGrammar`）。pom 事後已還原（`git diff` 驗證） |
+| 9 | Retry | `OrderRetryTest` 6/6、`RealDeadlockRetryIntegrationTest` 1/1（20 個併發呼叫，真的死鎖）、`RedisUnavailableOrderIntegrationTest` 1/1。**R1 成立**：`getRetryCount()` 差值 = 2、`shop.orders.lock.retry` 差值 = 2.0、`...exhausted` 在耗盡情境 = 1.0、不可重試例外只計 1 次且保留原例外。**沒有走 R2** |
+| 10 | JSON 契約差異 | 3.5.16（`c32a123` 的 jar）與 4.1.3 各起一次（各自乾淨的 `mysql:8.0` + `backend/DB` initdb，Redis 關閉），25 個請求，`sort_keys` 後 diff：**狀態碼與 body 一致**。只遮蔽 token、訂單編號、時間戳的數字內容（保留時間戳格式形狀；小數秒位數也遮蔽，因為一次 `.99` vs `.999` 是尾端 0 被省略的取樣差異，不是版本差異） |
+| 11 | `docker-compose.prod.yml` 整套本機起（隨機臨時密碼、`127.0.0.1:18088`、專案名 `b088smoke`） | `migrate` exit 0；backend healthy；管理埠 readiness `{"status":"UP"}`；Prometheus scrape 正常；Caddy 代理 `/api/products/available` 200；`/`=SPA；`/actuator/health` 經 edge 回 `text/html`（不是 actuator）；`/api/v3/api-docs` 401；backend 日誌為一行一個 JSON，OpenJDK 17.0.21。已 `down -v`，scratch 檔刪除 |
+| 12 | PR CI 六個 check、Codex C 階段 | **待 CI／C 階段（見 Next step）** |
+
+JSON 契約請求清單（皆 old==new）：商品列表、評論（空／有資料）、register、login（成功／錯誤 401）、profile、address 建立／列表、訂單建立（200）／驗證失敗（400）／列表／詳情／不存在（404）／無 token（401）、評論建立（201）、cart、malformed JSON（400）、admin login、admin 建商品與補貨、**audit-logs（含 `before`/`after` JSON 欄位，走 Jackson 3 的 repository 路徑）**、admin products／members／orders。**未涵蓋**：`/v3/api-docs` 輸出（springdoc 3 / swagger-core 3.0.0 的 spec 預期有差異，只由 `OpenApiDocsTest` 驗結構）、付款流程、優惠券、Redis 路徑、`spring.jackson.time-zone` 只間接由 `createdAt` 的格式與值驗證。
+
+§8 結案：#3 Retry 執行期相容、#4 Trivy、#5 Jackson 預設、#6 `ObjectMapper` 注入（`@WebMvcTest` 切片 67 tests 綠）、#7 Flyway 12.4.0 + MySQL 8.0、#8 Docker 29.8.0 + TC 2.0.5（`OrderServiceIntegrationTest` 4/4，40 s，無初始化錯誤）、#9 `OpenApiDocsTest` 5/5 與 `OpenApiDocsDisabledTest` 1/1、#10 `management.*` 屬性、#12 prod JSON log 均已有實測。**仍未驗證**：#2（OSS 支援結束日）、#11（`@LocalServerPort` 是否 deprecated）、#15。
+
+### Trade-offs
+
+- `jjwt-jackson` 0.12.6 與 `logstash-logback-encoder` 8.0 仍是 Jackson 2；樹中同時有 Jackson 2.21.8 與 3.1.8（Trivy 對兩者皆 0 發現）。之後 jjwt 支援 Jackson 3 再收斂。
+- 本分支沒有升到 4.2.x；4.1 線 OSS 結束日未查到，**之後仍要再升一次小版**（follow-up：4.2.x + `RestTestClient`）。
+- `ProdJsonLoggingTest` 用反射建構 package-private 的 `SpringBootJoranConfigurator`；Boot 之後改名會在該測試執行時大聲失敗（不是靜默）。
+- Caddy CVE-2026-78661 的例外屬於 `chore/trivy-caddy-2026-11`，本分支不處理（11/30 到期）。
+- 本機用 JDK 21 跑測試套件，映像與 CI 為 JDK 17；容器內 17.0.21 已實跑，但**測試套件本身沒有在 JDK 17 跑過**，由 CI 補。
+
+### Next step
+
+1. 開 PR、讓 CI 跑（六個 check）；**不 merge**。
+2. C 階段：Codex 獨立審查（diff、§4.4 兩種紅燈輸出、Trivy 三組輸出、JSON 契約 diff 方法與其未涵蓋範圍）。
+3. 12/10 go/no-go 仍按 §7.3 判準，決定權在 owner。
